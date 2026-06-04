@@ -9,7 +9,6 @@ export default function Footer() {
         <nav>
           <a href="/">Inicio</a>
           <a href="/privacidad">Aviso de privacidad</a>
-          <a href="mailto:hola@oraleai.com">Contacto</a>
         </nav>
       </div>
     </footer>
