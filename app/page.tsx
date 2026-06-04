@@ -1,4 +1,5 @@
 import Footer from "@/components/Footer";
+import Nav from "@/components/Nav";
 
 const features = [
   {
@@ -44,21 +45,15 @@ const steps = [
 export default function Home() {
   return (
     <>
-      <header>
-        <nav className="nav">
-          <a className="brand" href="/">
-            Órale<span> AI</span>
-          </a>
-          <div className="nav-links">
-            <a href="#features">Funciones</a>
-            <a href="#como">Cómo funciona</a>
-            <a href="/privacidad">Privacidad</a>
-          </div>
-        </nav>
-      </header>
+      <Nav>
+        <a href="#features">Funciones</a>
+        <a href="#como">Cómo funciona</a>
+        <a href="/privacidad">Privacidad</a>
+      </Nav>
 
       <main>
         <section className="hero">
+          <img className="hero-logo" src="/logo.png" alt="Órale AI" />
           <h1>
             El punto de venta con <em>IA</em> para tu negocio
           </h1>

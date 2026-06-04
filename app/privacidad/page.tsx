@@ -1,4 +1,5 @@
 import Footer from "@/components/Footer";
+import Nav from "@/components/Nav";
 
 export const metadata = {
   title: "Aviso de privacidad · Órale AI",
@@ -7,16 +8,9 @@ export const metadata = {
 export default function Privacy() {
   return (
     <>
-      <header>
-        <nav className="nav">
-          <a className="brand" href="/">
-            Órale<span> AI</span>
-          </a>
-          <div className="nav-links">
-            <a href="/">Inicio</a>
-          </div>
-        </nav>
-      </header>
+      <Nav>
+        <a href="/">Inicio</a>
+      </Nav>
 
       <main className="prose">
         <h1>Aviso de privacidad</h1>
