@@ -1,3 +1,4 @@
+import { unstable_noStore as noStore } from "next/cache";
 import { adminClient } from "@/lib/supabase";
 import {
   summarize,
@@ -9,6 +10,7 @@ import {
 
 // Siempre datos frescos (sin caché).
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 function sinceDate(days: number): string {
   const d = new Date();
@@ -19,9 +21,12 @@ function sinceDate(days: number): string {
 }
 
 export default async function Admin() {
+  noStore();
+
   let rows: Ping[] = [];
   let aiRows: AiUsage[] = [];
   let errorMsg: string | null = null;
+  let fetchedAt: string | null = null;
 
   try {
     const supabase = adminClient();
@@ -43,6 +48,7 @@ export default async function Admin() {
     else {
       rows = (pings.data ?? []) as Ping[];
       aiRows = (ai.data ?? []) as AiUsage[];
+      fetchedAt = new Date().toISOString();
     }
   } catch (e) {
     errorMsg = e instanceof Error ? e.message : String(e);
@@ -98,6 +104,17 @@ export default async function Admin() {
         Fuente: <code>{supabaseHost}</code> · {rows.length} filas en{" "}
         <code>usage_pings</code> · {aiRows.length} filas en{" "}
         <code>ai_usage</code>
+        {fetchedAt ? (
+          <>
+            {" "}
+            · consultado{" "}
+            {new Intl.DateTimeFormat("es-MX", {
+              timeZone: "America/Mexico_City",
+              dateStyle: "short",
+              timeStyle: "medium",
+            }).format(new Date(fetchedAt))}
+          </>
+        ) : null}
       </p>
 
       <div className="kpis">
