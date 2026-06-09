@@ -63,6 +63,7 @@ export default async function Admin() {
 
   const s = summarize(rows);
   const ai = summarizeAi(aiRows);
+  const aiByInstall = new Map(ai.byInstall.map((u) => [u.install_id, u]));
   const maxDaily = Math.max(1, ...s.dailyActive.map((d) => d.count));
 
   const kpis = [
@@ -112,7 +113,11 @@ export default async function Admin() {
       </div>
 
       <div className="panel">
-        <h2>Instalaciones ({s.latest.length})</h2>
+        <h2>Usuarios ({s.latest.length})</h2>
+        <p className="muted">
+          Una fila por instalación. La columna IA cuenta las llamadas a las
+          funciones de IA (armar menú y reportes) en los últimos 60 días.
+        </p>
         {s.latest.length === 0 ? (
           <p className="muted">
             Aún no hay datos. Aparecerán cuando las apps manden su primer ping.
@@ -128,65 +133,37 @@ export default async function Admin() {
                 <th>Productos</th>
                 <th>Órdenes (último)</th>
                 <th>Ventas (último)</th>
+                <th>IA (60 d)</th>
                 <th>Estado</th>
               </tr>
             </thead>
             <tbody>
-              {s.latest.map((p) => (
-                <tr key={p.install_id}>
-                  <td title={p.install_id}>{p.install_id.slice(0, 8)}</td>
-                  <td>{p.ping_date}</td>
-                  <td>{p.platform ?? "—"}</td>
-                  <td>{p.app_version ?? "—"}</td>
-                  <td>{p.product_count}</td>
-                  <td>{p.orders_today}</td>
-                  <td>{pesos(p.sales_today_cents)}</td>
-                  <td>
-                    {p.subscription_active ? (
-                      <span className="pill sub">Suscrito</span>
-                    ) : p.trial ? (
-                      <span className="pill trial">Prueba</span>
-                    ) : (
-                      <span className="pill off">Inactivo</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-
-      <div className="panel">
-        <h2>Uso de IA por usuario ({ai.byInstall.length})</h2>
-        <p className="muted">
-          Llamadas a las funciones de IA (armar menú y reportes) por
-          instalación. Últimos 60 días.
-        </p>
-        {ai.byInstall.length === 0 ? (
-          <p className="muted">
-            Aún no hay uso de IA registrado. Aparecerá cuando alguien use el
-            armado de menú o los reportes con IA.
-          </p>
-        ) : (
-          <table className="data">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Llamadas (60 d)</th>
-                <th>Hoy</th>
-                <th>Último uso</th>
-              </tr>
-            </thead>
-            <tbody>
-              {ai.byInstall.map((u) => (
-                <tr key={u.install_id}>
-                  <td title={u.install_id}>{u.install_id.slice(0, 8)}</td>
-                  <td>{u.total}</td>
-                  <td>{u.today}</td>
-                  <td>{u.lastDate}</td>
-                </tr>
-              ))}
+              {s.latest.map((p) => {
+                const u = aiByInstall.get(p.install_id);
+                return (
+                  <tr key={p.install_id}>
+                    <td title={p.install_id}>{p.install_id.slice(0, 8)}</td>
+                    <td>{p.ping_date}</td>
+                    <td>{p.platform ?? "—"}</td>
+                    <td>{p.app_version ?? "—"}</td>
+                    <td>{p.product_count}</td>
+                    <td>{p.orders_today}</td>
+                    <td>{pesos(p.sales_today_cents)}</td>
+                    <td title={u ? `Hoy: ${u.today} · Último uso: ${u.lastDate}` : "Sin uso de IA"}>
+                      {u ? u.total : "—"}
+                    </td>
+                    <td>
+                      {p.subscription_active ? (
+                        <span className="pill sub">Suscrito</span>
+                      ) : p.trial ? (
+                        <span className="pill trial">Prueba</span>
+                      ) : (
+                        <span className="pill off">Inactivo</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}
