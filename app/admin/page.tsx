@@ -61,6 +61,14 @@ export default async function Admin() {
     );
   }
 
+  const supabaseHost = (() => {
+    try {
+      return new URL(process.env.SUPABASE_URL ?? "").hostname;
+    } catch {
+      return "—";
+    }
+  })();
+
   const s = summarize(rows);
   const ai = summarizeAi(aiRows);
   const aiByInstall = new Map(ai.byInstall.map((u) => [u.install_id, u]));
@@ -85,6 +93,11 @@ export default async function Admin() {
       <h1>Dashboard · Órale AI</h1>
       <p className="muted">
         Analítica de uso anónima y agregada. Últimos 60 días.
+      </p>
+      <p className="muted">
+        Fuente: <code>{supabaseHost}</code> · {rows.length} filas en{" "}
+        <code>usage_pings</code> · {aiRows.length} filas en{" "}
+        <code>ai_usage</code>
       </p>
 
       <div className="kpis">
