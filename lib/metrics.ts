@@ -114,3 +114,60 @@ export function pesos(cents: number): string {
     currency: "MXN",
   }).format(cents / 100);
 }
+
+// ---- Uso de IA (tabla ai_usage) ----
+
+export type AiUsage = {
+  install_id: string;
+  usage_date: string; // yyyy-mm-dd
+  count: number;
+};
+
+export type AiUsageRow = {
+  install_id: string;
+  total: number; // llamadas a IA en el periodo
+  today: number; // llamadas a IA hoy
+  lastDate: string; // último día con uso de IA
+};
+
+export type AiSummary = {
+  totalCalls: number; // total de llamadas a IA en el periodo
+  callsToday: number; // llamadas a IA hoy
+  usersWithAi: number; // instalaciones que han usado IA
+  byInstall: AiUsageRow[]; // por instalación, mayor uso primero
+};
+
+/// Agrega el uso de IA por instalación a partir de los registros de ai_usage.
+export function summarizeAi(rows: AiUsage[]): AiSummary {
+  const today = mxToday();
+  let totalCalls = 0;
+  let callsToday = 0;
+  const byInstall = new Map<string, AiUsageRow>();
+
+  for (const r of rows) {
+    totalCalls += r.count;
+    const isToday = r.usage_date === today;
+    if (isToday) callsToday += r.count;
+
+    const prev = byInstall.get(r.install_id);
+    if (!prev) {
+      byInstall.set(r.install_id, {
+        install_id: r.install_id,
+        total: r.count,
+        today: isToday ? r.count : 0,
+        lastDate: r.usage_date,
+      });
+    } else {
+      prev.total += r.count;
+      if (isToday) prev.today += r.count;
+      if (r.usage_date > prev.lastDate) prev.lastDate = r.usage_date;
+    }
+  }
+
+  return {
+    totalCalls,
+    callsToday,
+    usersWithAi: byInstall.size,
+    byInstall: [...byInstall.values()].sort((a, b) => b.total - a.total),
+  };
+}

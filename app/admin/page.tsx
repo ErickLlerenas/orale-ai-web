@@ -1,5 +1,11 @@
 import { adminClient } from "@/lib/supabase";
-import { summarize, pesos, type Ping } from "@/lib/metrics";
+import {
+  summarize,
+  summarizeAi,
+  pesos,
+  type Ping,
+  type AiUsage,
+} from "@/lib/metrics";
 
 // Siempre datos frescos (sin caché).
 export const dynamic = "force-dynamic";
@@ -14,17 +20,30 @@ function sinceDate(days: number): string {
 
 export default async function Admin() {
   let rows: Ping[] = [];
+  let aiRows: AiUsage[] = [];
   let errorMsg: string | null = null;
 
   try {
     const supabase = adminClient();
-    const { data, error } = await supabase
-      .from("usage_pings")
-      .select("*")
-      .gte("ping_date", sinceDate(60))
-      .order("ping_date", { ascending: false });
-    if (error) errorMsg = error.message;
-    else rows = (data ?? []) as Ping[];
+    const since = sinceDate(60);
+    const [pings, ai] = await Promise.all([
+      supabase
+        .from("usage_pings")
+        .select("*")
+        .gte("ping_date", since)
+        .order("ping_date", { ascending: false }),
+      supabase
+        .from("ai_usage")
+        .select("*")
+        .gte("usage_date", since)
+        .order("usage_date", { ascending: false }),
+    ]);
+    if (pings.error) errorMsg = pings.error.message;
+    else if (ai.error) errorMsg = ai.error.message;
+    else {
+      rows = (pings.data ?? []) as Ping[];
+      aiRows = (ai.data ?? []) as AiUsage[];
+    }
   } catch (e) {
     errorMsg = e instanceof Error ? e.message : String(e);
   }
@@ -43,6 +62,7 @@ export default async function Admin() {
   }
 
   const s = summarize(rows);
+  const ai = summarizeAi(aiRows);
   const maxDaily = Math.max(1, ...s.dailyActive.map((d) => d.count));
 
   const kpis = [
@@ -54,6 +74,9 @@ export default async function Admin() {
     { v: s.inTrial, l: "En prueba" },
     { v: s.ordersToday, l: "Órdenes hoy" },
     { v: pesos(s.salesTodayCents), l: "Ventas hoy" },
+    { v: ai.totalCalls, l: "Llamadas IA (60 d)" },
+    { v: ai.callsToday, l: "Llamadas IA hoy" },
+    { v: ai.usersWithAi, l: "Usuarios con IA" },
   ];
 
   return (
@@ -127,6 +150,41 @@ export default async function Admin() {
                       <span className="pill off">Inactivo</span>
                     )}
                   </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      <div className="panel">
+        <h2>Uso de IA por usuario ({ai.byInstall.length})</h2>
+        <p className="muted">
+          Llamadas a las funciones de IA (armar menú y reportes) por
+          instalación. Últimos 60 días.
+        </p>
+        {ai.byInstall.length === 0 ? (
+          <p className="muted">
+            Aún no hay uso de IA registrado. Aparecerá cuando alguien use el
+            armado de menú o los reportes con IA.
+          </p>
+        ) : (
+          <table className="data">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Llamadas (60 d)</th>
+                <th>Hoy</th>
+                <th>Último uso</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ai.byInstall.map((u) => (
+                <tr key={u.install_id}>
+                  <td title={u.install_id}>{u.install_id.slice(0, 8)}</td>
+                  <td>{u.total}</td>
+                  <td>{u.today}</td>
+                  <td>{u.lastDate}</td>
                 </tr>
               ))}
             </tbody>
