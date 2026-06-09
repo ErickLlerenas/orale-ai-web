@@ -114,7 +114,7 @@ export default function Home() {
         <section className="container">
           <div className="cta">
             <h2>Prueba Órale AI gratis 14 días</h2>
-            <p>Sin tarjeta. Luego desde $199 MXN al mes.</p>
+            <p>Sin tarjeta. Luego $99 MXN al mes o $799 MXN al año.</p>
           </div>
         </section>
       </main>
