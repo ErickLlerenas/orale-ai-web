@@ -1,3 +1,5 @@
+export type Plan = "monthly" | "yearly" | "lifetime" | "none" | "unknown";
+
 export type Ping = {
   install_id: string;
   ping_date: string; // yyyy-mm-dd
@@ -8,9 +10,24 @@ export type Ping = {
   product_count: number;
   days_since_install: number;
   subscription_active: boolean;
+  plan: Plan | null; // qué producto compró: monthly | yearly | lifetime
   trial: boolean;
   updated_at: string;
 };
+
+/// Etiqueta legible del plan para la UI.
+export function planLabel(plan: Plan | null): string {
+  switch (plan) {
+    case "monthly":
+      return "Mensual";
+    case "yearly":
+      return "Anual";
+    case "lifetime":
+      return "De por vida";
+    default:
+      return "—";
+  }
+}
 
 /// Fecha de hoy en zona horaria de México (yyyy-mm-dd).
 export function mxToday(): string {
@@ -33,6 +50,9 @@ export type Summary = {
   active7: number;
   active30: number;
   subscribed: number;
+  monthly: number;
+  yearly: number;
+  lifetime: number;
   inTrial: number;
   ordersToday: number;
   salesTodayCents: number;
@@ -77,10 +97,19 @@ export function summarize(rows: Ping[]): Summary {
   );
 
   let subscribed = 0;
+  let monthly = 0;
+  let yearly = 0;
+  let lifetime = 0;
   let inTrial = 0;
   for (const p of latest) {
-    if (p.subscription_active) subscribed++;
-    else if (p.trial) inTrial++;
+    if (p.subscription_active) {
+      subscribed++;
+      if (p.plan === "monthly") monthly++;
+      else if (p.plan === "yearly") yearly++;
+      else if (p.plan === "lifetime") lifetime++;
+    } else if (p.trial) {
+      inTrial++;
+    }
   }
 
   // Activos por día, últimos 14 días.
@@ -100,6 +129,9 @@ export function summarize(rows: Ping[]): Summary {
     active7: active7Set.size,
     active30: active30Set.size,
     subscribed,
+    monthly,
+    yearly,
+    lifetime,
     inTrial,
     ordersToday,
     salesTodayCents,

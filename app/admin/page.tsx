@@ -4,6 +4,7 @@ import {
   summarize,
   summarizeAi,
   pesos,
+  planLabel,
   type Ping,
   type AiUsage,
 } from "@/lib/metrics";
@@ -76,6 +77,9 @@ export default async function Admin() {
     { v: s.active7, l: "Activos 7 días" },
     { v: s.active30, l: "Activos 30 días" },
     { v: s.subscribed, l: "Suscritos" },
+    { v: s.monthly, l: "Mensual" },
+    { v: s.yearly, l: "Anual" },
+    { v: s.lifetime, l: "De por vida" },
     { v: s.inTrial, l: "En prueba" },
     { v: s.ordersToday, l: "Órdenes hoy" },
     { v: pesos(s.salesTodayCents), l: "Ventas hoy" },
@@ -138,6 +142,7 @@ export default async function Admin() {
                 <th>Órdenes (último)</th>
                 <th>Ventas (último)</th>
                 <th>IA (60 d)</th>
+                <th>Plan</th>
                 <th>Estado</th>
               </tr>
             </thead>
@@ -156,6 +161,7 @@ export default async function Admin() {
                     <td title={u ? `Hoy: ${u.today} · Último uso: ${u.lastDate}` : "Sin uso de IA"}>
                       {u ? u.total : "—"}
                     </td>
+                    <td>{p.subscription_active ? planLabel(p.plan) : "—"}</td>
                     <td>
                       {p.subscription_active ? (
                         <span className="pill sub">Suscrito</span>
