@@ -101,8 +101,15 @@ export default function Privacy() {
 
         <h2>5. Contacto</h2>
         <p>
-          ¿Dudas sobre privacidad? Escríbenos a{" "}
-          <a href="mailto:hola@oraleai.com">hola@oraleai.com</a>.
+          ¿Dudas sobre privacidad? Escríbenos por WhatsApp al{" "}
+          <a
+            href="https://wa.me/523331041584"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            +52 333 104 1584
+          </a>
+          .
         </p>
       </main>
 

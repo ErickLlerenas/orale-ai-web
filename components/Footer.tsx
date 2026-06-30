@@ -9,6 +9,13 @@ export default function Footer() {
         <nav>
           <a href="/">Inicio</a>
           <a href="/privacidad">Aviso de privacidad</a>
+          <a
+            href="https://wa.me/523331041584"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Soporte
+          </a>
         </nav>
       </div>
     </footer>
