@@ -8,6 +8,7 @@ export default function Footer() {
         </div>
         <nav>
           <a href="/">Inicio</a>
+          <a href="/terminos">Términos y condiciones</a>
           <a href="/privacidad">Aviso de privacidad</a>
           <a
             href="https://wa.me/523331041584"

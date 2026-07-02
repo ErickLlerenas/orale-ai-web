@@ -1,0 +1,120 @@
+import Footer from "@/components/Footer";
+import Nav from "@/components/Nav";
+
+export const metadata = {
+  title: "Términos y condiciones · Órale AI",
+};
+
+export default function Terms() {
+  return (
+    <>
+      <Nav>
+        <a href="/">Inicio</a>
+      </Nav>
+
+      <main className="prose">
+        <h1>Términos y condiciones</h1>
+        <p className="muted">Última actualización: julio 2026</p>
+
+        <p>
+          Estos términos regulan el uso de <strong>Órale AI</strong>, un punto
+          de venta que funciona <strong>sin conexión</strong> para negocios de
+          comida en México. Al descargar o usar la app aceptas estos términos.
+          Si no estás de acuerdo, no uses la app.
+        </p>
+
+        <h2>1. Qué es Órale AI</h2>
+        <p>
+          Órale AI es una aplicación para tomar pedidos, cobrar, hacer cortes de
+          caja y administrar tu menú. La información de tu negocio se guarda{" "}
+          <strong>localmente en tu dispositivo</strong>. Tú eres responsable de
+          tus datos y de hacer respaldos.
+        </p>
+
+        <h2>2. Uso permitido</h2>
+        <ul>
+          <li>Puedes usar la app para operar tu propio negocio.</li>
+          <li>
+            No debes intentar copiar, modificar, revender o hacer ingeniería
+            inversa de la app.
+          </li>
+          <li>
+            Eres responsable de la información que capturas y de cumplir con tus
+            obligaciones fiscales y legales.
+          </li>
+        </ul>
+
+        <h2>3. Suscripción y pagos</h2>
+        <p>
+          Órale AI ofrece una <strong>prueba gratis</strong> y luego una
+          suscripción para seguir usando la app:
+        </p>
+        <ul>
+          <li>
+            <strong>Plan mensual:</strong> $99 MXN al mes.
+          </li>
+          <li>
+            <strong>Plan anual:</strong> $799 MXN al año.
+          </li>
+        </ul>
+        <p>
+          Los precios pueden variar según tu país y la moneda de tu cuenta de
+          App Store o Google Play. El cobro y la renovación los gestiona{" "}
+          <strong>Apple</strong> (App Store) o <strong>Google</strong> (Google
+          Play). La suscripción se renueva automáticamente al final de cada
+          periodo, a menos que la canceles al menos 24 horas antes de la
+          renovación desde los ajustes de tu cuenta de la tienda.
+        </p>
+        <p>
+          Puedes cancelar cuando quieras desde la configuración de suscripciones
+          de tu dispositivo. Los reembolsos se rigen por las políticas de Apple
+          o Google, no por nosotros.
+        </p>
+
+        <h2>4. Funciones con IA</h2>
+        <p>
+          Las funciones con inteligencia artificial (armado de menú desde una
+          foto, reportes) son de apoyo y pueden contener errores. Revisa siempre
+          los resultados antes de usarlos. No garantizamos exactitud total en el
+          contenido generado por IA.
+        </p>
+
+        <h2>5. Disponibilidad del servicio</h2>
+        <p>
+          La app funciona sin conexión, pero algunas funciones (como la IA)
+          requieren internet. Podemos actualizar, cambiar o descontinuar
+          funciones para mejorar el producto.
+        </p>
+
+        <h2>6. Limitación de responsabilidad</h2>
+        <p>
+          Órale AI se ofrece “tal cual”. En la medida que la ley lo permita, no
+          somos responsables por pérdidas de datos, lucro cesante o daños
+          derivados del uso de la app. Recomendamos mantener respaldos de tu
+          información.
+        </p>
+
+        <h2>7. Cambios a estos términos</h2>
+        <p>
+          Podemos actualizar estos términos. La versión vigente siempre estará
+          publicada en esta página con su fecha de actualización.
+        </p>
+
+        <h2>8. Contacto</h2>
+        <p>
+          ¿Dudas sobre estos términos? Escríbenos por WhatsApp al{" "}
+          <a
+            href="https://wa.me/523331041584"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            +52 333 104 1584
+          </a>
+          .
+        </p>
+      </main>
+
+      <Footer />
+    </>
+  );
+}
