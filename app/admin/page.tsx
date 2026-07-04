@@ -80,7 +80,6 @@ export default async function Admin() {
     { v: s.monthly, l: "Mensual" },
     { v: s.yearly, l: "Anual" },
     { v: s.lifetime, l: "De por vida" },
-    { v: s.inTrial, l: "En prueba" },
     { v: s.ordersToday, l: "Órdenes hoy" },
     { v: pesos(s.salesTodayCents), l: "Ventas hoy" },
     { v: ai.totalCalls, l: "Llamadas IA (60 d)" },
@@ -136,6 +135,7 @@ export default async function Admin() {
               <tr>
                 <th>ID</th>
                 <th>Último día</th>
+                <th>Días</th>
                 <th>Plataforma</th>
                 <th>Versión</th>
                 <th>Productos</th>
@@ -153,6 +153,9 @@ export default async function Admin() {
                   <tr key={p.install_id}>
                     <td title={p.install_id}>{p.install_id.slice(0, 8)}</td>
                     <td>{p.ping_date}</td>
+                    <td title="Días desde que instaló la app">
+                      {p.days_since_install}
+                    </td>
                     <td>{p.platform ?? "—"}</td>
                     <td>{p.app_version ?? "—"}</td>
                     <td>{p.product_count}</td>
@@ -165,8 +168,6 @@ export default async function Admin() {
                     <td>
                       {p.subscription_active ? (
                         <span className="pill sub">Suscrito</span>
-                      ) : p.trial ? (
-                        <span className="pill trial">Prueba</span>
                       ) : (
                         <span className="pill off">Inactivo</span>
                       )}

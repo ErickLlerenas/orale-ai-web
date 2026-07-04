@@ -11,7 +11,6 @@ export type Ping = {
   days_since_install: number;
   subscription_active: boolean;
   plan: Plan | null; // qué producto compró: monthly | yearly | lifetime
-  trial: boolean;
   updated_at: string;
 };
 
@@ -53,7 +52,6 @@ export type Summary = {
   monthly: number;
   yearly: number;
   lifetime: number;
-  inTrial: number;
   ordersToday: number;
   salesTodayCents: number;
   dailyActive: { date: string; count: number }[];
@@ -100,15 +98,12 @@ export function summarize(rows: Ping[]): Summary {
   let monthly = 0;
   let yearly = 0;
   let lifetime = 0;
-  let inTrial = 0;
   for (const p of latest) {
     if (p.subscription_active) {
       subscribed++;
       if (p.plan === "monthly") monthly++;
       else if (p.plan === "yearly") yearly++;
       else if (p.plan === "lifetime") lifetime++;
-    } else if (p.trial) {
-      inTrial++;
     }
   }
 
@@ -132,7 +127,6 @@ export function summarize(rows: Ping[]): Summary {
     monthly,
     yearly,
     lifetime,
-    inTrial,
     ordersToday,
     salesTodayCents,
     dailyActive,

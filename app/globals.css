@@ -399,10 +399,6 @@ table.data th {
   background: rgba(21, 163, 138, 0.14);
   color: var(--accent);
 }
-.pill.trial {
-  background: rgba(241, 90, 41, 0.12);
-  color: var(--primary-dark);
-}
 .pill.off {
   background: #eef0f2;
   color: var(--ink-soft);
