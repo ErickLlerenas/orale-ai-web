@@ -1,4 +1,4 @@
-export type Plan = "monthly" | "yearly" | "lifetime" | "none" | "unknown";
+export type Plan = "monthly" | "yearly" | "none" | "unknown";
 
 export type Ping = {
   install_id: string;
@@ -10,7 +10,7 @@ export type Ping = {
   product_count: number;
   days_since_install: number;
   subscription_active: boolean;
-  plan: Plan | null; // qué producto compró: monthly | yearly | lifetime
+  plan: Plan | null; // qué producto compró: monthly | yearly
   updated_at: string;
 };
 
@@ -21,8 +21,6 @@ export function planLabel(plan: Plan | null): string {
       return "Mensual";
     case "yearly":
       return "Anual";
-    case "lifetime":
-      return "De por vida";
     default:
       return "—";
   }
@@ -51,7 +49,6 @@ export type Summary = {
   subscribed: number;
   monthly: number;
   yearly: number;
-  lifetime: number;
   ordersToday: number;
   salesTodayCents: number;
   dailyActive: { date: string; count: number }[];
@@ -97,13 +94,11 @@ export function summarize(rows: Ping[]): Summary {
   let subscribed = 0;
   let monthly = 0;
   let yearly = 0;
-  let lifetime = 0;
   for (const p of latest) {
     if (p.subscription_active) {
       subscribed++;
       if (p.plan === "monthly") monthly++;
       else if (p.plan === "yearly") yearly++;
-      else if (p.plan === "lifetime") lifetime++;
     }
   }
 
@@ -126,7 +121,6 @@ export function summarize(rows: Ping[]): Summary {
     subscribed,
     monthly,
     yearly,
-    lifetime,
     ordersToday,
     salesTodayCents,
     dailyActive,

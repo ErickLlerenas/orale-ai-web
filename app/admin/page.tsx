@@ -87,7 +87,6 @@ export default async function Admin() {
         { v: s.subscribed, l: "Suscritos" },
         { v: s.monthly, l: "Mensual" },
         { v: s.yearly, l: "Anual" },
-        { v: s.lifetime, l: "De por vida" },
       ],
     },
     {
@@ -109,10 +108,12 @@ export default async function Admin() {
 
   return (
     <main className="admin">
-      <h1>Dashboard · Órale AI</h1>
-      <p className="muted">
-        Analítica de uso anónima y agregada. Últimos 60 días.
-      </p>
+      <header className="admin-header">
+        <h1>Dashboard · Órale AI</h1>
+        <p className="muted">
+          Analítica de uso anónima y agregada. Últimos 60 días.
+        </p>
+      </header>
 
       {groups.map((g) => (
         <section className="kpi-group" key={g.title}>
