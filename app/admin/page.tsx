@@ -71,20 +71,40 @@ export default async function Admin() {
   const aiByInstall = new Map(ai.byInstall.map((u) => [u.install_id, u]));
   const maxDaily = Math.max(1, ...s.dailyActive.map((d) => d.count));
 
-  const kpis = [
-    { v: s.totalInstalls, l: "Instalaciones (60 d)" },
-    { v: s.activeToday, l: "Activos hoy" },
-    { v: s.active7, l: "Activos 7 días" },
-    { v: s.active30, l: "Activos 30 días" },
-    { v: s.subscribed, l: "Suscritos" },
-    { v: s.monthly, l: "Mensual" },
-    { v: s.yearly, l: "Anual" },
-    { v: s.lifetime, l: "De por vida" },
-    { v: s.ordersToday, l: "Órdenes hoy" },
-    { v: pesos(s.salesTodayCents), l: "Ventas hoy" },
-    { v: ai.totalCalls, l: "Llamadas IA (60 d)" },
-    { v: ai.callsToday, l: "Llamadas IA hoy" },
-    { v: ai.usersWithAi, l: "Usuarios con IA" },
+  const groups = [
+    {
+      title: "Actividad",
+      kpis: [
+        { v: s.totalInstalls, l: "Instalaciones (60 d)" },
+        { v: s.activeToday, l: "Activos hoy" },
+        { v: s.active7, l: "Activos 7 días" },
+        { v: s.active30, l: "Activos 30 días" },
+      ],
+    },
+    {
+      title: "Suscripciones",
+      kpis: [
+        { v: s.subscribed, l: "Suscritos" },
+        { v: s.monthly, l: "Mensual" },
+        { v: s.yearly, l: "Anual" },
+        { v: s.lifetime, l: "De por vida" },
+      ],
+    },
+    {
+      title: "Ventas de hoy",
+      kpis: [
+        { v: s.ordersToday, l: "Órdenes hoy" },
+        { v: pesos(s.salesTodayCents), l: "Ventas hoy" },
+      ],
+    },
+    {
+      title: "Inteligencia artificial",
+      kpis: [
+        { v: ai.totalCalls, l: "Llamadas IA (60 d)" },
+        { v: ai.callsToday, l: "Llamadas IA hoy" },
+        { v: ai.usersWithAi, l: "Usuarios con IA" },
+      ],
+    },
   ];
 
   return (
@@ -94,14 +114,19 @@ export default async function Admin() {
         Analítica de uso anónima y agregada. Últimos 60 días.
       </p>
 
-      <div className="kpis">
-        {kpis.map((k) => (
-          <div className="kpi" key={k.l}>
-            <div className="v">{k.v}</div>
-            <div className="l">{k.l}</div>
+      {groups.map((g) => (
+        <section className="kpi-group" key={g.title}>
+          <h2 className="kpi-group-title">{g.title}</h2>
+          <div className="kpis">
+            {g.kpis.map((k) => (
+              <div className="kpi" key={k.l}>
+                <div className="v">{k.v}</div>
+                <div className="l">{k.l}</div>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+        </section>
+      ))}
 
       <div className="panel">
         <h2>Negocios activos por día (14 días)</h2>

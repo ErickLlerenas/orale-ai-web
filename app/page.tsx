@@ -37,7 +37,7 @@ const features = [
 ];
 
 const steps = [
-  { n: "1", title: "Descarga la app", text: "En tu tablet, desde la App Store o Google Play." },
+  { n: "1", title: "Descarga la app", text: "En tu iPad, desde la App Store." },
   { n: "2", title: "Arma tu menú", text: "Con una foto y la IA, en minutos." },
   { n: "3", title: "Empieza a vender", text: "El mismo día, sin instalaciones ni servidores." },
 ];
@@ -58,23 +58,22 @@ export default function Home() {
             El punto de venta con <em>IA</em> para tu negocio
           </h1>
           <p>
-            Para taquerías, fondas, cafeterías y food trucks. Descárgalo en una
-            tablet y empieza a vender el mismo día. Sin computadora, sin
-            servidor, sin complicaciones.
+            Para taquerías, fondas, cafeterías y food trucks. Descárgalo en un
+            iPad y empieza a vender el mismo día. Sin computadora, sin servidor,
+            sin complicaciones.
           </p>
           <div className="badges">
-            <span className="badge">
+            <a
+              className="badge"
+              href="https://apps.apple.com/app/id6776390828"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
               <span></span>
               <span>
-                <small>Próximamente en</small>App Store
+                <small>Descárgalo en</small>App Store
               </span>
-            </span>
-            <span className="badge">
-              <span></span>
-              <span>
-                <small>Próximamente en</small>Google Play
-              </span>
-            </span>
+            </a>
           </div>
         </section>
 

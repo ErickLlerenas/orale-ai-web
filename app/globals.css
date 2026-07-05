@@ -312,11 +312,21 @@ section {
   color: var(--ink-soft);
   margin: 0 0 24px;
 }
+.kpi-group {
+  margin-bottom: 28px;
+}
+.kpi-group-title {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
+  margin: 0 0 12px;
+}
 .kpis {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 14px;
-  margin-bottom: 28px;
 }
 .kpi {
   background: var(--card);
