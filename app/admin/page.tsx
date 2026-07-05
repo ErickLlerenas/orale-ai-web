@@ -5,6 +5,7 @@ import {
   summarizeAi,
   pesos,
   planLabel,
+  fechaHora,
   type Ping,
   type AiUsage,
 } from "@/lib/metrics";
@@ -160,7 +161,7 @@ export default async function Admin() {
             <thead>
               <tr>
                 <th>ID</th>
-                <th>Último día</th>
+                <th>Última visita</th>
                 <th>Días</th>
                 <th>Plataforma</th>
                 <th>Versión</th>
@@ -178,7 +179,7 @@ export default async function Admin() {
                 return (
                   <tr key={p.install_id}>
                     <td title={p.install_id}>{p.install_id.slice(0, 8)}</td>
-                    <td>{p.ping_date}</td>
+                    <td title={p.ping_date}>{fechaHora(p.updated_at)}</td>
                     <td title="Días desde que instaló la app">
                       {p.days_since_install}
                     </td>

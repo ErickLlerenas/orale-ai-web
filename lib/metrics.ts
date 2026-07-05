@@ -87,8 +87,9 @@ export function summarize(rows: Ping[]): Summary {
     }
   }
 
+  // Ordenados por visita más reciente (usa el timestamp exacto).
   const latest = [...latestByInstall.values()].sort((a, b) =>
-    b.ping_date.localeCompare(a.ping_date),
+    b.updated_at.localeCompare(a.updated_at),
   );
 
   let subscribed = 0;
@@ -133,6 +134,21 @@ export function pesos(cents: number): string {
     style: "currency",
     currency: "MXN",
   }).format(cents / 100);
+}
+
+/// Fecha y hora legibles (ej. "5 jul 2026, 2:04 p.m.") en hora de México.
+export function fechaHora(iso: string): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return new Intl.DateTimeFormat("es-MX", {
+    timeZone: "America/Mexico_City",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(d);
 }
 
 // ---- Uso de IA (tabla ai_usage) ----
