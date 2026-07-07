@@ -37,7 +37,11 @@ const features = [
 ];
 
 const steps = [
-  { n: "1", title: "Descarga la app", text: "En tu iPad, desde la App Store." },
+  {
+    n: "1",
+    title: "Descarga la app",
+    text: "En tu tablet, desde la App Store o Google Play.",
+  },
   { n: "2", title: "Arma tu menú", text: "Con una foto y la IA, en minutos." },
   { n: "3", title: "Empieza a vender", text: "El mismo día, sin instalaciones ni servidores." },
 ];
@@ -58,9 +62,9 @@ export default function Home() {
             El punto de venta con <em>IA</em> para tu negocio
           </h1>
           <p>
-            Para taquerías, fondas, cafeterías y food trucks. Descárgalo en un
-            iPad y empieza a vender el mismo día. Sin computadora, sin servidor,
-            sin complicaciones.
+            Para taquerías, fondas, cafeterías y food trucks. Descárgalo en tu
+            tablet (iPad o Android) y empieza a vender el mismo día. Sin
+            computadora, sin servidor, sin complicaciones.
           </p>
           <div className="badges">
             <a
@@ -81,6 +85,26 @@ export default function Home() {
               </svg>
               <span className="badge-text">
                 <small>Descárgalo en la</small>App Store
+              </span>
+            </a>
+            <a
+              className="badge"
+              href="https://play.google.com/store/apps/details?id=com.oraleai.orale_ai"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <svg
+                className="badge-logo"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path
+                  fill="currentColor"
+                  d="M3 20.5V3.5C3 2.91 3.34 2.39 3.84 2.15L13.69 12 3.84 21.85C3.34 21.6 3 21.09 3 20.5m13.81-5.38L6.05 21.34l8.49-8.49 2.27 2.27m3.35-4.31c.34.27.59.69.59 1.19 0 .5-.25.92-.57 1.18l-2.29 1.32-2.5-2.5 2.29-1.32 2.48 1.13M6.05 2.66l10.76 6.22-2.27 2.27L6.05 2.66z"
+                />
+              </svg>
+              <span className="badge-text">
+                <small>Disponible en</small>Google Play
               </span>
             </a>
           </div>
