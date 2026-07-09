@@ -5,12 +5,12 @@ const features = [
   {
     icon: "🧾",
     title: "Vende y cobra rápido",
-    text: "Mesas o para llevar, toma la orden, imprime la comanda y cobra con propina. Sin curva de aprendizaje.",
+    text: "Toma la orden, imprime comanda o cuenta y cobra con propina. En tablet es modo mostrador (órdenes con nombre); en Windows, mesas y para llevar.",
   },
   {
     icon: "✨",
     title: "Arma tu menú con IA",
-    text: "Toma una foto de tu menú impreso y la IA crea productos, precios y categorías por ti.",
+    text: "Toma una foto de tu menú impreso y la IA crea productos, precios, categorías y modificadores por ti.",
     accent: true,
   },
   {
@@ -20,14 +20,19 @@ const features = [
     accent: true,
   },
   {
+    icon: "💰",
+    title: "Caja e inventario",
+    text: "Corte del día, gastos, ventas cerradas y control de existencias. Todo en la misma app, sin hojas de cálculo.",
+  },
+  {
     icon: "📵",
     title: "Funciona sin internet",
-    text: "Todo se guarda en tu tablet. El punto de venta siempre funciona, aunque se caiga la red.",
+    text: "Tus datos viven en tu dispositivo. El punto de venta sigue operando aunque se caiga la red.",
   },
   {
     icon: "🖨️",
-    title: "Impresión Bluetooth",
-    text: "Comandas y cuentas en tu impresora térmica con batería. Sin cables ni módem.",
+    title: "Impresión térmica",
+    text: "En tablet: impresora Bluetooth (comandas y cuentas). En Windows: impresoras en red por área (cocina, barra, caja).",
   },
   {
     icon: "🛡️",
@@ -40,12 +45,17 @@ const windowsFeatures = [
   {
     icon: "🍽️",
     title: "Mapa de mesas",
-    text: "Un cuadro por mesa: ve cuáles están libres u ocupadas. Toca una mesa para tomar la orden y cobrar.",
+    text: "Un cuadro por mesa: libre u ocupada, con el total a la vista. Toca para abrir la cuenta o empieza una para llevar.",
   },
   {
     icon: "🖨️",
-    title: "Impresoras Ethernet por área",
-    text: "Configura impresoras en red y envía comandas a cada área de cocina, barra o estación.",
+    title: "Impresoras en red por área",
+    text: "Cada categoría va a su impresora: cocina recibe tacos, barra recibe bebidas. Tickets separados, sin mezclar.",
+  },
+  {
+    icon: "🔐",
+    title: "Cuenta y suscripción",
+    text: "Inicia sesión con Google y paga con tarjeta (Stripe). Recupera tu plan en cualquier PC con la misma cuenta.",
   },
 ];
 
@@ -53,7 +63,7 @@ const steps = [
   {
     n: "1",
     title: "Descarga la app",
-    text: "En tablet o PC, desde la App Store, Google Play o Microsoft Store.",
+    text: "En celular, tablet o PC, desde la App Store, Google Play o Microsoft Store.",
   },
   { n: "2", title: "Arma tu menú", text: "Con una foto y la IA, en minutos." },
   { n: "3", title: "Empieza a vender", text: "El mismo día, sin instalaciones ni servidores." },
@@ -76,8 +86,9 @@ export default function Home() {
             El punto de venta con <em>IA</em> para tu negocio
           </h1>
           <p>
-            Para taquerías, fondas, cafeterías y food trucks. Disponible para
-            tablet (iPad o Android) y Windows (beta). Empieza a vender el mismo
+            Para taquerías, fondas, cafeterías, restaurantes y food trucks.
+            En tablet (iOS o Android) para el mostrador; en Windows para
+            restaurantes con mesas e impresión en red. Empieza a vender el mismo
             día, sin servidor ni complicaciones.
           </p>
           <div className="badges">
@@ -171,9 +182,9 @@ export default function Home() {
                 <p className="section-eyebrow windows-eyebrow">Versión para PC</p>
                 <h2 className="windows-title">En Windows, aún más potente</h2>
                 <p className="windows-sub">
-                  La versión para PC trae mapa de mesas para ver cuáles están
-                  libres u ocupadas, e impresoras por Ethernet para mandar
-                  comandas a cada área de cocina.
+                  Pensada para el mostrador del restaurante: mapa de mesas,
+                  comandas divididas por área (cocina, barra, caja) e impresión
+                  en red desde tu PC táctil.
                 </p>
               </div>
               <span className="windows-beta">BETA</span>
@@ -214,8 +225,12 @@ export default function Home() {
 
         <section id="cta" className="container">
           <div className="cta">
-            <h2>Prueba Órale AI gratis 14 días</h2>
-            <p>Sin tarjeta. Luego $99 MXN al mes o $799 MXN al año.</p>
+            <h2>Empieza gratis</h2>
+            <p>
+              25 ventas y 1 menú con IA incluidos, sin suscripción. Luego desde
+              $99 MXN al mes o $799 MXN al año. En App Store y Google Play:
+              14 días de prueba al suscribirte.
+            </p>
           </div>
         </section>
       </main>

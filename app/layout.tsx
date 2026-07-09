@@ -4,7 +4,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Órale AI · Punto de venta con IA para tu negocio",
   description:
-    "El punto de venta con IA para taquerías, fondas y negocios pequeños en México. Offline, simple y listo en minutos.",
+    "Punto de venta con IA para taquerías, fondas y restaurantes en México. iOS, Android y Windows. Offline, mesas, impresión en red y menú con foto.",
 };
 
 export default function RootLayout({
