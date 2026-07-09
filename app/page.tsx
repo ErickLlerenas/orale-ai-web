@@ -53,9 +53,9 @@ const windowsFeatures = [
     text: "Cada categoría va a su impresora: cocina recibe tacos, barra recibe bebidas. Tickets separados, sin mezclar.",
   },
   {
-    icon: "🔐",
-    title: "Cuenta y suscripción",
-    text: "Inicia sesión con Google y paga con tarjeta (Stripe). Recupera tu plan en cualquier PC con la misma cuenta.",
+    icon: "👥",
+    title: "Dueño y meseros",
+    text: "Cada quien entra con su PIN. El dueño arma el menú y ve reportes; el equipo vende y cobra sin enredos.",
   },
 ];
 
