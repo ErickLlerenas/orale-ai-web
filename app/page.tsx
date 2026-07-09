@@ -40,7 +40,7 @@ const steps = [
   {
     n: "1",
     title: "Descarga la app",
-    text: "En tu tablet, desde la App Store o Google Play.",
+    text: "En tablet o PC, desde la App Store, Google Play o Microsoft Store.",
   },
   { n: "2", title: "Arma tu menú", text: "Con una foto y la IA, en minutos." },
   { n: "3", title: "Empieza a vender", text: "El mismo día, sin instalaciones ni servidores." },
@@ -62,9 +62,9 @@ export default function Home() {
             El punto de venta con <em>IA</em> para tu negocio
           </h1>
           <p>
-            Para taquerías, fondas, cafeterías y food trucks. Descárgalo en tu
-            tablet (iPad o Android) y empieza a vender el mismo día. Sin
-            computadora, sin servidor, sin complicaciones.
+            Para taquerías, fondas, cafeterías y food trucks. Disponible en
+            tablet (iPad o Android) y en Windows (beta). Empieza a vender el mismo
+            día, sin servidor ni complicaciones.
           </p>
           <div className="badges">
             <a
@@ -106,6 +106,27 @@ export default function Home() {
               <span className="badge-text">
                 <small>Disponible en</small>Google Play
               </span>
+            </a>
+            <a
+              className="badge badge-beta"
+              href="https://apps.microsoft.com/detail/9mwh3bdnf0xt?hl=es-MX&gl=MX"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <svg
+                className="badge-logo"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path
+                  fill="currentColor"
+                  d="M3 12V3.045l8.955 1.26v7.695H3zm9.955 0V4.305L21 5.56V12h-8.045zM3 20.955l8.955-1.245V12H3v8.955zm9.955-1.965L21 17.44V12h-8.045v6.99z"
+                />
+              </svg>
+              <span className="badge-text">
+                <small>Disponible en</small>Microsoft Store
+              </span>
+              <span className="badge-tag">BETA</span>
             </a>
           </div>
         </section>
