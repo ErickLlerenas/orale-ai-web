@@ -227,9 +227,8 @@ export default function Home() {
           <div className="cta">
             <h2>Empieza gratis</h2>
             <p>
-              25 ventas y 1 menú con IA incluidos, sin suscripción. Luego desde
-              $99 MXN al mes o $799 MXN al año. En App Store y Google Play:
-              14 días de prueba al suscribirte.
+              Desde $99 MXN al mes o $799 MXN al año. En App Store y Google
+              Play: 14 días de prueba al suscribirte.
             </p>
           </div>
         </section>
