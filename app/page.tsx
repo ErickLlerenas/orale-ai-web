@@ -171,8 +171,9 @@ export default function Home() {
                 <p className="section-eyebrow windows-eyebrow">Versión para PC</p>
                 <h2 className="windows-title">En Windows, aún más potente</h2>
                 <p className="windows-sub">
-                  Pensado para restaurantes con salón: mesas en pantalla e
-                  impresoras en red por área de cocina.
+                  La versión para PC trae mapa de mesas para ver cuáles están
+                  libres u ocupadas, e impresoras por Ethernet para mandar
+                  comandas a cada área de cocina.
                 </p>
               </div>
               <span className="windows-beta">BETA</span>
