@@ -26,9 +26,17 @@ export default function Terms() {
         <h2>1. Qué es Órale AI</h2>
         <p>
           Órale AI es una aplicación para tomar pedidos, cobrar, hacer cortes de
-          caja y administrar tu menú. La información de tu negocio se guarda{" "}
-          <strong>localmente en tu dispositivo</strong>. Tú eres responsable de
-          tus datos y de hacer respaldos.
+          caja y administrar tu menú. Está disponible para{" "}
+          <strong>iPhone y iPad</strong> (App Store),{" "}
+          <strong>Android</strong> (Google Play) y <strong>Windows</strong>{" "}
+          (Microsoft Store). Según el dispositivo puede incluir funciones como{" "}
+          <strong>manejo de mesas</strong> e{" "}
+          <strong>impresión en red por área</strong> (cocina, barra, caja).
+        </p>
+        <p>
+          La información de tu negocio (menú, ventas, equipo) se guarda{" "}
+          <strong>localmente en cada dispositivo</strong> y no se sincroniza
+          entre equipos. Tú eres responsable de tus datos y de hacer respaldos.
         </p>
 
         <h2>2. Uso permitido</h2>
@@ -58,17 +66,27 @@ export default function Terms() {
           </li>
         </ul>
         <p>
-          Los precios pueden variar según tu país y la moneda de tu cuenta de
-          App Store o Google Play. El cobro y la renovación los gestiona{" "}
-          <strong>Apple</strong> (App Store) o <strong>Google</strong> (Google
-          Play). La suscripción se renueva automáticamente al final de cada
-          periodo, a menos que la canceles al menos 24 horas antes de la
-          renovación desde los ajustes de tu cuenta de la tienda.
+          <strong>En iPhone, iPad y Android:</strong> el cobro y la renovación
+          los gestiona <strong>Apple</strong> (App Store) o{" "}
+          <strong>Google</strong> (Google Play). La suscripción se renueva
+          automáticamente al final de cada periodo, a menos que la canceles al
+          menos 24 horas antes de la renovación desde los ajustes de tu cuenta
+          de la tienda. Los reembolsos se rigen por las políticas de Apple o
+          Google.
         </p>
         <p>
-          Puedes cancelar cuando quieras desde la configuración de suscripciones
-          de tu dispositivo. Los reembolsos se rigen por las políticas de Apple
-          o Google, no por nosotros.
+          <strong>En Windows:</strong> creas una cuenta iniciando sesión con{" "}
+          <strong>Google</strong> y el pago lo procesa{" "}
+          <strong>Stripe</strong>. La suscripción se renueva automáticamente;
+          puedes cambiar tu tarjeta o cancelar cuando quieras desde el portal de
+          Stripe (botón “Administrar suscripción” dentro de la app). Si un cobro
+          falla, conservas el acceso durante un breve <strong>periodo de
+          gracia</strong> mientras se reintenta el cargo; si no se completa, la
+          suscripción se cancela. Los reembolsos se gestionan a través de
+          Stripe.
+        </p>
+        <p>
+          Los precios pueden variar según tu país y la moneda de tu cuenta.
         </p>
 
         <h2>4. Funciones con IA</h2>

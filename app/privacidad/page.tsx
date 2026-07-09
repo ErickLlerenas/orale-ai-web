@@ -14,13 +14,20 @@ export default function Privacy() {
 
       <main className="prose">
         <h1>Aviso de privacidad</h1>
-        <p className="muted">Última actualización: junio 2026</p>
+        <p className="muted">Última actualización: julio 2026</p>
 
         <p>
-          Órale AI es un punto de venta que funciona <strong>sin conexión</strong>.
-          La información de tu negocio (menú, ventas, equipo, clientes) se guarda{" "}
+          Órale AI es un punto de venta que funciona <strong>sin conexión</strong>{" "}
+          en iPhone/iPad, Android y Windows. La información de tu negocio (menú,
+          ventas, equipo, clientes) se guarda{" "}
           <strong>localmente en tu dispositivo</strong>. No la almacenamos en
           nuestros servidores ni la vendemos a nadie.
+        </p>
+        <p>
+          En <strong>Windows</strong>, para gestionar la suscripción creas una
+          cuenta iniciando sesión con Google. En ese caso guardamos{" "}
+          <strong>únicamente</strong> los datos de tu cuenta (correo) y el estado
+          de tu pago; <strong>nunca</strong> el contenido de tu negocio.
         </p>
 
         <h2>1. Qué datos tratamos</h2>
@@ -47,9 +54,15 @@ export default function Privacy() {
           nunca datos personales de clientes.
         </p>
         <p>
-          <strong>Pagos:</strong> la suscripción se procesa por App Store
-          (Apple) o Google Play. Nosotros no vemos ni guardamos los datos de tu
-          tarjeta.
+          <strong>Pagos y cuenta:</strong> en iPhone, iPad y Android la
+          suscripción se procesa por App Store (Apple) o Google Play, y no vemos
+          ni guardamos los datos de tu tarjeta. En <strong>Windows</strong>,
+          inicias sesión con tu cuenta de Google para gestionar la suscripción:
+          guardamos tu <strong>correo</strong>, un identificador de cuenta y el{" "}
+          <strong>estado de tu suscripción</strong> (plan y vigencia) en nuestro
+          proveedor de servidores (Supabase). El pago lo procesa{" "}
+          <strong>Stripe</strong>; los datos de tu tarjeta los maneja Stripe,
+          nosotros no los vemos ni guardamos.
         </p>
 
         <h2>2. Resumen estilo “App Privacy”</h2>
@@ -82,6 +95,16 @@ export default function Privacy() {
               <td>Funcionamiento del POS (solo en tu dispositivo)</td>
               <td>No se recopila</td>
             </tr>
+            <tr>
+              <td>Correo y cuenta de Google (solo Windows)</td>
+              <td>Crear tu cuenta y gestionar la suscripción</td>
+              <td>Sí</td>
+            </tr>
+            <tr>
+              <td>Estado de suscripción (solo Windows)</td>
+              <td>Dar acceso a la app</td>
+              <td>Sí</td>
+            </tr>
           </tbody>
         </table>
 
@@ -97,6 +120,12 @@ export default function Privacy() {
           Como la información vive en tu dispositivo, puedes eliminarla
           desinstalando la app. La analítica es anónima y no permite
           identificarte personalmente.
+        </p>
+        <p>
+          Si usas Órale AI en <strong>Windows</strong> con una cuenta, puedes
+          cancelar tu suscripción desde el portal de Stripe y solicitar la
+          eliminación de los datos de tu cuenta (correo y estado de
+          suscripción) escribiéndonos por WhatsApp.
         </p>
 
         <h2>5. Contacto</h2>
