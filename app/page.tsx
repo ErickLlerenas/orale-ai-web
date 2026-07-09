@@ -25,6 +25,11 @@ const features = [
     text: "Corte del día, gastos, ventas cerradas y control de existencias. Todo en la misma app, sin hojas de cálculo.",
   },
   {
+    icon: "👥",
+    title: "Dueño y meseros",
+    text: "Cada quien entra con su PIN. El dueño administra menú y reportes; el equipo vende y cobra sin enredos.",
+  },
+  {
     icon: "📵",
     title: "Funciona sin internet",
     text: "Tus datos viven en tu dispositivo. El punto de venta sigue operando aunque se caiga la red.",
