@@ -36,6 +36,19 @@ const features = [
   },
 ];
 
+const windowsFeatures = [
+  {
+    icon: "🍽️",
+    title: "Mapa de mesas",
+    text: "Un cuadro por mesa: ve cuáles están libres u ocupadas. Toca una mesa para tomar la orden y cobrar.",
+  },
+  {
+    icon: "🖨️",
+    title: "Impresoras Ethernet por área",
+    text: "Configura impresoras en red y envía comandas a cada área de cocina, barra o estación.",
+  },
+];
+
 const steps = [
   {
     n: "1",
@@ -51,6 +64,7 @@ export default function Home() {
     <>
       <Nav>
         <a href="#features">Funciones</a>
+        <a href="#windows">Windows</a>
         <a href="#como">Cómo funciona</a>
         <a href="/privacidad">Privacidad</a>
       </Nav>
@@ -150,21 +164,54 @@ export default function Home() {
           </div>
         </section>
 
+        <section id="windows" className="container">
+          <div className="windows-panel">
+            <div className="windows-header">
+              <div>
+                <p className="section-eyebrow windows-eyebrow">Versión para PC</p>
+                <h2 className="windows-title">En Windows, aún más potente</h2>
+                <p className="windows-sub">
+                  Pensado para restaurantes con salón: mesas en pantalla e
+                  impresoras en red por área de cocina.
+                </p>
+              </div>
+              <span className="windows-beta">BETA</span>
+            </div>
+            <div className="grid grid-windows">
+              {windowsFeatures.map((f) => (
+                <div key={f.title} className="feature feature-windows">
+                  <div className="ico">{f.icon}</div>
+                  <h3>{f.title}</h3>
+                  <p>{f.text}</p>
+                </div>
+              ))}
+            </div>
+            <a
+              className="windows-cta"
+              href="https://apps.microsoft.com/detail/9mwh3bdnf0xt?hl=es-MX&gl=MX"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Descargar para Windows
+            </a>
+          </div>
+        </section>
+
         <section id="como" className="container">
           <h2 className="section-title">Listo en 3 pasos</h2>
           <p className="section-sub">De cero a vendiendo en una tarde.</p>
           <div className="steps">
             {steps.map((s) => (
-              <div className="step" key={s.n}>
+              <div className="step-card" key={s.n}>
                 <div className="num">{s.n}</div>
                 <h3>{s.title}</h3>
-                <p style={{ color: "var(--ink-soft)" }}>{s.text}</p>
+                <p>{s.text}</p>
               </div>
             ))}
           </div>
         </section>
 
-        <section className="container">
+        <section id="cta" className="container">
           <div className="cta">
             <h2>Prueba Órale AI gratis 14 días</h2>
             <p>Sin tarjeta. Luego $99 MXN al mes o $799 MXN al año.</p>
