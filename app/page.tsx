@@ -5,7 +5,12 @@ const features = [
   {
     icon: "🧾",
     title: "Vende y cobra rápido",
-    text: "Toma la orden, imprime comanda o cuenta y cobra con propina. En tablet es modo mostrador (órdenes con nombre); en Windows, mesas y para llevar.",
+    text: "Toma la orden, imprime comanda o cuenta y cobra con propina. Sin curva de aprendizaje.",
+  },
+  {
+    icon: "🥡",
+    title: "Para llevar",
+    text: "Atiende pedidos para llevar en segundos. En tablet es el modo principal; en Windows, un botón junto al mapa de mesas.",
   },
   {
     icon: "✨",
@@ -56,11 +61,6 @@ const windowsFeatures = [
     icon: "🖨️",
     title: "Impresoras en red por área",
     text: "Cada categoría va a su impresora: cocina recibe tacos, barra recibe bebidas. Tickets separados, sin mezclar.",
-  },
-  {
-    icon: "🥡",
-    title: "Para llevar",
-    text: "Cobra pedidos para llevar sin usar una mesa. Salón y takeout desde el mismo punto, en la misma app.",
   },
 ];
 
