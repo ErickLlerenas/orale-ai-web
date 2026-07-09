@@ -5,6 +5,7 @@ import {
   summarizeAi,
   pesos,
   planLabel,
+  platformLabel,
   fechaHora,
   type Ping,
   type AiUsage,
@@ -88,6 +89,14 @@ export default async function Admin() {
         { v: s.subscribed, l: "Suscritos" },
         { v: s.monthly, l: "Mensual" },
         { v: s.yearly, l: "Anual" },
+      ],
+    },
+    {
+      title: "Plataformas",
+      kpis: [
+        { v: s.ios, l: "iOS" },
+        { v: s.android, l: "Android" },
+        { v: s.windows, l: "Windows" },
       ],
     },
     {
@@ -183,7 +192,7 @@ export default async function Admin() {
                     <td title="Días desde que instaló la app">
                       {p.days_since_install}
                     </td>
-                    <td>{p.platform ?? "—"}</td>
+                    <td>{platformLabel(p.platform)}</td>
                     <td>{p.app_version ?? "—"}</td>
                     <td>{p.product_count}</td>
                     <td>{p.orders_today}</td>

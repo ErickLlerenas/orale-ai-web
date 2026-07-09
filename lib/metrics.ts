@@ -1,9 +1,11 @@
 export type Plan = "monthly" | "yearly" | "none" | "unknown";
 
+export type AnalyticsPlatform = "ios" | "android" | "windows" | "unknown";
+
 export type Ping = {
   install_id: string;
   ping_date: string; // yyyy-mm-dd
-  platform: string | null;
+  platform: AnalyticsPlatform | string | null;
   app_version: string | null;
   orders_today: number;
   sales_today_cents: number;
@@ -23,6 +25,22 @@ export function planLabel(plan: Plan | null): string {
       return "Anual";
     default:
       return "—";
+  }
+}
+
+/// Etiqueta legible de la plataforma para la UI.
+export function platformLabel(platform: string | null): string {
+  switch (platform) {
+    case "ios":
+      return "iOS";
+    case "android":
+      return "Android";
+    case "windows":
+      return "Windows";
+    case "unknown":
+      return "Desconocida";
+    default:
+      return platform ?? "—";
   }
 }
 
@@ -49,6 +67,9 @@ export type Summary = {
   subscribed: number;
   monthly: number;
   yearly: number;
+  ios: number;
+  android: number;
+  windows: number;
   ordersToday: number;
   salesTodayCents: number;
   dailyActive: { date: string; count: number }[];
@@ -95,7 +116,21 @@ export function summarize(rows: Ping[]): Summary {
   let subscribed = 0;
   let monthly = 0;
   let yearly = 0;
+  let ios = 0;
+  let android = 0;
+  let windows = 0;
   for (const p of latest) {
+    switch (p.platform) {
+      case "ios":
+        ios++;
+        break;
+      case "android":
+        android++;
+        break;
+      case "windows":
+        windows++;
+        break;
+    }
     if (p.subscription_active) {
       subscribed++;
       if (p.plan === "monthly") monthly++;
@@ -122,6 +157,9 @@ export function summarize(rows: Ping[]): Summary {
     subscribed,
     monthly,
     yearly,
+    ios,
+    android,
+    windows,
     ordersToday,
     salesTodayCents,
     dailyActive,
