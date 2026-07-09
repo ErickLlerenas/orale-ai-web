@@ -120,18 +120,34 @@ a {
   display: inline-flex;
   align-items: center;
   gap: 11px;
-  background: #000;
   color: #fff;
   padding: 10px 20px;
   border-radius: 14px;
   text-decoration: none;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.15);
   transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.badge-apple {
+  background: linear-gradient(135deg, #2b2b2b, #111);
+}
+.badge-apple:hover {
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+}
+.badge-google {
+  background: linear-gradient(135deg, #34a853, #1e8e3e);
+}
+.badge-google:hover {
+  box-shadow: 0 12px 28px rgba(30, 142, 62, 0.4);
+}
+.badge-windows {
+  background: linear-gradient(135deg, #50a0ff, #0078d4);
+}
+.badge-windows:hover {
+  box-shadow: 0 12px 28px rgba(0, 120, 212, 0.4);
 }
 .badge:hover {
   transform: translateY(-2px);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
 }
 .badge:active {
   transform: translateY(0);

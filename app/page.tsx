@@ -62,13 +62,13 @@ export default function Home() {
             El punto de venta con <em>IA</em> para tu negocio
           </h1>
           <p>
-            Para taquerías, fondas, cafeterías y food trucks. Disponible en
-            tablet (iPad o Android) y en Windows (beta). Empieza a vender el mismo
+            Para taquerías, fondas, cafeterías y food trucks. Disponible para
+            tablet (iPad o Android) y Windows (beta). Empieza a vender el mismo
             día, sin servidor ni complicaciones.
           </p>
           <div className="badges">
             <a
-              className="badge"
+              className="badge badge-apple"
               href="https://apps.apple.com/app/id6776390828"
               target="_blank"
               rel="noopener noreferrer"
@@ -88,7 +88,7 @@ export default function Home() {
               </span>
             </a>
             <a
-              className="badge"
+              className="badge badge-google"
               href="https://play.google.com/store/apps/details?id=com.oraleai.orale_ai"
               target="_blank"
               rel="noopener noreferrer"
@@ -108,7 +108,7 @@ export default function Home() {
               </span>
             </a>
             <a
-              className="badge badge-beta"
+              className="badge badge-windows badge-beta"
               href="https://apps.microsoft.com/detail/9mwh3bdnf0xt?hl=es-MX&gl=MX"
               target="_blank"
               rel="noopener noreferrer"
@@ -124,7 +124,7 @@ export default function Home() {
                 />
               </svg>
               <span className="badge-text">
-                <small>Disponible en</small>Microsoft Store
+                <small>Disponible para</small>Windows
               </span>
               <span className="badge-tag">BETA</span>
             </a>
