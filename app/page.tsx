@@ -45,7 +45,7 @@ const windowsFeatures = [
   {
     icon: "🍽️",
     title: "Mapa de mesas",
-    text: "Un cuadro por mesa: libre u ocupada, con el total a la vista. Toca para abrir la cuenta o empieza una para llevar.",
+    text: "Un cuadro por mesa: libre u ocupada, con el total a la vista. Configura cuántas mesas tiene tu local.",
   },
   {
     icon: "🖨️",
@@ -53,9 +53,9 @@ const windowsFeatures = [
     text: "Cada categoría va a su impresora: cocina recibe tacos, barra recibe bebidas. Tickets separados, sin mezclar.",
   },
   {
-    icon: "👥",
-    title: "Dueño y meseros",
-    text: "Cada quien entra con su PIN. El dueño arma el menú y ve reportes; el equipo vende y cobra sin enredos.",
+    icon: "🥡",
+    title: "Para llevar",
+    text: "Cobra pedidos para llevar sin usar una mesa. Salón y takeout desde el mismo punto, en la misma app.",
   },
 ];
 
