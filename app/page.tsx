@@ -16,13 +16,11 @@ const features = [
     icon: "✨",
     title: "Arma tu menú con IA",
     text: "Toma una foto de tu menú impreso y la IA crea productos, precios, categorías y modificadores por ti.",
-    accent: true,
   },
   {
     icon: "📊",
     title: "Reportes con IA",
     text: "Descubre tu producto estrella, tu día más flojo y qué surtir. Consejos claros, en español.",
-    accent: true,
   },
   {
     icon: "💰",
@@ -168,10 +166,7 @@ export default function Home() {
           </p>
           <div className="grid">
             {features.map((f) => (
-              <div
-                key={f.title}
-                className={f.accent ? "feature accent" : "feature"}
-              >
+              <div key={f.title} className="feature">
                 <div className="ico">{f.icon}</div>
                 <h3>{f.title}</h3>
                 <p>{f.text}</p>
