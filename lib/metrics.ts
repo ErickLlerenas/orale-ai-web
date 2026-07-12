@@ -3,17 +3,27 @@ export type Plan = "monthly" | "yearly" | "none" | "unknown";
 export type AnalyticsPlatform = "ios" | "android" | "windows" | "unknown";
 
 export type Ping = {
-  install_id: string;
+  install_id: string; // id ESTABLE de dispositivo
+  account_key: string | null; // identidad de CUENTA (misma en todas las sucursales)
   ping_date: string; // yyyy-mm-dd
   platform: AnalyticsPlatform | string | null;
   app_version: string | null;
   orders_today: number;
-  sales_today_cents: number;
+  sales_bucket: string | null; // rango de ventas del día (no el monto exacto)
   product_count: number;
   days_since_install: number;
   subscription_active: boolean;
   plan: Plan | null; // qué producto compró: monthly | yearly
   updated_at: string;
+};
+
+/// Una cuenta de pago y cuántos dispositivos la usan. device_count > 1 = misma
+/// cuenta en varias sucursales.
+export type AccountRow = {
+  account_key: string;
+  device_count: number;
+  plan: Plan | null;
+  last_seen: string;
 };
 
 /// Etiqueta legible del plan para la UI.
@@ -64,14 +74,15 @@ export type Summary = {
   activeToday: number;
   active7: number;
   active30: number;
-  subscribed: number;
+  subscribed: number; // DISPOSITIVOS con suscripción activa
+  payingAccounts: number; // CUENTAS de pago (deduplicado, no por dispositivo)
+  multiDevice: AccountRow[]; // cuentas usadas en 2+ dispositivos (doble sucursal)
   monthly: number;
   yearly: number;
   ios: number;
   android: number;
   windows: number;
   ordersToday: number;
-  salesTodayCents: number;
   dailyActive: { date: string; count: number }[];
   latest: Ping[]; // último ping por instalación (más reciente primero)
 };
@@ -87,7 +98,6 @@ export function summarize(rows: Ping[]): Summary {
   const active7Set = new Set<string>();
   const active30Set = new Set<string>();
   let ordersToday = 0;
-  let salesTodayCents = 0;
 
   // Último ping por instalación.
   const latestByInstall = new Map<string, Ping>();
@@ -97,7 +107,6 @@ export function summarize(rows: Ping[]): Summary {
     if (r.ping_date === today) {
       activeTodaySet.add(r.install_id);
       ordersToday += r.orders_today;
-      salesTodayCents += r.sales_today_cents;
     }
     if (r.ping_date >= since7) active7Set.add(r.install_id);
     if (r.ping_date >= since30) active30Set.add(r.install_id);
@@ -138,6 +147,40 @@ export function summarize(rows: Ping[]): Summary {
     }
   }
 
+  // Deduplicación por CUENTA: agrupa los dispositivos que comparten account_key.
+  // Solo cuentas de pago (account_key solo existe cuando hay suscripción).
+  const accounts = new Map<
+    string,
+    { installs: Set<string>; plan: Plan | null; last_seen: string }
+  >();
+  for (const p of latest) {
+    if (!p.account_key) continue;
+    const a = accounts.get(p.account_key);
+    if (!a) {
+      accounts.set(p.account_key, {
+        installs: new Set([p.install_id]),
+        plan: p.plan,
+        last_seen: p.ping_date,
+      });
+    } else {
+      a.installs.add(p.install_id);
+      if (p.ping_date > a.last_seen) {
+        a.last_seen = p.ping_date;
+        a.plan = p.plan;
+      }
+    }
+  }
+
+  const multiDevice: AccountRow[] = [...accounts.entries()]
+    .filter(([, a]) => a.installs.size > 1)
+    .map(([account_key, a]) => ({
+      account_key,
+      device_count: a.installs.size,
+      plan: a.plan,
+      last_seen: a.last_seen,
+    }))
+    .sort((x, y) => y.device_count - x.device_count);
+
   // Activos por día, últimos 14 días.
   const dailyActive: { date: string; count: number }[] = [];
   for (let i = 13; i >= 0; i--) {
@@ -155,23 +198,17 @@ export function summarize(rows: Ping[]): Summary {
     active7: active7Set.size,
     active30: active30Set.size,
     subscribed,
+    payingAccounts: accounts.size,
+    multiDevice,
     monthly,
     yearly,
     ios,
     android,
     windows,
     ordersToday,
-    salesTodayCents,
     dailyActive,
     latest,
   };
-}
-
-export function pesos(cents: number): string {
-  return new Intl.NumberFormat("es-MX", {
-    style: "currency",
-    currency: "MXN",
-  }).format(cents / 100);
 }
 
 /// Fecha y hora legibles (ej. "5 jul 2026, 2:04 p.m.") en hora de México.

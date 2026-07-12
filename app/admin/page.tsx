@@ -3,7 +3,6 @@ import { adminClient } from "@/lib/supabase";
 import {
   summarize,
   summarizeAi,
-  pesos,
   planLabel,
   platformLabel,
   fechaHora,
@@ -86,7 +85,9 @@ export default async function Admin() {
     {
       title: "Suscripciones",
       kpis: [
-        { v: s.subscribed, l: "Suscritos" },
+        { v: s.payingAccounts, l: "Suscritos (cuentas)" },
+        { v: s.subscribed, l: "Dispositivos suscritos" },
+        { v: s.multiDevice.length, l: "Doble sucursal" },
         { v: s.monthly, l: "Mensual" },
         { v: s.yearly, l: "Anual" },
       ],
@@ -100,11 +101,8 @@ export default async function Admin() {
       ],
     },
     {
-      title: "Ventas de hoy",
-      kpis: [
-        { v: s.ordersToday, l: "Órdenes hoy" },
-        { v: pesos(s.salesTodayCents), l: "Ventas hoy" },
-      ],
+      title: "Actividad de hoy",
+      kpis: [{ v: s.ordersToday, l: "Órdenes hoy" }],
     },
     {
       title: "Inteligencia artificial",
@@ -140,6 +138,41 @@ export default async function Admin() {
       ))}
 
       <div className="panel">
+        <h2>Doble sucursal ({s.multiDevice.length})</h2>
+        <p className="muted">
+          Cuentas de pago usadas en 2+ dispositivos: una sola suscripción
+          operando en varias sucursales.
+        </p>
+        {s.multiDevice.length === 0 ? (
+          <p className="muted">
+            Ninguna cuenta usa más de un dispositivo. (Aparecerán aquí conforme
+            las apps actualizadas manden su account_key.)
+          </p>
+        ) : (
+          <table className="data">
+            <thead>
+              <tr>
+                <th>Cuenta</th>
+                <th>Dispositivos</th>
+                <th>Plan</th>
+                <th>Última visita</th>
+              </tr>
+            </thead>
+            <tbody>
+              {s.multiDevice.map((a) => (
+                <tr key={a.account_key}>
+                  <td title={a.account_key}>{a.account_key.slice(0, 12)}</td>
+                  <td>{a.device_count}</td>
+                  <td>{planLabel(a.plan)}</td>
+                  <td>{a.last_seen}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      <div className="panel">
         <h2>Negocios activos por día (14 días)</h2>
         <div className="bars">
           {s.dailyActive.map((d) => (
@@ -170,13 +203,14 @@ export default async function Admin() {
             <thead>
               <tr>
                 <th>ID</th>
+                <th>Cuenta</th>
                 <th>Última visita</th>
                 <th>Días</th>
                 <th>Plataforma</th>
                 <th>Versión</th>
                 <th>Productos</th>
                 <th>Órdenes (último)</th>
-                <th>Ventas (último)</th>
+                <th>Ventas (rango)</th>
                 <th>IA (60 d)</th>
                 <th>Plan</th>
                 <th>Estado</th>
@@ -188,6 +222,9 @@ export default async function Admin() {
                 return (
                   <tr key={p.install_id}>
                     <td title={p.install_id}>{p.install_id.slice(0, 8)}</td>
+                    <td title={p.account_key ?? "Sin cuenta (gratis)"}>
+                      {p.account_key ? p.account_key.slice(0, 8) : "—"}
+                    </td>
                     <td title={p.ping_date}>{fechaHora(p.updated_at)}</td>
                     <td title="Días desde que instaló la app">
                       {p.days_since_install}
@@ -196,7 +233,7 @@ export default async function Admin() {
                     <td>{p.app_version ?? "—"}</td>
                     <td>{p.product_count}</td>
                     <td>{p.orders_today}</td>
-                    <td>{pesos(p.sales_today_cents)}</td>
+                    <td>{p.sales_bucket ?? "—"}</td>
                     <td title={u ? `Hoy: ${u.today} · Último uso: ${u.lastDate}` : "Sin uso de IA"}>
                       {u ? u.total : "—"}
                     </td>
