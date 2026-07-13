@@ -61,12 +61,42 @@ export function mxToday(): string {
   }).format(new Date());
 }
 
-function daysAgo(n: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() - n);
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Mexico_City",
-  }).format(d);
+/// Mes actual (yyyy-mm) en zona horaria de México.
+export function currentMonth(): string {
+  return mxToday().slice(0, 7);
+}
+
+/// Etiqueta legible de un mes, ej. "Julio 2026".
+export function monthLabel(month: string): string {
+  const [y, m] = month.split("-").map(Number);
+  const date = new Date(Date.UTC(y, m - 1, 1));
+  const label = new Intl.DateTimeFormat("es-MX", {
+    timeZone: "UTC",
+    month: "long",
+    year: "numeric",
+  }).format(date);
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
+/// Rango de fechas (inclusivo) de un mes: primer y último día en yyyy-mm-dd.
+export function monthRange(month: string): { start: string; end: string } {
+  const [y, m] = month.split("-").map(Number);
+  const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  return { start: `${month}-01`, end: `${month}-${String(lastDay).padStart(2, "0")}` };
+}
+
+/// Lista de los últimos `count` meses (más reciente primero) para el selector.
+export function monthOptions(count = 12): { value: string; label: string }[] {
+  const [y, m] = currentMonth().split("-").map(Number);
+  const out: { value: string; label: string }[] = [];
+  for (let i = 0; i < count; i++) {
+    const date = new Date(Date.UTC(y, m - 1 - i, 1));
+    const value = `${date.getUTCFullYear()}-${String(
+      date.getUTCMonth() + 1,
+    ).padStart(2, "0")}`;
+    out.push({ value, label: monthLabel(value) });
+  }
+  return out;
 }
 
 export type PlatformStats = {
@@ -79,18 +109,15 @@ export type PlatformStats = {
 export type PlatformKey = AnalyticsPlatform;
 
 export type Summary = {
-  totalInstalls: number;
-  activeToday: number;
-  active7: number;
-  active30: number;
+  activeInstalls: number; // dispositivos que pingearon en el mes
+  totalOrders: number; // suma de órdenes en el mes
   subscribed: number; // DISPOSITIVOS con suscripción activa
   payingAccounts: number; // CUENTAS de pago (deduplicado, no por dispositivo)
   multiDevice: AccountRow[]; // cuentas usadas en 2+ dispositivos (doble sucursal)
   monthly: number;
   yearly: number;
   platforms: Record<PlatformKey, PlatformStats>;
-  ordersToday: number;
-  dailyActive: { date: string; count: number }[];
+  dailyActive: { date: string; count: number }[]; // por día del mes
   latest: Ping[]; // último ping por instalación (más reciente primero)
 };
 
@@ -105,29 +132,20 @@ function platformKey(platform: string | null): PlatformKey {
   return "unknown";
 }
 
-/// Calcula todas las métricas del dashboard a partir de los pings.
-export function summarize(rows: Ping[]): Summary {
-  const today = mxToday();
-  const since7 = daysAgo(7);
-  const since30 = daysAgo(30);
+/// Calcula todas las métricas del dashboard para un mes dado (yyyy-mm).
+/// `rows` ya vienen filtradas a ese mes desde la consulta.
+export function summarize(rows: Ping[], month: string): Summary {
+  const lastDay = Number(monthRange(month).end.slice(8, 10));
 
   const installs = new Set<string>();
-  const activeTodaySet = new Set<string>();
-  const active7Set = new Set<string>();
-  const active30Set = new Set<string>();
-  let ordersToday = 0;
+  let totalOrders = 0;
 
   // Último ping por instalación.
   const latestByInstall = new Map<string, Ping>();
 
   for (const r of rows) {
     installs.add(r.install_id);
-    if (r.ping_date === today) {
-      activeTodaySet.add(r.install_id);
-      ordersToday += r.orders_today;
-    }
-    if (r.ping_date >= since7) active7Set.add(r.install_id);
-    if (r.ping_date >= since30) active30Set.add(r.install_id);
+    totalOrders += r.orders_today;
 
     const prev = latestByInstall.get(r.install_id);
     if (!prev || r.ping_date > prev.ping_date) {
@@ -199,10 +217,10 @@ export function summarize(rows: Ping[]): Summary {
     }))
     .sort((x, y) => y.device_count - x.device_count);
 
-  // Activos por día, últimos 14 días.
+  // Activos por día del mes.
   const dailyActive: { date: string; count: number }[] = [];
-  for (let i = 13; i >= 0; i--) {
-    const date = daysAgo(i);
+  for (let day = 1; day <= lastDay; day++) {
+    const date = `${month}-${String(day).padStart(2, "0")}`;
     const set = new Set<string>();
     for (const r of rows) {
       if (r.ping_date === date) set.add(r.install_id);
@@ -211,17 +229,14 @@ export function summarize(rows: Ping[]): Summary {
   }
 
   return {
-    totalInstalls: installs.size,
-    activeToday: activeTodaySet.size,
-    active7: active7Set.size,
-    active30: active30Set.size,
+    activeInstalls: installs.size,
+    totalOrders,
     subscribed,
     payingAccounts: accounts.size,
     multiDevice,
     monthly,
     yearly,
     platforms,
-    ordersToday,
     dailyActive,
     latest,
   };

@@ -6,24 +6,33 @@ import {
   planLabel,
   platformLabel,
   fechaHora,
+  currentMonth,
+  monthLabel,
+  monthOptions,
+  monthRange,
   type Ping,
   type AiUsage,
 } from "@/lib/metrics";
+import MonthSelect from "./MonthSelect";
 
 // Siempre datos frescos (sin caché).
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-function sinceDate(days: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() - days);
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Mexico_City",
-  }).format(d);
-}
-
-export default async function Admin() {
+export default async function Admin({
+  searchParams,
+}: {
+  searchParams: { month?: string };
+}) {
   noStore();
+
+  const options = monthOptions(12);
+  const validMonths = new Set(options.map((o) => o.value));
+  const month =
+    searchParams.month && validMonths.has(searchParams.month)
+      ? searchParams.month
+      : currentMonth();
+  const { start, end } = monthRange(month);
 
   let rows: Ping[] = [];
   let aiRows: AiUsage[] = [];
@@ -31,17 +40,18 @@ export default async function Admin() {
 
   try {
     const supabase = adminClient();
-    const since = sinceDate(60);
     const [pings, ai] = await Promise.all([
       supabase
         .from("usage_pings")
         .select("*")
-        .gte("ping_date", since)
+        .gte("ping_date", start)
+        .lte("ping_date", end)
         .order("ping_date", { ascending: false }),
       supabase
         .from("ai_usage")
         .select("*")
-        .gte("usage_date", since)
+        .gte("usage_date", start)
+        .lte("usage_date", end)
         .order("usage_date", { ascending: false }),
     ]);
     if (pings.error) errorMsg = pings.error.message;
@@ -67,27 +77,18 @@ export default async function Admin() {
     );
   }
 
-  const s = summarize(rows);
+  const s = summarize(rows, month);
   const ai = summarizeAi(aiRows);
   const aiByInstall = new Map(ai.byInstall.map((u) => [u.install_id, u]));
   const maxDaily = Math.max(1, ...s.dailyActive.map((d) => d.count));
 
   const groups = [
     {
-      title: "Actividad",
+      title: "Resumen del mes",
       kpis: [
-        { v: s.totalInstalls, l: "Instalaciones (60 d)" },
-        { v: s.activeToday, l: "Activos hoy" },
-        { v: s.active7, l: "Activos 7 días" },
-        { v: s.active30, l: "Activos 30 días" },
-        { v: s.ordersToday, l: "Órdenes hoy" },
-      ],
-    },
-    {
-      title: "Inteligencia artificial",
-      kpis: [
-        { v: ai.totalCalls, l: "Llamadas IA (60 d)" },
-        { v: ai.callsToday, l: "Llamadas IA hoy" },
+        { v: s.activeInstalls, l: "Instalaciones activas" },
+        { v: s.totalOrders, l: "Órdenes del mes" },
+        { v: ai.totalCalls, l: "Llamadas IA" },
         { v: ai.usersWithAi, l: "Usuarios con IA" },
       ],
     },
@@ -102,10 +103,13 @@ export default async function Admin() {
   return (
     <main className="admin">
       <header className="admin-header">
-        <h1>Dashboard · Órale AI</h1>
-        <p className="muted">
-          Analítica de uso anónima y agregada. Últimos 60 días.
-        </p>
+        <div>
+          <h1>Dashboard · Órale AI</h1>
+          <p className="muted">
+            Analítica de uso anónima y agregada · {monthLabel(month)}
+          </p>
+        </div>
+        <MonthSelect value={month} options={options} />
       </header>
 
       {groups.map((g) => (
@@ -232,7 +236,7 @@ export default async function Admin() {
       </div>
 
       <div className="panel">
-        <h2>Negocios activos por día (14 días)</h2>
+        <h2>Negocios activos por día · {monthLabel(month)}</h2>
         <div className="bars">
           {s.dailyActive.map((d) => (
             <div className="bar-col" key={d.date}>
@@ -241,7 +245,7 @@ export default async function Admin() {
                 className="bar"
                 style={{ height: `${(d.count / maxDaily) * 130}px` }}
               />
-              <span className="d">{d.date.slice(5)}</span>
+              <span className="d">{d.date.slice(8)}</span>
             </div>
           ))}
         </div>
@@ -250,8 +254,9 @@ export default async function Admin() {
       <div className="panel">
         <h2>Usuarios ({s.latest.length})</h2>
         <p className="muted">
-          Una fila por instalación. La columna IA cuenta las llamadas a las
-          funciones de IA (armar menú y reportes) en los últimos 60 días.
+          Una fila por instalación activa en {monthLabel(month)}. La columna IA
+          cuenta las llamadas a las funciones de IA (armar menú y reportes) en
+          el mes.
         </p>
         {s.latest.length === 0 ? (
           <p className="muted">
@@ -270,7 +275,7 @@ export default async function Admin() {
                 <th>Productos</th>
                 <th>Órdenes (último)</th>
                 <th>Ventas (rango)</th>
-                <th>IA (60 d)</th>
+                <th>IA (mes)</th>
                 <th>Plan</th>
                 <th>Estado</th>
               </tr>
