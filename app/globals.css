@@ -609,6 +609,49 @@ section {
   font-size: 18px;
   letter-spacing: -0.01em;
 }
+.subscriptions-panel .muted {
+  margin: 0 0 20px;
+}
+.subscription-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin-bottom: 28px;
+}
+.panel-subtitle {
+  margin: 0 0 14px;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
+}
+.platform-table {
+  margin-top: 4px;
+}
+.platform-tag {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.platform-ios {
+  background: rgba(31, 41, 51, 0.1);
+  color: var(--ink);
+}
+.platform-android {
+  background: rgba(30, 142, 62, 0.14);
+  color: #1e8e3e;
+}
+.platform-windows {
+  background: rgba(0, 120, 212, 0.14);
+  color: #0078d4;
+}
+.platform-unknown {
+  background: #eef0f2;
+  color: var(--ink-soft);
+}
 .bars {
   display: flex;
   align-items: flex-end;

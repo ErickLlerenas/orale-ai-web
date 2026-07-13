@@ -80,29 +80,8 @@ export default async function Admin() {
         { v: s.activeToday, l: "Activos hoy" },
         { v: s.active7, l: "Activos 7 días" },
         { v: s.active30, l: "Activos 30 días" },
+        { v: s.ordersToday, l: "Órdenes hoy" },
       ],
-    },
-    {
-      title: "Suscripciones",
-      kpis: [
-        { v: s.payingAccounts, l: "Suscritos (cuentas)" },
-        { v: s.subscribed, l: "Dispositivos suscritos" },
-        { v: s.multiDevice.length, l: "Doble sucursal" },
-        { v: s.monthly, l: "Mensual" },
-        { v: s.yearly, l: "Anual" },
-      ],
-    },
-    {
-      title: "Plataformas",
-      kpis: [
-        { v: s.ios, l: "iOS" },
-        { v: s.android, l: "Android" },
-        { v: s.windows, l: "Windows" },
-      ],
-    },
-    {
-      title: "Actividad de hoy",
-      kpis: [{ v: s.ordersToday, l: "Órdenes hoy" }],
     },
     {
       title: "Inteligencia artificial",
@@ -112,6 +91,12 @@ export default async function Admin() {
         { v: ai.usersWithAi, l: "Usuarios con IA" },
       ],
     },
+  ];
+
+  const platformRows: { key: "ios" | "android" | "windows"; label: string }[] = [
+    { key: "ios", label: "iOS" },
+    { key: "android", label: "Android" },
+    { key: "windows", label: "Windows" },
   ];
 
   return (
@@ -136,6 +121,80 @@ export default async function Admin() {
           </div>
         </section>
       ))}
+
+      <div className="panel subscriptions-panel">
+        <h2>Suscripciones</h2>
+        <p className="muted">
+          Resumen de cuentas de pago y dispositivos con suscripción activa.
+          Las cuentas se deduplican; los dispositivos cuentan cada instalación.
+        </p>
+        <div className="subscription-summary">
+          <div className="kpi">
+            <div className="v">{s.payingAccounts}</div>
+            <div className="l">Cuentas de pago</div>
+          </div>
+          <div className="kpi">
+            <div className="v">{s.subscribed}</div>
+            <div className="l">Dispositivos suscritos</div>
+          </div>
+          <div className="kpi">
+            <div className="v">{s.monthly}</div>
+            <div className="l">Plan mensual</div>
+          </div>
+          <div className="kpi">
+            <div className="v">{s.yearly}</div>
+            <div className="l">Plan anual</div>
+          </div>
+          <div className="kpi">
+            <div className="v">{s.multiDevice.length}</div>
+            <div className="l">Doble sucursal</div>
+          </div>
+        </div>
+
+        <h3 className="panel-subtitle">Por plataforma</h3>
+        <table className="data platform-table">
+          <thead>
+            <tr>
+              <th>Plataforma</th>
+              <th>Instalaciones</th>
+              <th>Suscritos</th>
+              <th>Mensual</th>
+              <th>Anual</th>
+            </tr>
+          </thead>
+          <tbody>
+            {platformRows.map(({ key, label }) => {
+              const stats = s.platforms[key];
+              return (
+                <tr key={key}>
+                  <td>
+                    <span className={`platform-tag platform-${key}`}>
+                      {label}
+                    </span>
+                  </td>
+                  <td>{stats.installs}</td>
+                  <td>{stats.subscribed}</td>
+                  <td>{stats.monthly}</td>
+                  <td>{stats.yearly}</td>
+                </tr>
+              );
+            })}
+            {s.platforms.unknown.installs > 0 && (
+              <tr>
+                <td>
+                  <span className="platform-tag platform-unknown">
+                    Desconocida
+                  </span>
+                </td>
+                <td>{s.platforms.unknown.installs}</td>
+                <td>{s.platforms.unknown.subscribed}</td>
+                <td>{s.platforms.unknown.monthly}</td>
+                <td>{s.platforms.unknown.yearly}</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
 
       <div className="panel">
         <h2>Doble sucursal ({s.multiDevice.length})</h2>

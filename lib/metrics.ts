@@ -69,6 +69,15 @@ function daysAgo(n: number): string {
   }).format(d);
 }
 
+export type PlatformStats = {
+  installs: number;
+  subscribed: number;
+  monthly: number;
+  yearly: number;
+};
+
+export type PlatformKey = AnalyticsPlatform;
+
 export type Summary = {
   totalInstalls: number;
   activeToday: number;
@@ -79,13 +88,22 @@ export type Summary = {
   multiDevice: AccountRow[]; // cuentas usadas en 2+ dispositivos (doble sucursal)
   monthly: number;
   yearly: number;
-  ios: number;
-  android: number;
-  windows: number;
+  platforms: Record<PlatformKey, PlatformStats>;
   ordersToday: number;
   dailyActive: { date: string; count: number }[];
   latest: Ping[]; // último ping por instalación (más reciente primero)
 };
+
+function emptyPlatformStats(): PlatformStats {
+  return { installs: 0, subscribed: 0, monthly: 0, yearly: 0 };
+}
+
+function platformKey(platform: string | null): PlatformKey {
+  if (platform === "ios" || platform === "android" || platform === "windows") {
+    return platform;
+  }
+  return "unknown";
+}
 
 /// Calcula todas las métricas del dashboard a partir de los pings.
 export function summarize(rows: Ping[]): Summary {
@@ -125,25 +143,25 @@ export function summarize(rows: Ping[]): Summary {
   let subscribed = 0;
   let monthly = 0;
   let yearly = 0;
-  let ios = 0;
-  let android = 0;
-  let windows = 0;
+  const platforms: Record<PlatformKey, PlatformStats> = {
+    ios: emptyPlatformStats(),
+    android: emptyPlatformStats(),
+    windows: emptyPlatformStats(),
+    unknown: emptyPlatformStats(),
+  };
   for (const p of latest) {
-    switch (p.platform) {
-      case "ios":
-        ios++;
-        break;
-      case "android":
-        android++;
-        break;
-      case "windows":
-        windows++;
-        break;
-    }
+    const key = platformKey(p.platform);
+    platforms[key].installs++;
     if (p.subscription_active) {
       subscribed++;
-      if (p.plan === "monthly") monthly++;
-      else if (p.plan === "yearly") yearly++;
+      platforms[key].subscribed++;
+      if (p.plan === "monthly") {
+        monthly++;
+        platforms[key].monthly++;
+      } else if (p.plan === "yearly") {
+        yearly++;
+        platforms[key].yearly++;
+      }
     }
   }
 
@@ -202,9 +220,7 @@ export function summarize(rows: Ping[]): Summary {
     multiDevice,
     monthly,
     yearly,
-    ios,
-    android,
-    windows,
+    platforms,
     ordersToday,
     dailyActive,
     latest,
