@@ -18,9 +18,8 @@ export default function Terms() {
 
         <p>
           Estos términos regulan el uso de <strong>Órale AI</strong>, un punto
-          de venta que funciona <strong>sin conexión</strong> para negocios de
-          comida en México. Al descargar o usar la app aceptas estos términos.
-          Si no estás de acuerdo, no uses la app.
+          de venta para negocios de comida en México. Al descargar o usar la
+          app aceptas estos términos. Si no estás de acuerdo, no uses la app.
         </p>
 
         <h2>1. Qué es Órale AI</h2>
@@ -29,14 +28,19 @@ export default function Terms() {
           caja y administrar tu menú. Está disponible para{" "}
           <strong>iPhone y iPad</strong> (App Store),{" "}
           <strong>Android</strong> (Google Play) y <strong>Windows</strong>{" "}
-          (Microsoft Store). Según el dispositivo puede incluir funciones como{" "}
-          <strong>manejo de mesas</strong> e{" "}
-          <strong>impresión en red por área</strong> (cocina, barra, caja).
+          (Microsoft Store). Según el dispositivo y el plan puede incluir{" "}
+          <strong>manejo de mesas</strong>,{" "}
+          <strong>impresión en red por área</strong> (cocina, barra, caja) y{" "}
+          <strong>varios dispositivos</strong> (Órale AI Pro).
         </p>
         <p>
-          La información de tu negocio (menú, ventas, equipo) se guarda{" "}
+          En el <strong>plan normal</strong>, la información de tu negocio
+          (menú, ventas, equipo) se guarda{" "}
           <strong>localmente en cada dispositivo</strong> y no se sincroniza
-          entre equipos. Tú eres responsable de tus datos y de hacer respaldos.
+          entre equipos. Con <strong>Órale AI Pro</strong>, parte de esa
+          información (menú y órdenes abiertas) se sincroniza en la nube para
+          que varios celulares operen el mismo negocio. Tú eres responsable de
+          tus datos y de hacer respaldos.
         </p>
 
         <h2>2. Uso permitido</h2>
@@ -54,17 +58,48 @@ export default function Terms() {
 
         <h2>3. Suscripción y pagos</h2>
         <p>
-          Órale AI ofrece una <strong>prueba gratis</strong> y luego una
-          suscripción para seguir usando la app:
+          Órale AI ofrece una <strong>prueba gratis</strong> limitada y luego
+          una suscripción para seguir usando la app. Los planes disponibles
+          (precios en México) son:
         </p>
         <ul>
           <li>
-            <strong>Plan mensual:</strong> $99 MXN al mes.
+            <strong>Plan normal mensual:</strong> $99 MXN al mes (
+            <code>orale_monthly</code>).
           </li>
           <li>
-            <strong>Plan anual:</strong> $799 MXN al año.
+            <strong>Plan normal anual:</strong> $799 MXN al año (
+            <code>orale_yearly</code>).
+          </li>
+          <li>
+            <strong>Órale AI Pro mensual:</strong> $199 MXN al mes (
+            <code>orale_pro_monthly</code>).
+          </li>
+          <li>
+            <strong>Órale AI Pro anual:</strong> $1,599 MXN al año (
+            <code>orale_pro_yearly</code>).
           </li>
         </ul>
+        <p>
+          El plan normal en App Store / Google Play incluye{" "}
+          <strong>14 días de prueba</strong> al suscribirte.{" "}
+          <strong>Órale AI Pro no incluye prueba gratis</strong>. Pro está
+          disponible solo en <strong>México</strong> y se activa dentro de la
+          app (Ajustes → Equipo y accesos → Varios meseros); no forma parte del
+          paywall principal del plan normal.
+        </p>
+        <p>
+          <strong>Órale AI Pro</strong> está pensado para negocios con{" "}
+          <strong>WiFi en el local</strong> e{" "}
+          <strong>impresora de red</strong>. Permite varios celulares tomando
+          comandas y sincronización de menú y órdenes abiertas. Con Pro, los
+          meseros deben imprimir por red (Bluetooth no alcanza con varios
+          dispositivos). La impresión por red y por área (cocina, barra…){" "}
+          <strong>está disponible en todos los planes</strong>; Pro solo
+          exige red porque hay varios dispositivos. Si cancelas o dejas de
+          pagar Pro, el acceso multi-dispositivo y la sincronización dejan de
+          estar disponibles.
+        </p>
         <p>
           <strong>En iPhone, iPad y Android:</strong> el cobro y la renovación
           los gestiona <strong>Apple</strong> (App Store) o{" "}
@@ -80,13 +115,14 @@ export default function Terms() {
           <strong>Stripe</strong>. La suscripción se renueva automáticamente;
           puedes cambiar tu tarjeta o cancelar cuando quieras desde el portal de
           Stripe (botón “Administrar suscripción” dentro de la app). Si un cobro
-          falla, conservas el acceso durante un breve <strong>periodo de
-          gracia</strong> mientras se reintenta el cargo; si no se completa, la
-          suscripción se cancela. Los reembolsos se gestionan a través de
-          Stripe.
+          falla, conservas el acceso durante un breve{" "}
+          <strong>periodo de gracia</strong> mientras se reintenta el cargo; si
+          no se completa, la suscripción se cancela. Los reembolsos se gestionan
+          a través de Stripe.
         </p>
         <p>
-          Los precios pueden variar según tu país y la moneda de tu cuenta.
+          Los precios pueden variar según tu país y la moneda de tu cuenta. La
+          disponibilidad de cada plan depende de la tienda y la región.
         </p>
 
         <h2>4. Funciones con IA</h2>
@@ -99,9 +135,11 @@ export default function Terms() {
 
         <h2>5. Disponibilidad del servicio</h2>
         <p>
-          La app funciona sin conexión, pero algunas funciones (como la IA)
-          requieren internet. Podemos actualizar, cambiar o descontinuar
-          funciones para mejorar el producto.
+          El punto de venta del plan normal funciona sin conexión; algunas
+          funciones (como la IA) requieren internet. Órale AI Pro requiere
+          internet para sincronizar dispositivos y WiFi local para imprimir por
+          red. Podemos actualizar, cambiar o descontinuar funciones para mejorar
+          el producto.
         </p>
 
         <h2>6. Limitación de responsabilidad</h2>

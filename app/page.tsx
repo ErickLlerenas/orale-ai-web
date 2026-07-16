@@ -40,7 +40,7 @@ const features = [
   {
     icon: "🖨️",
     title: "Impresión térmica",
-    text: "En tablet: impresora Bluetooth (comandas y cuentas). En Windows: impresoras en red por área (cocina, barra, caja).",
+    text: "Bluetooth o impresoras de red por área (cocina, barra, caja) en cualquier plan. En Windows, red o USB.",
   },
   {
     icon: "🛡️",
@@ -62,6 +62,25 @@ const windowsFeatures = [
   },
 ];
 
+
+const proFeatures = [
+  {
+    icon: "📱",
+    title: "Varios meseros",
+    text: "Cada quien pide desde su celular. El menú se sincroniza solo; tú cobras en tu caja.",
+  },
+  {
+    icon: "☁️",
+    title: "Órdenes compartidas",
+    text: "Las comandas viven en la nube del negocio. No necesitas dejar una tablet siempre encendida como hub.",
+  },
+  {
+    icon: "📶",
+    title: "Impresión por WiFi",
+    text: "Con varios meseros, cada celular imprime por la red del local. Bluetooth no alcanza cuando hay varios dispositivos.",
+  },
+];
+
 const steps = [
   {
     n: "1",
@@ -78,6 +97,7 @@ export default function Home() {
       <Nav>
         <a href="#features">Funciones</a>
         <a href="#windows">Windows</a>
+        <a href="#pro">Pro</a>
         <a href="#como">Cómo funciona</a>
         <a href="/privacidad">Privacidad</a>
       </Nav>
@@ -209,6 +229,50 @@ export default function Home() {
           </div>
         </section>
 
+
+        <section id="pro" className="container">
+          <div className="pro-panel">
+            <div className="pro-header">
+              <div>
+                <p className="pro-eyebrow">Órale AI Pro</p>
+                <h2 className="pro-title">Varios meseros, un solo negocio</h2>
+                <p className="pro-sub">
+                  Para locales con WiFi e impresora de red. Cada mesero toma
+                  órdenes en su celular; las comandas salen directo a cocina.
+                  El cobro sigue en tu equipo. (Las impresoras por área ya
+                  vienen en el plan normal.)
+                </p>
+              </div>
+              <span className="pro-badge">PRO</span>
+            </div>
+            <div className="grid grid-pro">
+              {proFeatures.map((f) => (
+                <div key={f.title} className="feature feature-pro">
+                  <div className="ico">{f.icon}</div>
+                  <h3>{f.title}</h3>
+                  <p>{f.text}</p>
+                </div>
+              ))}
+            </div>
+            <p className="pro-note">
+              <strong>Importante:</strong> Pro no es para todos. Necesitas WiFi
+              del local e impresora de red (Bluetooth no sirve con varios
+              meseros). Las impresoras por área están en todos los planes. Se
+              activa en la app: Ajustes → Equipo y accesos → Varios meseros
+              (no aparece en el paywall normal). Solo México.
+            </p>
+            <div className="pro-prices">
+              <div>
+                $199 MXN / mes
+              </div>
+              <div>
+                $1,599 MXN / año
+                <span> · ahorra ~4 meses · sin prueba gratis · solo México</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
         <section id="como" className="container">
           <h2 className="section-title">Listo en 3 pasos</h2>
           <p className="section-sub">De cero a vendiendo en una tarde.</p>
@@ -227,8 +291,13 @@ export default function Home() {
           <div className="cta">
             <h2>Empieza gratis</h2>
             <p>
-              Desde $99 MXN al mes o $799 MXN al año. En App Store y Google
-              Play: 14 días de prueba al suscribirte.
+              Plan normal: desde $99 MXN al mes o $799 MXN al año, con 14 días
+              de prueba en App Store y Google Play. ¿Varios meseros en su
+              celular? Eso es{" "}
+              <a href="#pro" style={{ color: "inherit", fontWeight: 700 }}>
+                Órale AI Pro
+              </a>{" "}
+              ($199 / $1,599 MXN), solo México.
             </p>
           </div>
         </section>
