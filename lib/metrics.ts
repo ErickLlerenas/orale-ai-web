@@ -141,6 +141,50 @@ export type TodaySummary = {
   newInstalls: number; // instalaciones hechas hoy (days_since_install === 0)
 };
 
+/// Una suscripción nueva detectada hoy.
+export type NewSubscriber = {
+  identity: string; // account_key (cuenta) o install_id (dispositivo)
+  isAccount: boolean; // true si se identifica por cuenta de pago
+  plan: Plan | null;
+  platform: string | null;
+  updated_at: string;
+};
+
+/// Detecta quién se suscribió HOY por primera vez: dispositivos/cuentas con
+/// suscripción activa hoy que NO tenían historial de suscripción previa.
+/// `priorAccountKeys` y `priorInstallIds` son identidades que ya estaban
+/// suscritas antes de hoy (se calculan con una consulta al historial).
+export function newSubscribersToday(
+  todayPings: Ping[],
+  priorAccountKeys: Set<string>,
+  priorInstallIds: Set<string>,
+): NewSubscriber[] {
+  const byIdentity = new Map<string, NewSubscriber>();
+  for (const p of todayPings) {
+    if (!p.subscription_active) continue;
+    const isAccount = !!p.account_key;
+    const identity = p.account_key ?? p.install_id;
+    const existedBefore = isAccount
+      ? priorAccountKeys.has(p.account_key as string)
+      : priorInstallIds.has(p.install_id);
+    if (existedBefore) continue;
+
+    const prev = byIdentity.get(identity);
+    if (!prev || p.updated_at > prev.updated_at) {
+      byIdentity.set(identity, {
+        identity,
+        isAccount,
+        plan: p.plan,
+        platform: p.platform ?? null,
+        updated_at: p.updated_at,
+      });
+    }
+  }
+  return [...byIdentity.values()].sort((a, b) =>
+    b.updated_at.localeCompare(a.updated_at),
+  );
+}
+
 /// Resume la actividad de hoy. `pings` y `aiRows` ya vienen filtrados a hoy.
 export function summarizeToday(pings: Ping[], aiRows: AiUsage[]): TodaySummary {
   const installs = new Set<string>();

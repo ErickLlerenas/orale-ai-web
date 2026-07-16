@@ -4,6 +4,7 @@ import {
   summarize,
   summarizeAi,
   summarizeToday,
+  newSubscribersToday,
   planLabel,
   platformLabel,
   fechaHora,
@@ -14,6 +15,7 @@ import {
   mxToday,
   type Ping,
   type AiUsage,
+  type NewSubscriber,
 } from "@/lib/metrics";
 import MonthSelect from "./MonthSelect";
 
@@ -89,6 +91,57 @@ export default async function Admin({
     );
   }
 
+  // ¿Quiénes se suscribieron HOY? = suscritos hoy sin historial de suscripción
+  // previa (comparado contra todos los pings anteriores a hoy).
+  let newSubs: NewSubscriber[] = [];
+  if (!errorMsg) {
+    const subToday = todayPings.filter((p) => p.subscription_active);
+    const accountKeys = [
+      ...new Set(
+        subToday
+          .filter((p) => p.account_key)
+          .map((p) => p.account_key as string),
+      ),
+    ];
+    const installIds = [
+      ...new Set(
+        subToday.filter((p) => !p.account_key).map((p) => p.install_id),
+      ),
+    ];
+    if (subToday.length > 0) {
+      try {
+        const supabase = adminClient();
+        const priorAccSet = new Set<string>();
+        const priorInstSet = new Set<string>();
+        if (accountKeys.length) {
+          const res = await supabase
+            .from("usage_pings")
+            .select("account_key")
+            .eq("subscription_active", true)
+            .lt("ping_date", today)
+            .in("account_key", accountKeys);
+          for (const r of (res.data ?? []) as { account_key: string | null }[]) {
+            if (r.account_key) priorAccSet.add(r.account_key);
+          }
+        }
+        if (installIds.length) {
+          const res = await supabase
+            .from("usage_pings")
+            .select("install_id")
+            .eq("subscription_active", true)
+            .lt("ping_date", today)
+            .in("install_id", installIds);
+          for (const r of (res.data ?? []) as { install_id: string }[]) {
+            priorInstSet.add(r.install_id);
+          }
+        }
+        newSubs = newSubscribersToday(todayPings, priorAccSet, priorInstSet);
+      } catch {
+        // Silencioso: si falla el historial, no mostramos nuevos suscriptores.
+      }
+    }
+  }
+
   const s = summarize(rows, month);
   const ai = summarizeAi(aiRows);
   const t = summarizeToday(todayPings, todayAi);
@@ -98,7 +151,7 @@ export default async function Admin({
   const todayKpis = [
     { v: t.activeInstalls, l: "Negocios activos" },
     { v: t.newInstalls, l: "Nuevas instalaciones" },
-    { v: t.subscribed, l: "Suscritos activos" },
+    { v: newSubs.length, l: "Se suscribieron hoy" },
     { v: t.orders, l: "Órdenes" },
     { v: t.aiCalls, l: "Llamadas IA" },
   ];
