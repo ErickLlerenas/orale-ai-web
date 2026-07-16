@@ -201,6 +201,39 @@ export default async function Admin({
         </div>
       </section>
 
+      <div className="panel">
+        <h2>Se suscribieron hoy ({newSubs.length})</h2>
+        <p className="muted">
+          Cuentas o dispositivos cuya suscripción se activó por primera vez hoy.
+        </p>
+        {newSubs.length === 0 ? (
+          <p className="muted">Nadie se ha suscrito hoy… todavía. 🌮</p>
+        ) : (
+          <table className="data">
+            <thead>
+              <tr>
+                <th>Identidad</th>
+                <th>Tipo</th>
+                <th>Plan</th>
+                <th>Plataforma</th>
+                <th>Hora</th>
+              </tr>
+            </thead>
+            <tbody>
+              {newSubs.map((n) => (
+                <tr key={n.identity}>
+                  <td title={n.identity}>{n.identity.slice(0, 12)}</td>
+                  <td>{n.isAccount ? "Cuenta" : "Dispositivo"}</td>
+                  <td>{planLabel(n.plan)}</td>
+                  <td>{platformLabel(n.platform)}</td>
+                  <td>{fechaHora(n.updated_at)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
       {groups.map((g) => (
         <section className="kpi-group" key={g.title}>
           <h2 className="kpi-group-title">{g.title}</h2>
