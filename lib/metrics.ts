@@ -132,6 +132,38 @@ function platformKey(platform: string | null): PlatformKey {
   return "unknown";
 }
 
+/// Métricas del día de hoy (independientes del mes seleccionado).
+export type TodaySummary = {
+  activeInstalls: number; // dispositivos que pingearon hoy
+  orders: number; // órdenes de hoy
+  aiCalls: number; // llamadas a IA hoy
+  subscribed: number; // dispositivos con suscripción activa hoy
+  newInstalls: number; // instalaciones hechas hoy (days_since_install === 0)
+};
+
+/// Resume la actividad de hoy. `pings` y `aiRows` ya vienen filtrados a hoy.
+export function summarizeToday(pings: Ping[], aiRows: AiUsage[]): TodaySummary {
+  const installs = new Set<string>();
+  let orders = 0;
+  let subscribed = 0;
+  let newInstalls = 0;
+  for (const p of pings) {
+    installs.add(p.install_id);
+    orders += p.orders_today;
+    if (p.subscription_active) subscribed++;
+    if (p.days_since_install === 0) newInstalls++;
+  }
+  let aiCalls = 0;
+  for (const r of aiRows) aiCalls += r.count;
+  return {
+    activeInstalls: installs.size,
+    orders,
+    aiCalls,
+    subscribed,
+    newInstalls,
+  };
+}
+
 /// Calcula todas las métricas del dashboard para un mes dado (yyyy-mm).
 /// `rows` ya vienen filtradas a ese mes desde la consulta.
 export function summarize(rows: Ping[], month: string): Summary {

@@ -3,6 +3,7 @@ import { adminClient } from "@/lib/supabase";
 import {
   summarize,
   summarizeAi,
+  summarizeToday,
   planLabel,
   platformLabel,
   fechaHora,
@@ -10,6 +11,7 @@ import {
   monthLabel,
   monthOptions,
   monthRange,
+  mxToday,
   type Ping,
   type AiUsage,
 } from "@/lib/metrics";
@@ -34,13 +36,17 @@ export default async function Admin({
       : currentMonth();
   const { start, end } = monthRange(month);
 
+  const today = mxToday();
+
   let rows: Ping[] = [];
   let aiRows: AiUsage[] = [];
+  let todayPings: Ping[] = [];
+  let todayAi: AiUsage[] = [];
   let errorMsg: string | null = null;
 
   try {
     const supabase = adminClient();
-    const [pings, ai] = await Promise.all([
+    const [pings, ai, todayPingsRes, todayAiRes] = await Promise.all([
       supabase
         .from("usage_pings")
         .select("*")
@@ -53,12 +59,18 @@ export default async function Admin({
         .gte("usage_date", start)
         .lte("usage_date", end)
         .order("usage_date", { ascending: false }),
+      supabase.from("usage_pings").select("*").eq("ping_date", today),
+      supabase.from("ai_usage").select("*").eq("usage_date", today),
     ]);
     if (pings.error) errorMsg = pings.error.message;
     else if (ai.error) errorMsg = ai.error.message;
+    else if (todayPingsRes.error) errorMsg = todayPingsRes.error.message;
+    else if (todayAiRes.error) errorMsg = todayAiRes.error.message;
     else {
       rows = (pings.data ?? []) as Ping[];
       aiRows = (ai.data ?? []) as AiUsage[];
+      todayPings = (todayPingsRes.data ?? []) as Ping[];
+      todayAi = (todayAiRes.data ?? []) as AiUsage[];
     }
   } catch (e) {
     errorMsg = e instanceof Error ? e.message : String(e);
@@ -79,8 +91,17 @@ export default async function Admin({
 
   const s = summarize(rows, month);
   const ai = summarizeAi(aiRows);
+  const t = summarizeToday(todayPings, todayAi);
   const aiByInstall = new Map(ai.byInstall.map((u) => [u.install_id, u]));
   const maxDaily = Math.max(1, ...s.dailyActive.map((d) => d.count));
+
+  const todayKpis = [
+    { v: t.activeInstalls, l: "Negocios activos" },
+    { v: t.newInstalls, l: "Nuevas instalaciones" },
+    { v: t.subscribed, l: "Suscritos activos" },
+    { v: t.orders, l: "Órdenes" },
+    { v: t.aiCalls, l: "Llamadas IA" },
+  ];
 
   const groups = [
     {
@@ -111,6 +132,21 @@ export default async function Admin({
         </div>
         <MonthSelect value={month} options={options} />
       </header>
+
+      <section className="kpi-group today-group">
+        <h2 className="kpi-group-title">
+          <span className="live-dot" />
+          Hoy · {fechaHora(new Date().toISOString()).split(",")[0]}
+        </h2>
+        <div className="kpis">
+          {todayKpis.map((k) => (
+            <div className="kpi" key={k.l}>
+              <div className="v">{k.v}</div>
+              <div className="l">{k.l}</div>
+            </div>
+          ))}
+        </div>
+      </section>
 
       {groups.map((g) => (
         <section className="kpi-group" key={g.title}>
