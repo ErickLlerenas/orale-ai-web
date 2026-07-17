@@ -15,7 +15,6 @@ import {
   mxToday,
   type Ping,
   type AiUsage,
-  type NewSubscriber,
 } from "@/lib/metrics";
 import MonthSelect from "./MonthSelect";
 
@@ -91,56 +90,8 @@ export default async function Admin({
     );
   }
 
-  // ¿Quiénes se suscribieron HOY? = suscritos hoy sin historial de suscripción
-  // previa (comparado contra todos los pings anteriores a hoy).
-  let newSubs: NewSubscriber[] = [];
-  if (!errorMsg) {
-    const subToday = todayPings.filter((p) => p.subscription_active);
-    const accountKeys = [
-      ...new Set(
-        subToday
-          .filter((p) => p.account_key)
-          .map((p) => p.account_key as string),
-      ),
-    ];
-    const installIds = [
-      ...new Set(
-        subToday.filter((p) => !p.account_key).map((p) => p.install_id),
-      ),
-    ];
-    if (subToday.length > 0) {
-      try {
-        const supabase = adminClient();
-        const priorAccSet = new Set<string>();
-        const priorInstSet = new Set<string>();
-        if (accountKeys.length) {
-          const res = await supabase
-            .from("usage_pings")
-            .select("account_key")
-            .eq("subscription_active", true)
-            .lt("ping_date", today)
-            .in("account_key", accountKeys);
-          for (const r of (res.data ?? []) as { account_key: string | null }[]) {
-            if (r.account_key) priorAccSet.add(r.account_key);
-          }
-        }
-        if (installIds.length) {
-          const res = await supabase
-            .from("usage_pings")
-            .select("install_id")
-            .eq("subscription_active", true)
-            .lt("ping_date", today)
-            .in("install_id", installIds);
-          for (const r of (res.data ?? []) as { install_id: string }[]) {
-            priorInstSet.add(r.install_id);
-          }
-        }
-        newSubs = newSubscribersToday(todayPings, priorAccSet, priorInstSet);
-      } catch {
-        // Silencioso: si falla el historial, no mostramos nuevos suscriptores.
-      }
-    }
-  }
+  // Nuevos hoy = primera suscripción con fecha de hoy (`subscribed_at`).
+  const newSubs = newSubscribersToday(todayPings, today);
 
   const s = summarize(rows, month);
   const ai = summarizeAi(aiRows);
@@ -152,7 +103,7 @@ export default async function Admin({
     { v: t.activeInstalls, l: "Negocios activos" },
     { v: t.newInstalls, l: "Nuevas instalaciones" },
     { v: newSubs.length, l: "Se suscribieron hoy" },
-    { v: t.orders, l: "Órdenes" },
+    { v: t.orders, l: "Órdenes hoy" },
     { v: t.aiCalls, l: "Llamadas IA" },
   ];
 
@@ -168,11 +119,12 @@ export default async function Admin({
     },
   ];
 
-  const platformRows: { key: "ios" | "android" | "windows"; label: string }[] = [
-    { key: "ios", label: "iOS" },
-    { key: "android", label: "Android" },
-    { key: "windows", label: "Windows" },
-  ];
+  const platformRows: { key: "ios" | "android" | "windows"; label: string }[] =
+    [
+      { key: "ios", label: "iOS" },
+      { key: "android", label: "Android" },
+      { key: "windows", label: "Windows" },
+    ];
 
   return (
     <main className="admin">
@@ -204,7 +156,7 @@ export default async function Admin({
       <div className="panel">
         <h2>Se suscribieron hoy ({newSubs.length})</h2>
         <p className="muted">
-          Cuentas o dispositivos cuya suscripción se activó por primera vez hoy.
+          Primera suscripción con fecha de hoy (<code>subscribed_at</code>).
         </p>
         {newSubs.length === 0 ? (
           <p className="muted">Nadie se ha suscrito hoy… todavía. 🌮</p>
@@ -272,6 +224,10 @@ export default async function Admin({
             <div className="l">Plan anual</div>
           </div>
           <div className="kpi">
+            <div className="v">{s.pro}</div>
+            <div className="l">Órale AI Pro</div>
+          </div>
+          <div className="kpi">
             <div className="v">{s.multiDevice.length}</div>
             <div className="l">Doble sucursal</div>
           </div>
@@ -286,6 +242,7 @@ export default async function Admin({
               <th>Suscritos</th>
               <th>Mensual</th>
               <th>Anual</th>
+              <th>Pro</th>
             </tr>
           </thead>
           <tbody>
@@ -302,6 +259,7 @@ export default async function Admin({
                   <td>{stats.subscribed}</td>
                   <td>{stats.monthly}</td>
                   <td>{stats.yearly}</td>
+                  <td>{stats.pro}</td>
                 </tr>
               );
             })}
@@ -316,6 +274,7 @@ export default async function Admin({
                 <td>{s.platforms.unknown.subscribed}</td>
                 <td>{s.platforms.unknown.monthly}</td>
                 <td>{s.platforms.unknown.yearly}</td>
+                <td>{s.platforms.unknown.pro}</td>
               </tr>
             )}
           </tbody>
@@ -376,9 +335,8 @@ export default async function Admin({
       <div className="panel">
         <h2>Usuarios ({s.latest.length})</h2>
         <p className="muted">
-          Una fila por instalación activa en {monthLabel(month)}. La columna IA
-          cuenta las llamadas a las funciones de IA (armar menú y reportes) en
-          el mes.
+          Una fila por instalación activa en {monthLabel(month)}. Órdenes =
+          total histórico en el dispositivo. IA = llamadas del mes.
         </p>
         {s.latest.length === 0 ? (
           <p className="muted">
@@ -395,9 +353,11 @@ export default async function Admin({
                 <th>Plataforma</th>
                 <th>Versión</th>
                 <th>Productos</th>
-                <th>Órdenes (último)</th>
+                <th>Órdenes (total)</th>
+                <th>Hoy</th>
                 <th>Ventas (rango)</th>
                 <th>IA (mes)</th>
+                <th>Suscrito el</th>
                 <th>Plan</th>
                 <th>Estado</th>
               </tr>
@@ -418,11 +378,21 @@ export default async function Admin({
                     <td>{platformLabel(p.platform)}</td>
                     <td>{p.app_version ?? "—"}</td>
                     <td>{p.product_count}</td>
-                    <td>{p.orders_today}</td>
+                    <td title="Órdenes cerradas acumuladas">
+                      {p.orders_total ?? 0}
+                    </td>
+                    <td title="Órdenes cerradas hoy">{p.orders_today ?? 0}</td>
                     <td>{p.sales_bucket ?? "—"}</td>
-                    <td title={u ? `Hoy: ${u.today} · Último uso: ${u.lastDate}` : "Sin uso de IA"}>
+                    <td
+                      title={
+                        u
+                          ? `Hoy: ${u.today} · Último uso: ${u.lastDate}`
+                          : "Sin uso de IA"
+                      }
+                    >
                       {u ? u.total : "—"}
                     </td>
+                    <td>{p.subscribed_at ?? "—"}</td>
                     <td>{p.subscription_active ? planLabel(p.plan) : "—"}</td>
                     <td>
                       {p.subscription_active ? (
