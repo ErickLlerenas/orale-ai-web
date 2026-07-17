@@ -1,4 +1,10 @@
-export type Plan = "monthly" | "yearly" | "none" | "unknown";
+export type Plan =
+  | "monthly"
+  | "yearly"
+  | "pro_monthly"
+  | "pro_yearly"
+  | "none"
+  | "unknown";
 
 export type AnalyticsPlatform = "ios" | "android" | "windows" | "unknown";
 
@@ -9,11 +15,13 @@ export type Ping = {
   platform: AnalyticsPlatform | string | null;
   app_version: string | null;
   orders_today: number;
+  orders_total: number; // órdenes cerradas acumuladas en el dispositivo
   sales_bucket: string | null; // rango de ventas del día (no el monto exacto)
   product_count: number;
   days_since_install: number;
   subscription_active: boolean;
-  plan: Plan | null; // qué producto compró: monthly | yearly
+  plan: Plan | null; // qué producto compró
+  subscribed_at: string | null; // yyyy-mm-dd primera suscripción
   updated_at: string;
 };
 
@@ -33,6 +41,10 @@ export function planLabel(plan: Plan | null): string {
       return "Mensual";
     case "yearly":
       return "Anual";
+    case "pro_monthly":
+      return "Pro mensual";
+    case "pro_yearly":
+      return "Pro anual";
     default:
       return "—";
   }
@@ -82,7 +94,10 @@ export function monthLabel(month: string): string {
 export function monthRange(month: string): { start: string; end: string } {
   const [y, m] = month.split("-").map(Number);
   const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
-  return { start: `${month}-01`, end: `${month}-${String(lastDay).padStart(2, "0")}` };
+  return {
+    start: `${month}-01`,
+    end: `${month}-${String(lastDay).padStart(2, "0")}`,
+  };
 }
 
 /// Lista de los últimos `count` meses (más reciente primero) para el selector.
@@ -104,25 +119,27 @@ export type PlatformStats = {
   subscribed: number;
   monthly: number;
   yearly: number;
+  pro: number;
 };
 
 export type PlatformKey = AnalyticsPlatform;
 
 export type Summary = {
   activeInstalls: number; // dispositivos que pingearon en el mes
-  totalOrders: number; // suma de órdenes en el mes
+  totalOrders: number; // suma de órdenes del día (actividad del mes)
   subscribed: number; // DISPOSITIVOS con suscripción activa
   payingAccounts: number; // CUENTAS de pago (deduplicado, no por dispositivo)
   multiDevice: AccountRow[]; // cuentas usadas en 2+ dispositivos (doble sucursal)
   monthly: number;
   yearly: number;
+  pro: number;
   platforms: Record<PlatformKey, PlatformStats>;
   dailyActive: { date: string; count: number }[]; // por día del mes
   latest: Ping[]; // último ping por instalación (más reciente primero)
 };
 
 function emptyPlatformStats(): PlatformStats {
-  return { installs: 0, subscribed: 0, monthly: 0, yearly: 0 };
+  return { installs: 0, subscribed: 0, monthly: 0, yearly: 0, pro: 0 };
 }
 
 function platformKey(platform: string | null): PlatformKey {
@@ -130,6 +147,18 @@ function platformKey(platform: string | null): PlatformKey {
     return platform;
   }
   return "unknown";
+}
+
+function isMonthlyPlan(plan: Plan | null): boolean {
+  return plan === "monthly" || plan === "pro_monthly";
+}
+
+function isYearlyPlan(plan: Plan | null): boolean {
+  return plan === "yearly" || plan === "pro_yearly";
+}
+
+function isProPlan(plan: Plan | null): boolean {
+  return plan === "pro_monthly" || plan === "pro_yearly";
 }
 
 /// Métricas del día de hoy (independientes del mes seleccionado).
@@ -148,27 +177,19 @@ export type NewSubscriber = {
   plan: Plan | null;
   platform: string | null;
   updated_at: string;
+  subscribed_at: string; // yyyy-mm-dd
 };
 
-/// Detecta quién se suscribió HOY por primera vez: dispositivos/cuentas con
-/// suscripción activa hoy que NO tenían historial de suscripción previa.
-/// `priorAccountKeys` y `priorInstallIds` son identidades que ya estaban
-/// suscritas antes de hoy (se calculan con una consulta al historial).
+/// Suscriptores cuya primera suscripción es HOY (`subscribed_at === today`).
 export function newSubscribersToday(
   todayPings: Ping[],
-  priorAccountKeys: Set<string>,
-  priorInstallIds: Set<string>,
+  today: string,
 ): NewSubscriber[] {
   const byIdentity = new Map<string, NewSubscriber>();
   for (const p of todayPings) {
-    if (!p.subscription_active) continue;
+    if (p.subscribed_at !== today) continue;
     const isAccount = !!p.account_key;
     const identity = p.account_key ?? p.install_id;
-    const existedBefore = isAccount
-      ? priorAccountKeys.has(p.account_key as string)
-      : priorInstallIds.has(p.install_id);
-    if (existedBefore) continue;
-
     const prev = byIdentity.get(identity);
     if (!prev || p.updated_at > prev.updated_at) {
       byIdentity.set(identity, {
@@ -177,6 +198,7 @@ export function newSubscribersToday(
         plan: p.plan,
         platform: p.platform ?? null,
         updated_at: p.updated_at,
+        subscribed_at: p.subscribed_at,
       });
     }
   }
@@ -193,7 +215,7 @@ export function summarizeToday(pings: Ping[], aiRows: AiUsage[]): TodaySummary {
   let newInstalls = 0;
   for (const p of pings) {
     installs.add(p.install_id);
-    orders += p.orders_today;
+    orders += p.orders_today ?? 0;
     if (p.subscription_active) subscribed++;
     if (p.days_since_install === 0) newInstalls++;
   }
@@ -221,7 +243,7 @@ export function summarize(rows: Ping[], month: string): Summary {
 
   for (const r of rows) {
     installs.add(r.install_id);
-    totalOrders += r.orders_today;
+    totalOrders += r.orders_today ?? 0;
 
     const prev = latestByInstall.get(r.install_id);
     if (!prev || r.ping_date > prev.ping_date) {
@@ -237,6 +259,7 @@ export function summarize(rows: Ping[], month: string): Summary {
   let subscribed = 0;
   let monthly = 0;
   let yearly = 0;
+  let pro = 0;
   const platforms: Record<PlatformKey, PlatformStats> = {
     ios: emptyPlatformStats(),
     android: emptyPlatformStats(),
@@ -249,12 +272,16 @@ export function summarize(rows: Ping[], month: string): Summary {
     if (p.subscription_active) {
       subscribed++;
       platforms[key].subscribed++;
-      if (p.plan === "monthly") {
+      if (isMonthlyPlan(p.plan)) {
         monthly++;
         platforms[key].monthly++;
-      } else if (p.plan === "yearly") {
+      } else if (isYearlyPlan(p.plan)) {
         yearly++;
         platforms[key].yearly++;
+      }
+      if (isProPlan(p.plan)) {
+        pro++;
+        platforms[key].pro++;
       }
     }
   }
@@ -312,6 +339,7 @@ export function summarize(rows: Ping[], month: string): Summary {
     multiDevice,
     monthly,
     yearly,
+    pro,
     platforms,
     dailyActive,
     latest,
