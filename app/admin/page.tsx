@@ -161,6 +161,7 @@ export default async function Admin({
         {newSubs.length === 0 ? (
           <p className="muted">Nadie se ha suscrito hoy… todavía. 🌮</p>
         ) : (
+          <div className="table-wrap">
           <table className="data">
             <thead>
               <tr>
@@ -183,6 +184,7 @@ export default async function Admin({
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 
@@ -293,6 +295,7 @@ export default async function Admin({
             las apps actualizadas manden su account_key.)
           </p>
         ) : (
+          <div className="table-wrap">
           <table className="data">
             <thead>
               <tr>
@@ -313,6 +316,7 @@ export default async function Admin({
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 
@@ -343,6 +347,7 @@ export default async function Admin({
             Aún no hay datos. Aparecerán cuando las apps manden su primer ping.
           </p>
         ) : (
+          <div className="table-wrap">
           <table className="data">
             <thead>
               <tr>
@@ -406,6 +411,7 @@ export default async function Admin({
               })}
             </tbody>
           </table>
+          </div>
         )}
       </div>
     </main>

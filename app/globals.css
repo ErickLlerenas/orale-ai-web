@@ -857,6 +857,11 @@ section {
   font-size: 11px;
   font-weight: 700;
 }
+.table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: 0 -4px;
+}
 table.data {
   width: 100%;
   border-collapse: collapse;
@@ -867,6 +872,7 @@ table.data td {
   padding: 12px 10px;
   border-bottom: 1px solid var(--border);
   font-size: 14px;
+  white-space: nowrap;
 }
 table.data th {
   color: var(--ink-soft);
