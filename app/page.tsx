@@ -4,68 +4,68 @@ import Nav from "@/components/Nav";
 const features = [
   {
     icon: "🧾",
-    title: "Vende y cobra rápido",
-    text: "Toma la orden, imprime comanda o cuenta y cobra con propina. Sin curva de aprendizaje.",
+    title: "Vende y cobra al momento",
+    text: "Toma la orden, imprime la comanda o la cuenta y cobra con propina. Listo para usar desde el primer día.",
   },
   {
     icon: "🥡",
-    title: "Para llevar",
-    text: "Atiende pedidos para llevar en segundos, con nombre de cliente y ticket listo para cobrar.",
+    title: "Pedidos para llevar",
+    text: "Registra el nombre del cliente y cobra en segundos. Ideal para mostrador y comida rápida.",
   },
   {
     icon: "✨",
-    title: "Arma tu menú con IA",
-    text: "Toma una foto de tu menú impreso y la IA crea productos, precios, categorías y modificadores por ti.",
+    title: "Menú con una foto",
+    text: "Fotografía tu menú impreso y la IA crea productos, precios, categorías y modificadores por ti.",
     accent: true,
   },
   {
     icon: "📊",
-    title: "Reportes con IA",
-    text: "Descubre tu producto estrella, tu día más flojo y qué surtir. Consejos claros, en español.",
+    title: "Reportes claros con IA",
+    text: "Te dice qué se vende más, qué día está flojo y qué conviene surtir. En español, sin tecnicismos.",
     accent: true,
   },
   {
     icon: "💰",
     title: "Caja e inventario",
-    text: "Corte del día, gastos, ventas cerradas y control de existencias. Todo en la misma app.",
+    text: "Corte del día, gastos y existencias en la misma app. Olvídate de las hojas de cálculo.",
   },
   {
     icon: "👥",
-    title: "Dueño y meseros",
-    text: "Cada quien entra con su PIN. El dueño administra; el equipo vende y cobra sin enredos.",
+    title: "PIN para cada quien",
+    text: "El dueño administra el negocio; meseros y cajeros solo ven lo que necesitan para vender.",
   },
   {
     icon: "📵",
-    title: "Funciona sin internet",
-    text: "Tus datos viven en tu dispositivo. El punto de venta sigue aunque se caiga la red.",
+    title: "Sin internet, sigues vendiendo",
+    text: "En el plan normal tus datos viven en el dispositivo. Si se cae la red, el punto de venta sigue.",
   },
   {
     icon: "🖨️",
     title: "Impresión térmica",
-    text: "Bluetooth o impresoras de red por área: cocina, barra y caja. Tickets separados.",
+    text: "Conecta por Bluetooth o red y manda tickets a cocina, barra o caja, por separado.",
   },
   {
     icon: "🛡️",
-    title: "Respaldo cuando quieras",
-    text: "Exporta toda tu información a un archivo. Tus datos son tuyos.",
+    title: "Tus datos son tuyos",
+    text: "Exporta un respaldo cuando quieras y guárdalo donde te acomode. Sin amarres raros.",
   },
 ];
 
 const proFeatures = [
   {
     icon: "📱",
-    title: "Varios meseros",
-    text: "Cada quien pide desde su celular. El menú se sincroniza solo; tú cobras en tu caja.",
+    title: "Cada mesero en su celular",
+    text: "Toman pedidos desde su teléfono. Tú cobras en la caja. El menú se actualiza solo para todos.",
   },
   {
     icon: "☁️",
-    title: "Órdenes compartidas",
-    text: "Las comandas viven en la nube del negocio. Sin dejar una tablet siempre encendida.",
+    title: "Comandas al instante",
+    text: "Las órdenes se sincronizan en el negocio. No necesitas dejar una tablet encendida como hub.",
   },
   {
     icon: "📶",
-    title: "Impresión por WiFi",
-    text: "Cada celular imprime por la red del local. Bluetooth no alcanza con varios dispositivos.",
+    title: "Impresión por la red",
+    text: "Cada celular manda la comanda a la impresora del local. Bluetooth no alcanza cuando hay varios.",
   },
 ];
 
@@ -73,13 +73,17 @@ const steps = [
   {
     n: "1",
     title: "Descarga la app",
-    text: "En celular o tablet, desde App Store o Google Play.",
+    text: "En tu celular o tablet, desde App Store o Google Play.",
   },
-  { n: "2", title: "Arma tu menú", text: "Con una foto y la IA, en minutos." },
+  {
+    n: "2",
+    title: "Arma tu menú",
+    text: "Con una foto y la IA, o agrégalo a mano si prefieres.",
+  },
   {
     n: "3",
     title: "Empieza a vender",
-    text: "El mismo día, sin servidores ni complicaciones.",
+    text: "El mismo día. Sin instalar servidores ni llamar a un técnico.",
   },
 ];
 
@@ -109,8 +113,8 @@ export default function Home() {
               El punto de venta con <em>IA</em> para tu negocio
             </h1>
             <p>
-              Para taquerías, fondas, cafeterías y food trucks. Empieza a vender
-              el mismo día, sin servidor ni complicaciones.
+              Hecho para taquerías, fondas, cafeterías y food trucks. Descárgalo,
+              arma tu menú y vende hoy mismo.
             </p>
             <div className="badges">
               <a
@@ -166,9 +170,10 @@ export default function Home() {
         </section>
 
         <section id="features" className="container">
-          <h2 className="section-title">Todo lo que tu negocio necesita</h2>
+          <h2 className="section-title">Lo que necesitas para vender</h2>
           <p className="section-sub">
-            Lo esencial para vender, más IA que te ayuda a crecer.
+            Punto de venta completo, con IA que te ayuda a armar el menú y
+            entender tus ventas.
           </p>
           <div className="grid">
             {features.map((f) => (
@@ -189,12 +194,11 @@ export default function Home() {
             <div className="pro-header">
               <div>
                 <p className="pro-eyebrow">Órale AI Pro</p>
-                <h2 className="pro-title">Varios meseros, un solo negocio</h2>
+                <h2 className="pro-title">Cuando tu equipo ya no cabe en un solo dispositivo</h2>
                 <p className="pro-sub">
-                  Cada mesero toma órdenes en su celular; las comandas salen
-                  directo a cocina. El cobro sigue en tu equipo. A diferencia
-                  del plan normal, Pro sí necesita WiFi del local e impresora de
-                  red.
+                  Cada mesero toma pedidos en su celular y las comandas llegan a
+                  cocina. Tú cobras en la caja. Pro necesita WiFi del local e
+                  impresora de red; el plan normal no.
                 </p>
               </div>
               <a className="btn btn-gold" href="#precios">
@@ -211,9 +215,9 @@ export default function Home() {
               ))}
             </div>
             <p className="pro-note">
-              <strong>Importante:</strong> Pro requiere WiFi estable e impresora
-              de red. Se activa en la app: Ajustes → Equipo y accesos → Varios
-              meseros. Solo México.
+              <strong>Importante:</strong> Pro se activa en la app (Ajustes →
+              Equipo y accesos → Varios meseros). Solo México. Si no tienes WiFi
+              estable, quédate en el plan normal.
             </p>
           </div>
         </section>
@@ -221,7 +225,7 @@ export default function Home() {
         <section id="precios" className="container">
           <h2 className="section-title">Elige tu plan</h2>
           <p className="section-sub">
-            Plan normal funciona sin internet. Pro necesita WiFi del local.
+            Empieza sin internet. Si tu equipo crece, sube a Pro con WiFi.
           </p>
           <div className="pricing">
             <div className="plan-card">
@@ -244,7 +248,7 @@ export default function Home() {
               <a className="btn btn-primary plan-cta" href="#cta">
                 Empezar gratis
               </a>
-              <p className="plan-foot">No necesitas WiFi para vender</p>
+              <p className="plan-foot">Ideal si vendes desde un solo equipo</p>
             </div>
 
             <div className="plan-card featured">
@@ -261,17 +265,16 @@ export default function Home() {
                 o $1,599 MXN / año · ahorra ~4 meses
               </p>
               <ul className="plan-list">
-                <li>Todo del plan normal</li>
-                <li>Varios meseros en celular</li>
-                <li>Órdenes compartidas en la nube</li>
-                <li>Impresión por WiFi</li>
-                <li>Necesitas WiFi e impresora de red</li>
+                <li>Incluye todo el plan normal</li>
+                <li>Cada mesero pide desde su celular</li>
+                <li>Las comandas se sincronizan solas</li>
+                <li>Imprimen directo a cocina por la red</li>
               </ul>
               <a className="btn btn-gold plan-cta" href="#cta">
                 Quiero Pro
               </a>
               <p className="plan-foot">
-                Requiere WiFi · solo México · sin prueba gratis
+                Requiere WiFi e impresora de red · solo México
               </p>
             </div>
           </div>
@@ -279,7 +282,7 @@ export default function Home() {
 
         <section id="como" className="container">
           <h2 className="section-title">Listo en 3 pasos</h2>
-          <p className="section-sub">De cero a vendiendo en una tarde.</p>
+          <p className="section-sub">De cero a cobrando en una tarde.</p>
           <div className="steps">
             {steps.map((s) => (
               <div className="step" key={s.n}>
@@ -296,7 +299,7 @@ export default function Home() {
             <h2>Empieza gratis hoy</h2>
             <p>
               Descarga la app, arma tu menú con IA y vende el mismo día. Cuando
-              necesites varios meseros,{" "}
+              necesites varios meseros con WiFi,{" "}
               <a href="#pro">sube a Pro</a>.
             </p>
             <div className="cta-actions">

@@ -11,7 +11,7 @@ const jakarta = Plus_Jakarta_Sans({
 export const metadata: Metadata = {
   title: "Órale AI · Punto de venta con IA para tu negocio",
   description:
-    "Punto de venta con IA para taquerías, fondas y restaurantes en México. Disponible en iOS y Android. Offline, impresión térmica y menú con foto.",
+    "Punto de venta con IA para taquerías, fondas y food trucks en México. Menú con foto, reportes claros y funciona sin internet. Pro para varios meseros con WiFi.",
 };
 
 export default function RootLayout({
