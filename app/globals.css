@@ -447,6 +447,9 @@ section {
   border-radius: 24px;
   padding: 34px 30px;
 }
+.plan-card.recommended {
+  position: relative;
+}
 .plan-card.featured {
   position: relative;
   overflow: hidden;
@@ -459,8 +462,8 @@ section {
   position: absolute;
   top: 16px;
   right: 16px;
-  background: linear-gradient(135deg, var(--gold-light), var(--gold));
-  color: #3a2606;
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  color: #fff;
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -612,8 +615,8 @@ section {
   padding-bottom: 80px;
 }
 .cta {
-  background: var(--night);
-  color: var(--night-ink);
+  background: linear-gradient(160deg, #2a3548 0%, #1c2433 55%, #151b27 100%);
+  color: #f4f6fa;
   border-radius: 28px;
   padding: 56px 40px;
   text-align: center;
@@ -628,18 +631,19 @@ section {
 }
 .cta p {
   margin: 0 auto 26px;
-  color: var(--night-ink-soft);
+  color: rgba(244, 246, 250, 0.78);
   font-size: 17px;
   max-width: 520px;
   position: relative;
 }
-.cta a {
-  color: var(--gold-light);
+.cta-inline {
+  color: #fff;
   font-weight: 700;
-  text-decoration: none;
-}
-.cta a:hover {
   text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.cta-inline:hover {
+  color: var(--primary);
 }
 .cta-actions {
   position: relative;
