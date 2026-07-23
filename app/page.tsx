@@ -1,5 +1,5 @@
 import Footer from "@/components/Footer";
-import Nav from "@/components/Nav";
+import HeroPhone from "@/components/HeroPhone";
 import StoreBadges from "@/components/StoreBadges";
 
 const features = [
@@ -100,32 +100,22 @@ export default function Home() {
             <span className="hero-grain" />
           </div>
 
-          <Nav>
-            <a href="#features">Funciones</a>
-            <a href="#pro">Pro</a>
-            <a href="#precios">Precios</a>
-            <a href="#como">Cómo funciona</a>
-            <a className="nav-cta" href="#cta">
-              Descargar
-            </a>
-          </Nav>
-
           <div className="hero-content">
-            <div className="hero-brand">
-              <div className="hero-logo-wrap">
-                <img className="hero-logo" src="/logo.png" alt="" />
-              </div>
-              <p className="hero-name">
-                Órale<span> AI</span>
-              </p>
-            </div>
-            <h1>
-              Tu negocio vende. La <em>IA</em> te ayuda.
-            </h1>
-            <p>
-              Punto de venta para taquerías, fondas y food trucks. Arma el menú
-              con una foto y cobra el mismo día.
+            <p className="hero-name">
+              Órale<span> AI</span>
             </p>
+            <h1>
+              La <em>IA</em> arma tu menú.
+              <br />
+              Tú solo cobras.
+            </h1>
+            <p className="hero-lead">
+              Punto de venta para taquerías, fondas y food trucks. Fotografía tu
+              menú y la IA lo configura.
+            </p>
+
+            <HeroPhone />
+
             <StoreBadges />
           </div>
         </section>
