@@ -17,7 +17,8 @@ export default function Privacy() {
         <p className="muted">Última actualización: julio 2026</p>
 
         <p>
-          Órale AI es un punto de venta para iPhone/iPad, Android y Windows. En
+          Órale AI es un punto de venta para iPhone/iPad, Android, Windows y Mac.
+          En
           el <strong>plan normal</strong>, la información de tu negocio (menú,
           ventas, equipo, clientes) se guarda{" "}
           <strong>localmente en tu dispositivo</strong>. No la vendemos a

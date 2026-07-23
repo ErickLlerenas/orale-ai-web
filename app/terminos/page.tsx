@@ -27,8 +27,9 @@ export default function Terms() {
           Órale AI es una aplicación para tomar pedidos, cobrar, hacer cortes de
           caja y administrar tu menú. Está disponible para{" "}
           <strong>iPhone y iPad</strong> (App Store),{" "}
-          <strong>Android</strong> (Google Play) y <strong>Windows</strong>{" "}
-          (Microsoft Store). Según el dispositivo y el plan puede incluir{" "}
+          <strong>Android</strong> (Google Play), <strong>Windows</strong>{" "}
+          (Microsoft Store) y <strong>Mac</strong> (app de iPad en Apple
+          Silicon). Según el dispositivo y el plan puede incluir{" "}
           <strong>manejo de mesas</strong>,{" "}
           <strong>impresión en red por área</strong> (cocina, barra, caja) y{" "}
           <strong>varios dispositivos</strong> (Órale AI Pro).
