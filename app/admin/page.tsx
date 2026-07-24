@@ -119,12 +119,15 @@ export default async function Admin({
     },
   ];
 
-  const platformRows: { key: "ios" | "android" | "windows"; label: string }[] =
-    [
-      { key: "ios", label: "iOS" },
-      { key: "android", label: "Android" },
-      { key: "windows", label: "Windows" },
-    ];
+  const platformRows: {
+    key: "ios" | "android" | "windows" | "mac";
+    label: string;
+  }[] = [
+    { key: "ios", label: "iOS" },
+    { key: "android", label: "Android" },
+    { key: "windows", label: "Windows" },
+    { key: "mac", label: "Mac" },
+  ];
 
   return (
     <main className="admin">

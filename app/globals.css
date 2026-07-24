@@ -1189,6 +1189,10 @@ section {
   background: rgba(0, 120, 212, 0.14);
   color: #0078d4;
 }
+.platform-mac {
+  background: rgba(44, 44, 46, 0.12);
+  color: #2c2c2e;
+}
 .platform-unknown {
   background: #eef0f2;
   color: var(--ink-soft);

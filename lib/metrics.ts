@@ -6,7 +6,12 @@ export type Plan =
   | "none"
   | "unknown";
 
-export type AnalyticsPlatform = "ios" | "android" | "windows" | "unknown";
+export type AnalyticsPlatform =
+  | "ios"
+  | "android"
+  | "windows"
+  | "mac"
+  | "unknown";
 
 export type Ping = {
   install_id: string; // id ESTABLE de dispositivo
@@ -59,6 +64,8 @@ export function platformLabel(platform: string | null): string {
       return "Android";
     case "windows":
       return "Windows";
+    case "mac":
+      return "Mac";
     case "unknown":
       return "Desconocida";
     default:
@@ -143,7 +150,12 @@ function emptyPlatformStats(): PlatformStats {
 }
 
 function platformKey(platform: string | null): PlatformKey {
-  if (platform === "ios" || platform === "android" || platform === "windows") {
+  if (
+    platform === "ios" ||
+    platform === "android" ||
+    platform === "windows" ||
+    platform === "mac"
+  ) {
     return platform;
   }
   return "unknown";
@@ -264,6 +276,7 @@ export function summarize(rows: Ping[], month: string): Summary {
     ios: emptyPlatformStats(),
     android: emptyPlatformStats(),
     windows: emptyPlatformStats(),
+    mac: emptyPlatformStats(),
     unknown: emptyPlatformStats(),
   };
   for (const p of latest) {
