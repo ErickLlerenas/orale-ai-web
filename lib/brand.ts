@@ -1,7 +1,7 @@
 /**
  * Paleta de marca — una sola fuente de verdad.
  * Web: espejo de las CSS vars en globals.css (:root).
- * App Flutter: copia estos hex a tu theme Pro.
+ * App Flutter: `lib/core/theme/pro_brand.dart` (misma paleta Pro).
  */
 export const brand = {
   primary: "#F15A29",
@@ -15,17 +15,22 @@ export const brand = {
   border: "#E8EBF0",
 } as const;
 
-/** Todo lo “Pro” de la web y la app usa esta paleta (azul oscuro + naranja). */
+/** Todo lo “Pro” (web + app): navy oscuro + amber premium. */
 export const proBrand = {
   /** Acento / botones / checks */
-  accent: "#F15A29",
-  accentDark: "#D6481C",
-  soft: "rgba(241, 90, 41, 0.16)",
-  /** Fondos azul oscuro */
+  accent: "#F5B942",
+  accentDark: "#E0A82E",
+  soft: "rgba(245, 185, 66, 0.20)",
+  /** Fondos navy */
   surface: "#0B1220",
-  surface2: "#141C2E",
-  border: "rgba(241, 90, 41, 0.32)",
+  surface2: "#151D2E",
+  surfaceSelected: "#1A2740",
+  border: "#2A3548",
   /** Texto sobre oscuro */
   ink: "#F1F5F9",
   inkSoft: "#94A3B8",
+  /** Texto sobre botón amber */
+  onAccent: "#1A1408",
+  alertBg: "#1A1710",
+  muted: "#7C8A9E",
 } as const;

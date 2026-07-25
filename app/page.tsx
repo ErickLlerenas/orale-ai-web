@@ -145,8 +145,8 @@ export default function Home() {
             </ol>
             <p className="pro-note">
               <strong>Importante:</strong> Pro se activa en la app (Ajustes →
-              Equipo y accesos → Varios meseros). Solo México. Si no tienes WiFi
-              estable, quédate en el plan normal.
+              Equipo y accesos → Varios meseros). Si no tienes WiFi estable,
+              quédate en el plan normal.
             </p>
           </div>
         </section>
@@ -196,13 +196,12 @@ export default function Home() {
                 <li>Cada mesero pide desde su celular</li>
                 <li>Las comandas se sincronizan solas</li>
                 <li>Imprimen directo a cocina por la red</li>
+                <li>Ves en caja lo que piden en las mesas</li>
               </ul>
               <a className="btn btn-pro plan-cta" href="#cta">
                 Quiero Pro
               </a>
-              <p className="plan-foot">
-                Requiere WiFi e impresora de red · solo México
-              </p>
+              <p className="plan-foot">Requiere WiFi e impresora de red</p>
             </div>
           </div>
         </section>

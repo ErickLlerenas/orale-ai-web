@@ -3,15 +3,19 @@
   --primary-dark: #d6481c;
   --primary-soft: #fff0ea;
   --accent: #128a72;
-  /* Pro — azul oscuro + naranja. Misma paleta en web y app. Ver lib/brand.ts */
-  --pro: #f15a29;
-  --pro-dark: #d6481c;
-  --pro-soft: rgba(241, 90, 41, 0.16);
+  /* Pro — navy + amber. Misma paleta en web y app. Ver lib/brand.ts */
+  --pro: #f5b942;
+  --pro-dark: #e0a82e;
+  --pro-soft: rgba(245, 185, 66, 0.2);
   --pro-surface: #0b1220;
-  --pro-surface-2: #141c2e;
-  --pro-border: rgba(241, 90, 41, 0.32);
+  --pro-surface-2: #151d2e;
+  --pro-surface-selected: #1a2740;
+  --pro-border: #2a3548;
   --pro-ink: #f1f5f9;
   --pro-ink-soft: #94a3b8;
+  --pro-on: #1a1408;
+  --pro-alert-bg: #1a1710;
+  --pro-muted: #7c8a9e;
   --ink: #1f2933;
   --ink-soft: #667085;
   --surface: #f8f9fb;
@@ -149,10 +153,11 @@ a {
 }
 .btn-pro {
   background: var(--pro);
-  color: #fff;
+  color: var(--pro-on);
 }
 .btn-pro:hover {
   background: var(--pro-dark);
+  color: var(--pro-on);
 }
 
 /* ---- Hero (full-bleed + producto) ---- */
@@ -1000,8 +1005,8 @@ section {
   50% {
     box-shadow:
       0 8px 22px rgba(0, 0, 0, 0.28),
-      0 0 0 1px rgba(241, 90, 41, 0.4),
-      0 0 24px rgba(241, 90, 41, 0.16);
+      0 0 0 1px rgba(245, 185, 66, 0.45),
+      0 0 24px rgba(245, 185, 66, 0.18);
   }
 }
 .pro-pad-cam {
@@ -1044,7 +1049,7 @@ section {
 .pro-pad-chip {
   margin-top: auto;
   align-self: flex-start;
-  background: var(--pro);
+  background: var(--primary);
   color: #fff;
   font-size: 8px;
   font-weight: 800;
@@ -1102,8 +1107,8 @@ section {
 .caja-live {
   font-size: 10px;
   font-weight: 800;
-  color: var(--pro);
-  background: rgba(241, 90, 41, 0.12);
+  color: var(--primary);
+  background: var(--primary-soft);
   padding: 3px 8px;
   border-radius: 999px;
 }
@@ -1131,7 +1136,7 @@ section {
   animation: order-in 3.6s ease-in-out infinite;
 }
 .caja-orders .order b {
-  color: var(--pro);
+  color: var(--primary);
   font-size: 10px;
   flex-shrink: 0;
 }
