@@ -24,15 +24,14 @@ export default function Terms() {
 
         <h2>1. Qué es Órale AI</h2>
         <p>
-          Órale AI es una aplicación para tomar pedidos, cobrar, hacer cortes de
-          caja y administrar tu menú. Está disponible para{" "}
-          <strong>iPhone y iPad</strong> (App Store),{" "}
+          Órale AI es una aplicación para tomar pedidos u órdenes, manejar
+          mesas, cobrar, hacer cortes de caja y administrar tu menú. Está
+          disponible para <strong>iPhone y iPad</strong> (App Store),{" "}
           <strong>Android</strong> (Google Play), <strong>Windows</strong>{" "}
           (Microsoft Store) y <strong>Mac</strong> (app de iPad en Apple
-          Silicon). Según el dispositivo y el plan puede incluir{" "}
-          <strong>manejo de mesas</strong>,{" "}
-          <strong>impresión en red por área</strong> (cocina, barra, caja) y{" "}
-          <strong>varios dispositivos</strong> (Órale AI Pro).
+          Silicon). Esas funciones están en todos los planes;{" "}
+          <strong>Órale AI Pro</strong> agrega varios dispositivos sincronizados
+          en el mismo negocio.
         </p>
         <p>
           En el <strong>plan normal</strong>, la información de tu negocio
@@ -42,6 +41,11 @@ export default function Terms() {
           información (menú y órdenes abiertas) se sincroniza en la nube para
           que varios celulares operen el mismo negocio. Tú eres responsable de
           tus datos y de hacer respaldos.
+        </p>
+        <p>
+          En <strong>Windows</strong>, el pago de la suscripción se procesa con{" "}
+          <strong>Stripe</strong> (no con la tienda de Microsoft) y la
+          impresora se conecta por <strong>Ethernet o USB</strong>.
         </p>
 
         <h2>2. Uso permitido</h2>
@@ -65,45 +69,36 @@ export default function Terms() {
         </p>
         <ul>
           <li>
-            <strong>Plan normal mensual:</strong> $99 MXN al mes (
-            <code>orale_monthly</code>).
+            <strong>Plan normal mensual:</strong> $99 MXN al mes.
           </li>
           <li>
-            <strong>Plan normal anual:</strong> $799 MXN al año (
-            <code>orale_yearly</code>).
+            <strong>Plan normal anual:</strong> $799 MXN al año.
           </li>
           <li>
-            <strong>Órale AI Pro mensual:</strong> $199 MXN al mes (
-            <code>orale_pro_monthly</code>).
+            <strong>Órale AI Pro mensual:</strong> $199 MXN al mes.
           </li>
           <li>
-            <strong>Órale AI Pro anual:</strong> $1,599 MXN al año (
-            <code>orale_pro_yearly</code>).
+            <strong>Órale AI Pro anual:</strong> $1,599 MXN al año.
           </li>
         </ul>
         <p>
           El plan normal en App Store / Google Play incluye{" "}
           <strong>14 días de prueba</strong> al suscribirte.{" "}
           <strong>Órale AI Pro no incluye prueba gratis</strong>. Pro está
-          disponible solo en <strong>México</strong> y se activa dentro de la
-          app (Ajustes → Equipo y accesos → Varios meseros); no forma parte del
-          paywall principal del plan normal.
+          disponible solo en <strong>México</strong> y también puedes
+          contratarlo o activarlo desde la app (Ajustes → Equipo y accesos →
+          Varios meseros).
         </p>
         <p>
           <strong>Órale AI Pro</strong> está pensado para negocios con{" "}
-          <strong>WiFi en el local</strong> e{" "}
-          <strong>impresora de red</strong>. Permite varios celulares tomando
-          comandas y sincronización de menú y órdenes abiertas. Con Pro, los
-          meseros deben imprimir por red (Bluetooth no alcanza con varios
-          dispositivos). La impresión por red y por área (cocina, barra…){" "}
-          <strong>está disponible en todos los planes</strong>; Pro solo
-          exige red porque hay varios dispositivos. Si cancelas o dejas de
+          <strong>WiFi en el local</strong>. Permite varios celulares tomando
+          comandas y sincroniza menú y órdenes abiertas. Si cancelas o dejas de
           pagar Pro, el acceso multi-dispositivo y la sincronización dejan de
           estar disponibles.
         </p>
         <p>
-          <strong>En iPhone, iPad y Android:</strong> el cobro y la renovación
-          los gestiona <strong>Apple</strong> (App Store) o{" "}
+          <strong>En iPhone, iPad, Mac y Android:</strong> el cobro y la
+          renovación los gestiona <strong>Apple</strong> (App Store) o{" "}
           <strong>Google</strong> (Google Play). La suscripción se renueva
           automáticamente al final de cada periodo, a menos que la canceles al
           menos 24 horas antes de la renovación desde los ajustes de tu cuenta
@@ -122,8 +117,8 @@ export default function Terms() {
           a través de Stripe.
         </p>
         <p>
-          Los precios pueden variar según tu país y la moneda de tu cuenta. La
-          disponibilidad de cada plan depende de la tienda y la región.
+          Órale AI y sus planes están disponibles solo en{" "}
+          <strong>México</strong>, con precios en MXN.
         </p>
 
         <h2>4. Funciones con IA</h2>
@@ -138,9 +133,9 @@ export default function Terms() {
         <p>
           El punto de venta del plan normal funciona sin conexión; algunas
           funciones (como la IA) requieren internet. Órale AI Pro requiere
-          internet para sincronizar dispositivos y WiFi local para imprimir por
-          red. Podemos actualizar, cambiar o descontinuar funciones para mejorar
-          el producto.
+          internet y WiFi del local para sincronizar varios dispositivos.
+          Podemos actualizar, cambiar o descontinuar funciones para mejorar el
+          producto.
         </p>
 
         <h2>6. Limitación de responsabilidad</h2>
