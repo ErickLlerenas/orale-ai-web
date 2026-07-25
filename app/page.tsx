@@ -41,19 +41,19 @@ const proFeatures = [
 
 const steps = [
   {
-    n: "1",
+    n: "01",
     title: "Descárgala",
-    text: "En el botón de arriba, según tu dispositivo.",
+    text: "En tu celular o tablet, en un minuto.",
   },
   {
-    n: "2",
+    n: "02",
     title: "Arma tu menú",
-    text: "Con una foto y la IA, o a mano si prefieres.",
+    text: "Con una foto y la IA, o a mano.",
   },
   {
-    n: "3",
-    title: "Cobra hoy",
-    text: "Sin servidores, sin técnico, sin enredo.",
+    n: "03",
+    title: "Empieza a cobrar",
+    text: "El mismo día. Sin enredos.",
   },
 ];
 
@@ -207,32 +207,37 @@ export default function Home() {
           </div>
         </section>
 
-        <section id="como" className="container">
-          <h2 className="section-title">Listo en 3 pasos</h2>
-          <p className="section-sub">De cero a cobrando en una tarde.</p>
-          <div className="steps">
-            {steps.map((s) => (
-              <div className="step" key={s.n}>
-                <div className="num">{s.n}</div>
-                <h3>{s.title}</h3>
-                <p>{s.text}</p>
-              </div>
-            ))}
+        <section id="como" className="como">
+          <div className="container">
+            <h2 className="section-title">Listo en 3 pasos</h2>
+            <p className="section-sub">De cero a cobrando en una tarde.</p>
+            <ol className="steps">
+              {steps.map((s) => (
+                <li className="step" key={s.n}>
+                  <span className="step-num">{s.n}</span>
+                  <h3>{s.title}</h3>
+                  <p>{s.text}</p>
+                </li>
+              ))}
+            </ol>
           </div>
         </section>
 
-        <section id="cta" className="container">
-          <div className="cta">
-            <h2>Órale, ya vendiste</h2>
-            <p>
-              Descarga, arma tu menú con IA y cobra hoy. Cuando necesites varios
-              meseros,{" "}
-              <a className="cta-inline" href="#pro">
-                sube a Pro
-              </a>
-              .
-            </p>
-            <StoreBadges />
+        <section id="cta" className="cta-wrap">
+          <div className="container">
+            <div className="cta">
+              <p className="cta-eyebrow">Empieza gratis</p>
+              <h2>Órale, ya vendiste</h2>
+              <p className="cta-lead">
+                Descarga la app, arma tu menú con IA y cobra hoy. Si tu equipo
+                crece,{" "}
+                <a className="cta-inline" href="#pro">
+                  sube a Pro
+                </a>
+                .
+              </p>
+              <StoreBadges />
+            </div>
           </div>
         </section>
       </main>

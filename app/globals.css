@@ -510,7 +510,7 @@ a {
   opacity: 0.7;
 }
 .cta .also-on-label {
-  color: rgba(244, 246, 250, 0.55);
+  color: rgba(255, 250, 246, 0.55);
   opacity: 1;
 }
 .also-links {
@@ -543,13 +543,13 @@ a {
   border-color: #d0d5dd;
 }
 .cta .also-link {
-  color: rgba(244, 246, 250, 0.82);
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 250, 246, 0.82);
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.14);
 }
 .cta .also-link:hover {
   color: #fff;
-  background: rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.18);
 }
 .badge-sm {
   padding: 7px 14px;
@@ -1329,74 +1329,128 @@ section {
 }
 
 /* ---- Steps ---- */
-#como {
-  padding-top: 40px;
-  padding-bottom: 40px;
+.como {
+  padding: 72px 0 40px;
+  background: #fff;
+}
+.como .section-title,
+.como .section-sub {
+  text-align: left;
+  max-width: 860px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.como .section-sub {
+  margin-bottom: 36px;
 }
 .steps {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 32px;
-  max-width: 900px;
+  list-style: none;
   margin: 0 auto;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+  max-width: 860px;
+  border-top: 1px solid var(--border);
 }
 .step {
-  text-align: center;
-  padding: 8px;
+  position: relative;
+  text-align: left;
+  padding: 28px 28px 8px 0;
+  border-right: 1px solid var(--border);
+}
+.step:last-child {
+  border-right: none;
+  padding-right: 0;
+}
+.step:nth-child(2),
+.step:nth-child(3) {
+  padding-left: 28px;
+}
+.step-num {
+  display: block;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--primary);
+  margin-bottom: 14px;
 }
 .step h3 {
   font-family: var(--font-sans);
   margin: 0 0 8px;
-  font-size: 20px;
-  letter-spacing: -0.02em;
+  font-size: clamp(20px, 2.5vw, 24px);
+  letter-spacing: -0.03em;
+  line-height: 1.2;
 }
 .step p {
   margin: 0;
   color: var(--ink-soft);
   font-size: 15px;
   line-height: 1.5;
+  max-width: 220px;
 }
-.step .num {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background: var(--primary);
-  color: #fff;
-  font-family: var(--font-sans);
-  font-weight: 800;
-  font-size: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0 auto 16px;
+@media (max-width: 720px) {
+  .como .section-title,
+  .como .section-sub {
+    text-align: center;
+  }
+  .steps {
+    grid-template-columns: 1fr;
+    max-width: 400px;
+  }
+  .step,
+  .step:nth-child(2),
+  .step:nth-child(3) {
+    padding: 22px 0;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+  .step:last-child {
+    border-bottom: none;
+  }
+  .step p {
+    max-width: none;
+  }
 }
 
-/* ---- CTA ---- */
-#cta {
-  padding-top: 48px;
-  padding-bottom: 80px;
+/* ---- CTA (cierre naranja, como el hero) ---- */
+.cta-wrap {
+  padding: 48px 0 88px;
+  background: #fff;
 }
 .cta {
-  background: linear-gradient(160deg, #2a3548 0%, #1c2433 55%, #151b27 100%);
-  color: #f4f6fa;
-  border-radius: 28px;
-  padding: 56px 40px;
-  text-align: center;
   position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  background:
+    radial-gradient(90% 80% at 50% -20%, #ff8a4c 0%, transparent 55%),
+    linear-gradient(165deg, #f15a29 0%, #d9481c 55%, #b83a16 100%);
+  color: #fffaf6;
+  border-radius: 28px;
+  padding: 52px 32px 44px;
+  text-align: center;
+}
+.cta-eyebrow {
+  margin: 0 0 10px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 250, 246, 0.72);
 }
 .cta h2 {
   font-family: var(--font-sans);
   margin: 0 0 12px;
-  font-size: clamp(28px, 4vw, 36px);
-  letter-spacing: -0.03em;
-  position: relative;
+  font-size: clamp(30px, 5vw, 40px);
+  letter-spacing: -0.035em;
 }
-.cta p {
-  margin: 0 auto 26px;
-  color: rgba(244, 246, 250, 0.78);
-  font-size: 17px;
-  max-width: 520px;
-  position: relative;
+.cta-lead {
+  margin: 0 auto 28px;
+  color: rgba(255, 250, 246, 0.86);
+  font-size: 16px;
+  line-height: 1.5;
+  max-width: 420px;
 }
 .cta-inline {
   color: #fff;
@@ -1405,14 +1459,7 @@ section {
   text-underline-offset: 3px;
 }
 .cta-inline:hover {
-  color: var(--primary);
-}
-.cta-actions {
-  position: relative;
-  display: flex;
-  gap: 14px;
-  justify-content: center;
-  flex-wrap: wrap;
+  color: #ffe08a;
 }
 
 /* ---- Footer ---- */
