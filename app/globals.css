@@ -686,56 +686,88 @@ section {
   max-width: 560px;
   line-height: 1.6;
 }
-.grid-pro {
+.pro-points {
+  list-style: none;
+  margin: 0 0 28px;
+  padding: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 16px;
-  margin-bottom: 28px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+  border-top: 1px solid rgba(148, 163, 184, 0.16);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.16);
 }
-.feature-pro {
-  background: var(--pro-surface-2);
-  border: 1px solid var(--pro-border);
-  border-radius: 18px;
-  padding: 24px 22px;
-  transition: transform 0.18s ease, border-color 0.18s ease;
-}
-.feature-pro:hover {
-  transform: translateY(-3px);
-  border-color: var(--pro);
-}
-.feature-pro .ico {
-  width: 46px;
-  height: 46px;
-  border-radius: 13px;
+.pro-point {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 23px;
-  margin-bottom: 14px;
-  background: var(--pro-soft);
+  flex-direction: column;
+  gap: 12px;
+  padding: 28px 24px 28px 0;
+  border-right: 1px solid rgba(148, 163, 184, 0.16);
 }
-.feature-pro h3 {
+.pro-point:last-child {
+  border-right: none;
+  padding-right: 0;
+}
+.pro-point:first-child {
+  padding-left: 0;
+}
+.pro-point:nth-child(2) {
+  padding-left: 28px;
+  padding-right: 28px;
+}
+.pro-point:nth-child(3) {
+  padding-left: 28px;
+}
+.pro-point-num {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--pro);
+}
+.pro-point h3 {
   font-family: var(--font-sans);
   color: var(--pro-ink);
   margin: 0 0 8px;
   font-size: 18px;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
 }
-.feature-pro p {
+.pro-point p {
   color: var(--pro-ink-soft);
   margin: 0;
   font-size: 14px;
   line-height: 1.55;
+  max-width: 280px;
 }
 .pro-note {
   margin: 0;
   color: var(--pro-ink-soft);
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1.6;
   max-width: 720px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.45);
+  border: 1px solid rgba(148, 163, 184, 0.12);
 }
 .pro-note strong {
   color: var(--pro);
   font-weight: 700;
+}
+@media (max-width: 800px) {
+  .pro-points {
+    grid-template-columns: 1fr;
+  }
+  .pro-point,
+  .pro-point:nth-child(2),
+  .pro-point:nth-child(3) {
+    padding: 22px 0;
+    border-right: none;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+  }
+  .pro-point:last-child {
+    border-bottom: none;
+  }
 }
 
 /* ---- Pro sync animation ---- */

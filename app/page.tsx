@@ -23,19 +23,19 @@ const pillars = [
 
 const proFeatures = [
   {
-    icon: "📱",
-    title: "Cada mesero en su celular",
-    text: "Toman pedidos desde su teléfono. Tú cobras en la caja. El menú se actualiza solo.",
+    num: "01",
+    title: "Meseros en su celular",
+    text: "Piden desde el salón. Tú cobras en la caja. El menú se actualiza solo.",
   },
   {
-    icon: "☁️",
+    num: "02",
     title: "Comandas al instante",
-    text: "Las órdenes se sincronizan en el negocio. Sin tablet encendida como hub.",
+    text: "Todo se sincroniza por la red del local. Sin hub ni tablet extra.",
   },
   {
-    icon: "📶",
+    num: "03",
     title: "Impresión por la red",
-    text: "Cada celular manda la comanda a la impresora del local.",
+    text: "Cocina y barra reciben el ticket directo, sin Bluetooth.",
   },
 ];
 
@@ -132,15 +132,17 @@ export default function Home() {
               </a>
             </div>
             <ProSyncVisual />
-            <div className="grid-pro">
+            <ol className="pro-points">
               {proFeatures.map((f) => (
-                <div key={f.title} className="feature-pro">
-                  <div className="ico">{f.icon}</div>
-                  <h3>{f.title}</h3>
-                  <p>{f.text}</p>
-                </div>
+                <li key={f.num} className="pro-point">
+                  <span className="pro-point-num">{f.num}</span>
+                  <div>
+                    <h3>{f.title}</h3>
+                    <p>{f.text}</p>
+                  </div>
+                </li>
               ))}
-            </div>
+            </ol>
             <p className="pro-note">
               <strong>Importante:</strong> Pro se activa en la app (Ajustes →
               Equipo y accesos → Varios meseros). Solo México. Si no tienes WiFi
