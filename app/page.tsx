@@ -1,54 +1,23 @@
 import Footer from "@/components/Footer";
 import HeroTablet from "@/components/HeroTablet";
+import ProSyncVisual from "@/components/ProSyncVisual";
 import StoreBadges from "@/components/StoreBadges";
 
-const features = [
+const pillars = [
   {
-    icon: "🧾",
-    title: "Vende y cobra al momento",
-    text: "Toma la orden, imprime la comanda o la cuenta y cobra con propina. Listo desde el primer día.",
-  },
-  {
-    icon: "🥡",
-    title: "Pedidos para llevar",
-    text: "Nombre del cliente y cobra en segundos. Ideal para mostrador y comida rápida.",
-  },
-  {
-    icon: "✨",
+    num: "01",
     title: "Menú con una foto",
-    text: "Fotografía tu menú impreso y la IA arma productos, precios y categorías por ti.",
-    accent: true,
+    text: "La IA arma productos, precios y categorías. Tú revisas y listo.",
   },
   {
-    icon: "📊",
-    title: "Reportes claros con IA",
-    text: "Qué se vende más, qué día está flojo y qué conviene surtir. En español, sin tecnicismos.",
-    accent: true,
+    num: "02",
+    title: "Vende y cobra al momento",
+    text: "Orden, comanda, cuenta y propina. Pensado para el mostrador.",
   },
   {
-    icon: "💰",
-    title: "Caja e inventario",
-    text: "Corte del día, gastos y existencias en la misma app. Adiós a las hojas de cálculo.",
-  },
-  {
-    icon: "👥",
-    title: "PIN para cada quien",
-    text: "El dueño administra; meseros y cajeros solo ven lo que necesitan para vender.",
-  },
-  {
-    icon: "📵",
+    num: "03",
     title: "Sin internet, sigues vendiendo",
-    text: "En el plan normal tus datos viven en el dispositivo. Si se cae la red, el punto de venta sigue.",
-  },
-  {
-    icon: "🖨️",
-    title: "Impresión térmica",
-    text: "Bluetooth o red: tickets a cocina, barra o caja, por separado.",
-  },
-  {
-    icon: "🛡️",
-    title: "Tus datos son tuyos",
-    text: "Exporta un respaldo cuando quieras. Sin amarres raros.",
+    text: "Tu negocio no se para. Los datos viven en tu dispositivo.",
   },
 ];
 
@@ -120,22 +89,27 @@ export default function Home() {
           </div>
         </section>
 
-        <section id="features" className="container">
-          <h2 className="section-title">Todo lo que necesitas en el mostrador</h2>
-          <p className="section-sub">
-            Simple de usar, pensado para México. La IA solo cuando te conviene.
-          </p>
-          <div className="grid">
-            {features.map((f) => (
-              <div
-                key={f.title}
-                className={f.accent ? "feature accent" : "feature"}
-              >
-                <div className="ico">{f.icon}</div>
-                <h3>{f.title}</h3>
-                <p>{f.text}</p>
-              </div>
-            ))}
+        <section id="features" className="pillars">
+          <div className="container">
+            <h2 className="section-title">Hecho para el mostrador</h2>
+            <p className="section-sub">
+              Lo esencial para vender. Sin complicaciones.
+            </p>
+            <ol className="pillars-list">
+              {pillars.map((p) => (
+                <li key={p.num} className="pillar">
+                  <span className="pillar-num">{p.num}</span>
+                  <div>
+                    <h3>{p.title}</h3>
+                    <p>{p.text}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+            <p className="pillars-also">
+              También: pedidos para llevar, reportes con IA, caja, inventario,
+              PIN por empleado e impresión térmica.
+            </p>
           </div>
         </section>
 
@@ -153,10 +127,11 @@ export default function Home() {
                   red; el plan normal no.
                 </p>
               </div>
-              <a className="btn btn-gold" href="#precios">
+              <a className="btn btn-pro" href="#precios">
                 Ver precios Pro
               </a>
             </div>
+            <ProSyncVisual />
             <div className="grid-pro">
               {proFeatures.map((f) => (
                 <div key={f.title} className="feature-pro">
@@ -213,16 +188,14 @@ export default function Home() {
                 <span className="amount">$199</span>
                 <span className="period">MXN / mes</span>
               </div>
-              <p className="plan-yearly">
-                o $1,599 MXN / año · ahorra ~4 meses
-              </p>
+              <p className="plan-yearly">o $1,599 MXN / año</p>
               <ul className="plan-list">
                 <li>Incluye todo el plan normal</li>
                 <li>Cada mesero pide desde su celular</li>
                 <li>Las comandas se sincronizan solas</li>
                 <li>Imprimen directo a cocina por la red</li>
               </ul>
-              <a className="btn btn-gold plan-cta" href="#cta">
+              <a className="btn btn-pro plan-cta" href="#cta">
                 Quiero Pro
               </a>
               <p className="plan-foot">
