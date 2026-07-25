@@ -1,10 +1,10 @@
-/** Mockup del POS: ancla visual del hero (sin captura real de la app). */
-export default function HeroPhone() {
+/** Mockup del POS en tablet vertical: ancla visual del hero. */
+export default function HeroTablet() {
   return (
-    <div className="hero-phone" aria-hidden="true">
-      <div className="phone-bezel">
-        <div className="phone-notch" />
-        <div className="phone-screen">
+    <div className="hero-tablet" aria-hidden="true">
+      <div className="tablet-bezel">
+        <div className="tablet-camera" />
+        <div className="tablet-screen">
           <header className="pos-top">
             <img src="/logo.png" alt="" className="pos-logo" />
             <div>

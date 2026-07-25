@@ -1,5 +1,5 @@
 import Footer from "@/components/Footer";
-import HeroPhone from "@/components/HeroPhone";
+import HeroTablet from "@/components/HeroTablet";
 import StoreBadges from "@/components/StoreBadges";
 
 const features = [
@@ -114,7 +114,7 @@ export default function Home() {
               menú y la IA lo configura.
             </p>
 
-            <HeroPhone />
+            <HeroTablet />
 
             <StoreBadges />
           </div>
