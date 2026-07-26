@@ -1381,6 +1381,7 @@ section {
 }
 @media (prefers-reduced-motion: reduce) {
   .pro-pad.mesero,
+  .pro-caja-tablet.tablet-bezel,
   .pro-pad-chip,
   .pro-sync-dot,
   .caja-orders .order,
