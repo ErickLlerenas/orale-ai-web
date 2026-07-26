@@ -25,17 +25,17 @@ const proFeatures = [
   {
     num: "01",
     title: "Meseros en su celular",
-    text: "Piden desde el salón. Tú cobras en la caja. El menú se actualiza solo.",
+    text: "Piden desde las mesas. Tú cobras en la caja. El menú se actualiza solo.",
   },
   {
     num: "02",
     title: "Comandas al instante",
-    text: "Todo se sincroniza por la red del local. Sin hub ni tablet extra.",
+    text: "Cada pedido llega a caja.",
   },
   {
     num: "03",
     title: "Impresión por la red",
-    text: "Cocina y barra reciben el ticket directo, sin Bluetooth.",
+    text: "Cocina y barra reciben el ticket al momento.",
   },
 ];
 
@@ -144,9 +144,8 @@ export default function Home() {
               ))}
             </ol>
             <p className="pro-note">
-              <strong>Importante:</strong> Pro se activa en la app (Ajustes →
-              Equipo y accesos → Varios meseros). Si no tienes WiFi estable,
-              quédate en el plan normal.
+              <strong>Importante:</strong> Pro necesita WiFi del local e
+              impresora de red. Si no los tienes, quédate en el plan normal.
             </p>
           </div>
         </section>
