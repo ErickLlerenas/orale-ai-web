@@ -112,7 +112,10 @@ a {
   background: var(--primary);
   padding: 10px 16px;
   border-radius: 12px;
-  transition: background 0.15s ease, color 0.15s ease, filter 0.15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    filter 0.15s ease;
 }
 .nav-cta:hover {
   background: var(--primary-dark);
@@ -142,7 +145,9 @@ a {
   text-decoration: none;
   border: none;
   cursor: pointer;
-  transition: background 0.15s ease, filter 0.15s ease;
+  transition:
+    background 0.15s ease,
+    filter 0.15s ease;
 }
 .btn-primary {
   background: var(--primary);
@@ -193,7 +198,11 @@ a {
   top: 35%;
   left: 50%;
   translate: -50% -20%;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.2) 0%, transparent 65%);
+  background: radial-gradient(
+    circle,
+    rgba(255, 255, 255, 0.2) 0%,
+    transparent 65%
+  );
   animation: orb-drift 11s ease-in-out infinite;
 }
 .hero-orb-b {
@@ -201,7 +210,11 @@ a {
   height: min(50vw, 300px);
   right: -5%;
   top: 12%;
-  background: radial-gradient(circle, rgba(255, 220, 140, 0.28) 0%, transparent 70%);
+  background: radial-gradient(
+    circle,
+    rgba(255, 220, 140, 0.28) 0%,
+    transparent 70%
+  );
   animation: orb-drift 13s ease-in-out infinite reverse;
 }
 .hero-orb-c {
@@ -209,7 +222,11 @@ a {
   height: min(42vw, 260px);
   left: -4%;
   bottom: 10%;
-  background: radial-gradient(circle, rgba(18, 138, 114, 0.2) 0%, transparent 72%);
+  background: radial-gradient(
+    circle,
+    rgba(18, 138, 114, 0.2) 0%,
+    transparent 72%
+  );
   animation: orb-drift 15s ease-in-out infinite;
 }
 .hero-grain {
@@ -220,8 +237,13 @@ a {
   mix-blend-mode: soft-light;
 }
 @keyframes orb-drift {
-  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
-  50% { transform: translate3d(0, 14px, 0) scale(1.03); }
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(0, 14px, 0) scale(1.03);
+  }
 }
 .hero-content {
   position: relative;
@@ -237,8 +259,14 @@ a {
   animation: hero-rise 0.75s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 @keyframes hero-rise {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 .hero-name {
   margin: 0 0 10px;
@@ -279,8 +307,14 @@ a {
   animation: tablet-in 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.1s both;
 }
 @keyframes tablet-in {
-  from { opacity: 0; transform: translateY(36px) scale(0.96); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+  from {
+    opacity: 0;
+    transform: translateY(36px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 .tablet-bezel {
   position: relative;
@@ -295,8 +329,13 @@ a {
   animation: tablet-float 5.5s ease-in-out infinite;
 }
 @keyframes tablet-float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-8px); }
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
 }
 .tablet-camera {
   position: absolute;
@@ -370,8 +409,14 @@ a {
   animation: item-pop 0.55s cubic-bezier(0.22, 1, 0.36, 1) 1.1s both;
 }
 @keyframes item-pop {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 .pos-total {
   display: flex;
@@ -445,7 +490,9 @@ a {
   border-radius: 14px;
   text-decoration: none;
   border: none;
-  transition: filter 0.15s ease, transform 0.15s ease;
+  transition:
+    filter 0.15s ease,
+    transform 0.15s ease;
 }
 .badge-lg {
   min-width: 240px;
@@ -536,7 +583,10 @@ a {
   color: var(--ink-soft);
   background: rgba(31, 41, 51, 0.04);
   border: 1px solid var(--border);
-  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
 }
 .also-link .badge-logo {
   width: 14px;
@@ -836,12 +886,24 @@ section {
   animation: wifi-arc 2.4s ease-in-out 0.4s infinite;
 }
 @keyframes wifi-arc {
-  0%, 100% { opacity: 0.2; }
-  40% { opacity: 1; }
+  0%,
+  100% {
+    opacity: 0.2;
+  }
+  40% {
+    opacity: 1;
+  }
 }
 @keyframes wifi-pulse {
-  0%, 100% { transform: scale(1); opacity: 0.8; }
-  50% { transform: scale(1.15); opacity: 1; }
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
 }
 .pro-net-label {
   font-size: 11px;
@@ -874,7 +936,6 @@ section {
   margin: 0;
   padding: 9px 9px 11px;
   border-radius: 22px;
-  animation: caja-pulse 3.6s ease-in-out infinite;
   box-shadow:
     0 2px 0 rgba(255, 255, 255, 0.08) inset,
     0 16px 36px rgba(0, 0, 0, 0.4);
@@ -909,10 +970,19 @@ section {
   box-shadow: 0 0 8px rgba(34, 197, 94, 0.7);
   animation: printer-light 3.6s ease-in-out infinite;
 }
-.p-delay-1 .printer-light { animation-delay: 0.55s; }
+.p-delay-1 .printer-light {
+  animation-delay: 0.55s;
+}
 @keyframes printer-light {
-  0%, 50%, 100% { opacity: 0.45; }
-  60%, 75% { opacity: 1; }
+  0%,
+  50%,
+  100% {
+    opacity: 0.45;
+  }
+  60%,
+  75% {
+    opacity: 1;
+  }
 }
 .printer-slot {
   position: absolute;
@@ -956,9 +1026,12 @@ section {
   );
   animation: ticket-out 3.6s ease-in-out infinite;
 }
-.p-delay-1 .printer-ticket { animation-delay: 0.55s; }
+.p-delay-1 .printer-ticket {
+  animation-delay: 0.55s;
+}
 @keyframes ticket-out {
-  0%, 45% {
+  0%,
+  45% {
     opacity: 0;
     transform: translateY(-6px) scaleY(0.3);
   }
@@ -1000,11 +1073,20 @@ section {
 .pro-pad.mesero {
   animation: mesero-bob 3.6s ease-in-out infinite;
 }
-.pro-pad.mesero.delay-1 { animation-delay: 0.35s; }
-.pro-pad.mesero.delay-2 { animation-delay: 0.7s; }
+.pro-pad.mesero.delay-1 {
+  animation-delay: 0.35s;
+}
+.pro-pad.mesero.delay-2 {
+  animation-delay: 0.7s;
+}
 @keyframes mesero-bob {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(4px); }
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(4px);
+  }
 }
 .pro-pad-bezel {
   position: relative;
@@ -1049,20 +1131,6 @@ section {
   padding: 4px 6px;
   border-radius: 6px;
 }
-@keyframes caja-pulse {
-  0%, 100% {
-    box-shadow:
-      0 2px 0 rgba(255, 255, 255, 0.08) inset,
-      0 16px 36px rgba(0, 0, 0, 0.4);
-  }
-  50% {
-    box-shadow:
-      0 2px 0 rgba(255, 255, 255, 0.08) inset,
-      0 16px 36px rgba(0, 0, 0, 0.4),
-      0 0 0 1px rgba(245, 185, 66, 0.45),
-      0 0 24px rgba(245, 185, 66, 0.18);
-  }
-}
 .pro-pad-cam {
   position: absolute;
   top: 5px;
@@ -1106,11 +1174,23 @@ section {
   border-radius: 5px;
   animation: chip-flash 3.6s ease-in-out infinite;
 }
-.delay-1 .pro-pad-chip { animation-delay: 0.35s; }
-.delay-2 .pro-pad-chip { animation-delay: 0.7s; }
+.delay-1 .pro-pad-chip {
+  animation-delay: 0.35s;
+}
+.delay-2 .pro-pad-chip {
+  animation-delay: 0.7s;
+}
 @keyframes chip-flash {
-  0%, 55%, 100% { filter: brightness(1); transform: scale(1); }
-  62% { filter: brightness(1.12); transform: scale(1.05); }
+  0%,
+  55%,
+  100% {
+    filter: brightness(1);
+    transform: scale(1);
+  }
+  62% {
+    filter: brightness(1.12);
+    transform: scale(1.05);
+  }
 }
 .pro-pad-caption {
   font-size: 11px;
@@ -1134,14 +1214,35 @@ section {
   opacity: 0;
   animation: sync-rise 3.6s ease-in-out infinite;
 }
-.pro-sync-dot.d1 { margin-left: -74px; }
-.pro-sync-dot.d2 { margin-left: -3px; animation-delay: 0.35s; }
-.pro-sync-dot.d3 { margin-left: 68px; animation-delay: 0.7s; }
+.pro-sync-dot.d1 {
+  margin-left: -74px;
+}
+.pro-sync-dot.d2 {
+  margin-left: -3px;
+  animation-delay: 0.35s;
+}
+.pro-sync-dot.d3 {
+  margin-left: 68px;
+  animation-delay: 0.7s;
+}
 @keyframes sync-rise {
-  0%, 40% { opacity: 0; transform: translateY(0) scale(0.5); }
-  52% { opacity: 1; transform: translateY(-10px) scale(1); }
-  78% { opacity: 0.8; transform: translateY(-30px) scale(0.85); }
-  100% { opacity: 0; transform: translateY(-40px) scale(0.4); }
+  0%,
+  40% {
+    opacity: 0;
+    transform: translateY(0) scale(0.5);
+  }
+  52% {
+    opacity: 1;
+    transform: translateY(-10px) scale(1);
+  }
+  78% {
+    opacity: 0.8;
+    transform: translateY(-30px) scale(0.85);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-40px) scale(0.4);
+  }
 }
 .caja-head {
   display: flex;
@@ -1190,13 +1291,30 @@ section {
   font-size: 10px;
   flex-shrink: 0;
 }
-.caja-orders .o1 { animation-delay: 0.2s; }
-.caja-orders .o2 { animation-delay: 0.55s; }
-.caja-orders .o3 { animation-delay: 0.9s; }
+.caja-orders .o1 {
+  animation-delay: 0.2s;
+}
+.caja-orders .o2 {
+  animation-delay: 0.55s;
+}
+.caja-orders .o3 {
+  animation-delay: 0.9s;
+}
 @keyframes order-in {
-  0%, 48% { opacity: 0.22; transform: translateY(4px); }
-  58%, 82% { opacity: 1; transform: translateY(0); }
-  100% { opacity: 0.35; transform: translateY(0); }
+  0%,
+  48% {
+    opacity: 0.22;
+    transform: translateY(4px);
+  }
+  58%,
+  82% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0.35;
+    transform: translateY(0);
+  }
 }
 @media (max-width: 640px) {
   .pro-sync-top {
@@ -1254,12 +1372,15 @@ section {
     height: 108px;
     padding: 20px 6px 12px;
   }
-  .pro-sync-dot.d1 { margin-left: -64px; }
-  .pro-sync-dot.d3 { margin-left: 58px; }
+  .pro-sync-dot.d1 {
+    margin-left: -64px;
+  }
+  .pro-sync-dot.d3 {
+    margin-left: 58px;
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   .pro-pad.mesero,
-  .pro-caja-tablet.tablet-bezel,
   .pro-pad-chip,
   .pro-sync-dot,
   .caja-orders .order,
@@ -1658,7 +1779,9 @@ section {
   background-position: right 14px center;
   background-size: 12px;
   box-shadow: var(--shadow-sm);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 .month-select:hover {
   border-color: var(--primary);
@@ -1730,7 +1853,9 @@ section {
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 16px 18px;
-  transition: border-color 0.15s ease, transform 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    transform 0.15s ease;
 }
 .kpi:hover {
   border-color: var(--primary);
