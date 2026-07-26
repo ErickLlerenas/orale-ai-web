@@ -9,9 +9,34 @@ const jakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://oraleai.vercel.app"),
   title: "Órale AI · Punto de venta con IA para tu negocio",
   description:
     "Punto de venta con IA para taquerías, fondas y food trucks en México. Menú con foto, reportes claros y funciona sin internet. Pro para varios meseros con WiFi.",
+  openGraph: {
+    title: "Órale AI · Punto de venta con IA para tu negocio",
+    description:
+      "Punto de venta con IA para taquerías, fondas y food trucks. Menú con foto y funciona sin internet.",
+    url: "/",
+    siteName: "Órale AI",
+    locale: "es_MX",
+    type: "website",
+    images: [
+      {
+        url: "/og-icon.png",
+        width: 200,
+        height: 200,
+        alt: "Órale AI",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary",
+    title: "Órale AI · Punto de venta con IA para tu negocio",
+    description:
+      "Punto de venta con IA para taquerías, fondas y food trucks. Menú con foto y funciona sin internet.",
+    images: ["/og-icon.png"],
+  },
 };
 
 export default function RootLayout({
