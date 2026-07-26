@@ -1,3 +1,5 @@
+import TabletFrame from "@/components/TabletFrame";
+
 /** Animación Pro: caja + celulares de meseros + 2 impresoras de red. */
 export default function ProSyncVisual() {
   return (
@@ -16,29 +18,26 @@ export default function ProSyncVisual() {
         <Printer label="Cocina" delayClass="p-delay-0" />
 
         <div className="pro-pad caja">
-          <div className="pro-pad-bezel">
-            <div className="pro-pad-cam" />
-            <div className="pro-pad-screen caja-screen">
-              <div className="caja-head">
-                <strong>Caja</strong>
-                <span className="caja-live">En vivo</span>
-              </div>
-              <ul className="caja-orders">
-                <li className="order o1">
-                  <span>Mesa 3 · 2 pastor</span>
-                  <b>Llegó</b>
-                </li>
-                <li className="order o2">
-                  <span>Mesa 7 · 1 horchata</span>
-                  <b>Llegó</b>
-                </li>
-                <li className="order o3">
-                  <span>Mesa 12 · 3 suadero</span>
-                  <b>Llegó</b>
-                </li>
-              </ul>
+          <TabletFrame className="pro-caja-tablet">
+            <div className="caja-head">
+              <strong>Caja</strong>
+              <span className="caja-live">En vivo</span>
             </div>
-          </div>
+            <ul className="caja-orders">
+              <li className="order o1">
+                <span>Mesa 3 · 2 pastor</span>
+                <b>Llegó</b>
+              </li>
+              <li className="order o2">
+                <span>Mesa 7 · 1 horchata</span>
+                <b>Llegó</b>
+              </li>
+              <li className="order o3">
+                <span>Mesa 12 · 3 suadero</span>
+                <b>Llegó</b>
+              </li>
+            </ul>
+          </TabletFrame>
           <span className="pro-pad-caption">Tu tablet en caja</span>
         </div>
 

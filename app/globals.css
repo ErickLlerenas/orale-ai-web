@@ -852,9 +852,9 @@ section {
 }
 .pro-sync-top {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
-  gap: clamp(6px, 2vw, 28px);
+  gap: clamp(8px, 2.5vw, 28px);
   width: 100%;
   flex-wrap: nowrap;
 }
@@ -864,13 +864,30 @@ section {
   align-items: center;
   gap: 8px;
   width: 72px;
-  padding-top: 18px;
   flex-shrink: 0;
 }
 .pro-pad.caja {
-  flex: 1 1 auto;
-  min-width: 0;
-  max-width: min(300px, 100%);
+  flex: 0 0 auto;
+}
+.pro-caja-tablet.tablet-bezel {
+  width: clamp(128px, 34vw, 168px);
+  margin: 0;
+  padding: 9px 9px 11px;
+  border-radius: 22px;
+  animation: caja-pulse 3.6s ease-in-out infinite;
+  box-shadow:
+    0 2px 0 rgba(255, 255, 255, 0.08) inset,
+    0 16px 36px rgba(0, 0, 0, 0.4);
+}
+.pro-caja-tablet .tablet-camera {
+  top: 4px;
+  width: 6px;
+  height: 6px;
+}
+.pro-caja-tablet .tablet-screen {
+  min-height: 210px;
+  border-radius: 15px;
+  padding: 14px 10px 10px;
 }
 .printer-body {
   position: relative;
@@ -1032,17 +1049,16 @@ section {
   padding: 4px 6px;
   border-radius: 6px;
 }
-.pro-pad.caja .pro-pad-bezel {
-  width: 100%;
-  border-radius: 14px;
-  padding: 3px;
-  animation: caja-pulse 3.6s ease-in-out infinite;
-}
 @keyframes caja-pulse {
-  0%, 100% { box-shadow: 0 8px 22px rgba(0, 0, 0, 0.28); }
+  0%, 100% {
+    box-shadow:
+      0 2px 0 rgba(255, 255, 255, 0.08) inset,
+      0 16px 36px rgba(0, 0, 0, 0.4);
+  }
   50% {
     box-shadow:
-      0 8px 22px rgba(0, 0, 0, 0.28),
+      0 2px 0 rgba(255, 255, 255, 0.08) inset,
+      0 16px 36px rgba(0, 0, 0, 0.4),
       0 0 0 1px rgba(245, 185, 66, 0.45),
       0 0 24px rgba(245, 185, 66, 0.18);
   }
@@ -1068,11 +1084,6 @@ section {
   flex-direction: column;
   gap: 5px;
   text-align: left;
-}
-.pro-pad.caja .pro-pad-screen {
-  min-height: 156px;
-  border-radius: 11px;
-  padding: 14px 12px 12px;
 }
 .pro-pad-title {
   font-size: 10px;
@@ -1157,6 +1168,7 @@ section {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  flex: 1;
 }
 .caja-orders .order {
   display: flex;
@@ -1192,7 +1204,6 @@ section {
   }
   .pro-printer {
     width: 52px;
-    padding-top: 12px;
   }
   .printer-body {
     width: 48px;
@@ -1206,12 +1217,15 @@ section {
   .pro-sync {
     padding: 24px 10px 18px;
   }
-  .pro-pad.caja {
-    max-width: min(200px, 52vw);
+  .pro-caja-tablet.tablet-bezel {
+    width: clamp(112px, 36vw, 140px);
+    padding: 7px 7px 9px;
+    border-radius: 18px;
   }
-  .pro-pad.caja .pro-pad-screen {
-    min-height: 140px;
-    padding: 12px 8px 10px;
+  .pro-caja-tablet .tablet-screen {
+    min-height: 180px;
+    border-radius: 13px;
+    padding: 12px 8px 8px;
   }
   .caja-orders .order {
     padding: 6px 7px;
@@ -1245,7 +1259,7 @@ section {
 }
 @media (prefers-reduced-motion: reduce) {
   .pro-pad.mesero,
-  .pro-pad.caja .pro-pad-bezel,
+  .pro-caja-tablet.tablet-bezel,
   .pro-pad-chip,
   .pro-sync-dot,
   .caja-orders .order,
