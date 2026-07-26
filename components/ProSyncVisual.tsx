@@ -33,7 +33,7 @@ export default function ProSyncVisual() {
                 <b>Llegó</b>
               </li>
               <li className="order o3">
-                <span>Mesa 12 · 3 suadero</span>
+                <span>Mesa 5 · 3 suadero</span>
                 <b>Llegó</b>
               </li>
             </ul>
@@ -54,7 +54,7 @@ export default function ProSyncVisual() {
         {[
           { mesa: "Mesa 3", item: "2 pastor" },
           { mesa: "Mesa 7", item: "1 horchata" },
-          { mesa: "Mesa 12", item: "3 suadero" },
+          { mesa: "Mesa 5", item: "3 suadero" },
         ].map((m, i) => (
           <div key={m.mesa} className={`pro-pad mesero delay-${i}`}>
             <div className="pro-pad-bezel">
