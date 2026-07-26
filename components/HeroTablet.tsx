@@ -8,7 +8,7 @@ export default function HeroTablet() {
         <header className="pos-top">
           <img src="/logo.png" alt="" className="pos-logo" />
           <div>
-            <strong>Taquería El Guero</strong>
+            <strong>Taquería El Güero</strong>
             <span>Mesa 4 · Abierta</span>
           </div>
         </header>
