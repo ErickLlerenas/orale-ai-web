@@ -1,4 +1,4 @@
-/** Animación Pro: caja + meseros + 2 impresoras de red con tickets. */
+/** Animación Pro: caja + celulares de meseros + 2 impresoras de red. */
 export default function ProSyncVisual() {
   return (
     <div className="pro-sync" aria-hidden="true">

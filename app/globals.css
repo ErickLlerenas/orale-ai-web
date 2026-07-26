@@ -970,7 +970,7 @@ section {
 .pro-sync-meseros {
   display: flex;
   justify-content: center;
-  gap: clamp(16px, 5vw, 40px);
+  gap: clamp(18px, 5vw, 36px);
   width: 100%;
   margin-top: 4px;
 }
@@ -997,8 +997,40 @@ section {
   box-shadow: 0 8px 22px rgba(0, 0, 0, 0.28);
 }
 .pro-pad.mesero .pro-pad-bezel {
-  width: clamp(78px, 19vw, 100px);
-  border-radius: 11px;
+  width: clamp(60px, 16vw, 72px);
+  border-radius: 20px;
+  padding: 3px;
+}
+.pro-pad.mesero .pro-pad-cam {
+  width: 22px;
+  height: 6px;
+  border-radius: 999px;
+  top: 8px;
+  background: #020617;
+  box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.2);
+}
+.pro-pad.mesero .pro-pad-screen {
+  min-height: 0;
+  height: 118px;
+  border-radius: 17px;
+  padding: 22px 8px 14px;
+  gap: 6px;
+  align-items: center;
+  text-align: center;
+}
+.pro-pad.mesero .pro-pad-title {
+  font-size: 11px;
+}
+.pro-pad.mesero .pro-pad-item {
+  font-size: 9px;
+  line-height: 1.2;
+}
+.pro-pad.mesero .pro-pad-chip {
+  align-self: stretch;
+  text-align: center;
+  font-size: 8px;
+  padding: 4px 6px;
+  border-radius: 6px;
 }
 .pro-pad.caja .pro-pad-bezel {
   width: 100%;
@@ -1077,7 +1109,7 @@ section {
 }
 .pro-sync-flow {
   position: relative;
-  width: min(300px, 72vw);
+  width: min(280px, 74vw);
   height: 40px;
 }
 .pro-sync-dot {
@@ -1091,9 +1123,9 @@ section {
   opacity: 0;
   animation: sync-rise 3.6s ease-in-out infinite;
 }
-.pro-sync-dot.d1 { margin-left: -78px; }
+.pro-sync-dot.d1 { margin-left: -74px; }
 .pro-sync-dot.d2 { margin-left: -3px; animation-delay: 0.35s; }
-.pro-sync-dot.d3 { margin-left: 72px; animation-delay: 0.7s; }
+.pro-sync-dot.d3 { margin-left: 68px; animation-delay: 0.7s; }
 @keyframes sync-rise {
   0%, 40% { opacity: 0; transform: translateY(0) scale(0.5); }
   52% { opacity: 1; transform: translateY(-10px) scale(1); }
@@ -1202,14 +1234,14 @@ section {
     top: 26px;
   }
   .pro-pad.mesero .pro-pad-bezel {
-    width: 72px;
+    width: 58px;
   }
-  .pro-pad-screen {
-    min-height: 80px;
-    padding: 10px 6px 6px;
+  .pro-pad.mesero .pro-pad-screen {
+    height: 108px;
+    padding: 20px 6px 12px;
   }
-  .pro-sync-dot.d1 { margin-left: -62px; }
-  .pro-sync-dot.d3 { margin-left: 56px; }
+  .pro-sync-dot.d1 { margin-left: -64px; }
+  .pro-sync-dot.d3 { margin-left: 58px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .pro-pad.mesero,
