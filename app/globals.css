@@ -854,9 +854,9 @@ section {
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  gap: clamp(10px, 3vw, 28px);
+  gap: clamp(6px, 2vw, 28px);
   width: 100%;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 .pro-printer {
   display: flex;
@@ -865,6 +865,12 @@ section {
   gap: 8px;
   width: 72px;
   padding-top: 18px;
+  flex-shrink: 0;
+}
+.pro-pad.caja {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: min(300px, 100%);
 }
 .printer-body {
   position: relative;
@@ -995,7 +1001,7 @@ section {
   border-radius: 11px;
 }
 .pro-pad.caja .pro-pad-bezel {
-  width: min(300px, 82vw);
+  width: 100%;
   border-radius: 14px;
   padding: 3px;
   animation: caja-pulse 3.6s ease-in-out infinite;
@@ -1150,26 +1156,50 @@ section {
 }
 @media (max-width: 640px) {
   .pro-sync-top {
-    gap: 8px;
+    gap: 6px;
   }
   .pro-printer {
-    width: 58px;
+    width: 52px;
     padding-top: 12px;
   }
   .printer-body {
-    width: 52px;
-    height: 38px;
+    width: 48px;
+    height: 36px;
   }
   .printer-ticket {
-    width: 30px;
+    width: 28px;
   }
 }
 @media (max-width: 520px) {
   .pro-sync {
-    padding: 24px 12px 18px;
+    padding: 24px 10px 18px;
   }
-  .pro-pad.caja .pro-pad-bezel {
-    width: min(220px, 70vw);
+  .pro-pad.caja {
+    max-width: min(200px, 52vw);
+  }
+  .pro-pad.caja .pro-pad-screen {
+    min-height: 140px;
+    padding: 12px 8px 10px;
+  }
+  .caja-orders .order {
+    padding: 6px 7px;
+    font-size: 10px;
+    gap: 4px;
+  }
+  .caja-head strong {
+    font-size: 12px;
+  }
+  .pro-printer {
+    width: 46px;
+    gap: 6px;
+  }
+  .printer-body {
+    width: 42px;
+    height: 32px;
+  }
+  .printer-ticket {
+    width: 26px;
+    top: 26px;
   }
   .pro-pad.mesero .pro-pad-bezel {
     width: 72px;
