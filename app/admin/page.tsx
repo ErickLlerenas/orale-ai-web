@@ -95,10 +95,16 @@ export default async function Admin({
   const newSubs = newSubscribersToday(todayPings, today);
 
   const s = summarize(rows, month);
-  const ai = summarizeAi(aiRows);
+  const ai = summarizeAi(aiRows, new Set(s.latest.map((p) => p.install_id)));
   const t = summarizeToday(todayPings, todayAi);
   const aiByInstall = new Map(ai.byInstall.map((u) => [u.install_id, u]));
   const maxDaily = Math.max(1, ...s.daily.map((d) => d.active));
+
+  // Los pings se pueden purgar: graficar solo los días que tienen datos evita
+  // leer como "nadie usó la app" lo que en realidad es "ya no está guardado".
+  const first = s.daily.findIndex((d) => d.active > 0);
+  const withData = first < 0 ? [] : s.daily.slice(first);
+  const dataFrom = withData[0]?.date ?? null;
 
   const todayKpis = [
     { v: t.selling, l: "Negocios cobrando" },
@@ -352,9 +358,12 @@ export default async function Admin({
         <p className="muted">
           La barra llena es quien cobró ese día; la clara, quien solo abrió la
           app.
+          {dataFrom && dataFrom.slice(8) !== "01" && (
+            <> Solo hay pings guardados desde el {dataFrom.slice(8)}.</>
+          )}
         </p>
         <div className="bars">
-          {s.daily.map((d) => (
+          {withData.map((d) => (
             <div className="bar-col" key={d.date}>
               <span className="n">{d.selling}</span>
               <div

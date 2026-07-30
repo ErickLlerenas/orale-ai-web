@@ -494,7 +494,14 @@ export type AiSummary = {
 };
 
 /// Agrega el uso de IA por instalación a partir de los registros de ai_usage.
-export function summarizeAi(rows: AiUsage[]): AiSummary {
+///
+/// `knownInstalls` acota "usuarios con IA" a las instalaciones que sí tienen
+/// pings en el periodo. Si se purgan pings viejos y no sus filas de IA, sin
+/// este filtro salen más usuarios de IA que instalaciones activas.
+export function summarizeAi(
+  rows: AiUsage[],
+  knownInstalls?: Set<string>,
+): AiSummary {
   const today = mxToday();
   let totalCalls = 0;
   let callsToday = 0;
@@ -520,10 +527,14 @@ export function summarizeAi(rows: AiUsage[]): AiSummary {
     }
   }
 
+  const users = knownInstalls
+    ? [...byInstall.keys()].filter((id) => knownInstalls.has(id)).length
+    : byInstall.size;
+
   return {
     totalCalls,
     callsToday,
-    usersWithAi: byInstall.size,
+    usersWithAi: users,
     byInstall: [...byInstall.values()].sort((a, b) => b.total - a.total),
   };
 }
