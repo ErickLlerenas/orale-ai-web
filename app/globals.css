@@ -1951,6 +1951,15 @@ section {
   border-radius: 6px 6px 0 0;
   min-height: 3px;
 }
+/* Barra doble: el fondo claro es quien abrió la app, el sólido quien cobró. */
+.bar.ghost {
+  background: rgba(241, 90, 41, 0.18);
+  display: flex;
+  align-items: flex-end;
+}
+.bar.fill {
+  min-height: 0;
+}
 .bar-col .d {
   font-size: 10px;
   color: var(--ink-soft);
@@ -2006,4 +2015,8 @@ table.data tbody tr:last-child td {
 .pill.off {
   background: #eef0f2;
   color: var(--ink-soft);
+}
+.pill.warn {
+  background: rgba(241, 90, 41, 0.14);
+  color: var(--primary);
 }

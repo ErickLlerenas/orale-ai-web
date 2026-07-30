@@ -30,14 +30,33 @@ export type Ping = {
   updated_at: string;
 };
 
-/// Una cuenta de pago y cuántos dispositivos la usan. device_count > 1 = misma
-/// cuenta en varias sucursales.
+/// Qué es en realidad una cuenta con varios equipos.
+///   - `pro`: plan Pro, donde los celulares de los meseros son parte del plan.
+///   - `branches`: 2+ equipos COBRANDO en el mes = sucursales de verdad.
+///   - `device_change`: solo uno cobra; el otro es un cambio de equipo o una
+///     instalación que quedó vacía.
+export type MultiDeviceKind = "pro" | "branches" | "device_change";
+
+/// Una cuenta de pago y cuántos dispositivos la usan.
 export type AccountRow = {
   account_key: string;
   device_count: number;
+  selling_devices: number; // equipos que cerraron ventas en el mes
+  kind: MultiDeviceKind;
   plan: Plan | null;
   last_seen: string;
 };
+
+export function multiDeviceLabel(kind: MultiDeviceKind): string {
+  switch (kind) {
+    case "pro":
+      return "Pro (meseros)";
+    case "branches":
+      return "Dos sucursales";
+    case "device_change":
+      return "Cambio de equipo";
+  }
+}
 
 /// Etiqueta legible del plan para la UI.
 export function planLabel(plan: Plan | null): string {
@@ -132,17 +151,33 @@ export type PlatformStats = {
 export type PlatformKey = AnalyticsPlatform;
 
 export type Summary = {
-  activeInstalls: number; // dispositivos que pingearon en el mes
+  activeInstalls: number; // dispositivos que ABRIERON la app en el mes
+  selling: number; // negocios que COBRARON al menos una vez en el mes
+  sellingSubscribed: number; // de los que cobran, cuántos pagan
+  configured: number; // capturaron menú pero no han cobrado
+  empty: number; // ni menú ni ventas: descargaron y ya
   totalOrders: number; // suma de órdenes del día (actividad del mes)
   subscribed: number; // DISPOSITIVOS con suscripción activa
   payingAccounts: number; // CUENTAS de pago (deduplicado, no por dispositivo)
-  multiDevice: AccountRow[]; // cuentas usadas en 2+ dispositivos (doble sucursal)
+  multiDevice: AccountRow[]; // cuentas usadas en 2+ dispositivos
+  realBranches: number; // de esas, las que sí son dos sucursales cobrando
   monthly: number;
   yearly: number;
   pro: number;
   platforms: Record<PlatformKey, PlatformStats>;
-  dailyActive: { date: string; count: number }[]; // por día del mes
+  daily: DailyPoint[]; // por día del mes
+  soldDaysByInstall: Map<string, number>; // días con venta en el mes
   latest: Ping[]; // último ping por instalación (más reciente primero)
+};
+
+/// Actividad de un día: cuántos abrieron la app y cuántos cobraron.
+export type DailyPoint = { date: string; active: number; selling: number };
+
+/// Lo que hizo una instalación durante el mes.
+type InstallStats = {
+  latest: Ping;
+  soldDays: number; // días con al menos una orden cerrada
+  products: number; // productos en el menú (último ping)
 };
 
 function emptyPlatformStats(): PlatformStats {
@@ -175,7 +210,8 @@ function isProPlan(plan: Plan | null): boolean {
 
 /// Métricas del día de hoy (independientes del mes seleccionado).
 export type TodaySummary = {
-  activeInstalls: number; // dispositivos que pingearon hoy
+  activeInstalls: number; // dispositivos que ABRIERON la app hoy
+  selling: number; // dispositivos que COBRARON hoy
   orders: number; // órdenes de hoy
   aiCalls: number; // llamadas a IA hoy
   subscribed: number; // dispositivos con suscripción activa hoy
@@ -222,11 +258,13 @@ export function newSubscribersToday(
 /// Resume la actividad de hoy. `pings` y `aiRows` ya vienen filtrados a hoy.
 export function summarizeToday(pings: Ping[], aiRows: AiUsage[]): TodaySummary {
   const installs = new Set<string>();
+  const selling = new Set<string>();
   let orders = 0;
   let subscribed = 0;
   let newInstalls = 0;
   for (const p of pings) {
     installs.add(p.install_id);
+    if ((p.orders_today ?? 0) > 0) selling.add(p.install_id);
     orders += p.orders_today ?? 0;
     if (p.subscription_active) subscribed++;
     if (p.days_since_install === 0) newInstalls++;
@@ -235,6 +273,7 @@ export function summarizeToday(pings: Ping[], aiRows: AiUsage[]): TodaySummary {
   for (const r of aiRows) aiCalls += r.count;
   return {
     activeInstalls: installs.size,
+    selling: selling.size,
     orders,
     aiCalls,
     subscribed,
@@ -247,26 +286,51 @@ export function summarizeToday(pings: Ping[], aiRows: AiUsage[]): TodaySummary {
 export function summarize(rows: Ping[], month: string): Summary {
   const lastDay = Number(monthRange(month).end.slice(8, 10));
 
-  const installs = new Set<string>();
   let totalOrders = 0;
 
-  // Último ping por instalación.
-  const latestByInstall = new Map<string, Ping>();
+  // Qué hizo cada instalación en el mes. Abrir la app no es usar la app: hay
+  // que separar al que cobra del que apenas descargó.
+  const byInstall = new Map<string, InstallStats>();
 
   for (const r of rows) {
-    installs.add(r.install_id);
     totalOrders += r.orders_today ?? 0;
 
-    const prev = latestByInstall.get(r.install_id);
-    if (!prev || r.ping_date > prev.ping_date) {
-      latestByInstall.set(r.install_id, r);
+    const prev = byInstall.get(r.install_id);
+    const sold = (r.orders_today ?? 0) > 0 ? 1 : 0;
+    if (!prev) {
+      byInstall.set(r.install_id, {
+        latest: r,
+        soldDays: sold,
+        products: r.product_count,
+      });
+    } else {
+      prev.soldDays += sold;
+      if (r.ping_date > prev.latest.ping_date) {
+        prev.latest = r;
+        prev.products = r.product_count;
+      }
+    }
+  }
+
+  let selling = 0;
+  let sellingSubscribed = 0;
+  let configured = 0;
+  let empty = 0;
+  for (const s of byInstall.values()) {
+    if (s.soldDays > 0) {
+      selling++;
+      if (s.latest.subscription_active) sellingSubscribed++;
+    } else if (s.products > 0) {
+      configured++;
+    } else {
+      empty++;
     }
   }
 
   // Ordenados por visita más reciente (usa el timestamp exacto).
-  const latest = [...latestByInstall.values()].sort((a, b) =>
-    b.updated_at.localeCompare(a.updated_at),
-  );
+  const latest = [...byInstall.values()]
+    .map((s) => s.latest)
+    .sort((a, b) => b.updated_at.localeCompare(a.updated_at));
 
   let subscribed = 0;
   let monthly = 0;
@@ -303,19 +367,30 @@ export function summarize(rows: Ping[], month: string): Summary {
   // Solo cuentas de pago (account_key solo existe cuando hay suscripción).
   const accounts = new Map<
     string,
-    { installs: Set<string>; plan: Plan | null; last_seen: string }
+    {
+      installs: Set<string>;
+      selling: number; // equipos de la cuenta que sí cobraron
+      isPro: boolean;
+      plan: Plan | null;
+      last_seen: string;
+    }
   >();
   for (const p of latest) {
     if (!p.account_key) continue;
+    const sold = (byInstall.get(p.install_id)?.soldDays ?? 0) > 0 ? 1 : 0;
     const a = accounts.get(p.account_key);
     if (!a) {
       accounts.set(p.account_key, {
         installs: new Set([p.install_id]),
+        selling: sold,
+        isPro: isProPlan(p.plan),
         plan: p.plan,
         last_seen: p.ping_date,
       });
     } else {
       a.installs.add(p.install_id);
+      a.selling += sold;
+      a.isPro = a.isPro || isProPlan(p.plan);
       if (p.ping_date > a.last_seen) {
         a.last_seen = p.ping_date;
         a.plan = p.plan;
@@ -328,33 +403,55 @@ export function summarize(rows: Ping[], month: string): Summary {
     .map(([account_key, a]) => ({
       account_key,
       device_count: a.installs.size,
+      selling_devices: a.selling,
+      // En Pro los equipos extra son los meseros: eso lo vendemos, no es fuga.
+      kind: a.isPro
+        ? ("pro" as const)
+        : a.selling > 1
+          ? ("branches" as const)
+          : ("device_change" as const),
       plan: a.plan,
       last_seen: a.last_seen,
     }))
-    .sort((x, y) => y.device_count - x.device_count);
+    .sort(
+      (x, y) =>
+        y.selling_devices - x.selling_devices ||
+        y.device_count - x.device_count,
+    );
 
-  // Activos por día del mes.
-  const dailyActive: { date: string; count: number }[] = [];
+  // Por día del mes: cuántos abrieron la app y cuántos cobraron.
+  const daily: DailyPoint[] = [];
   for (let day = 1; day <= lastDay; day++) {
     const date = `${month}-${String(day).padStart(2, "0")}`;
-    const set = new Set<string>();
+    const active = new Set<string>();
+    const sellingToday = new Set<string>();
     for (const r of rows) {
-      if (r.ping_date === date) set.add(r.install_id);
+      if (r.ping_date !== date) continue;
+      active.add(r.install_id);
+      if ((r.orders_today ?? 0) > 0) sellingToday.add(r.install_id);
     }
-    dailyActive.push({ date, count: set.size });
+    daily.push({ date, active: active.size, selling: sellingToday.size });
   }
 
   return {
-    activeInstalls: installs.size,
+    activeInstalls: byInstall.size,
+    selling,
+    sellingSubscribed,
+    configured,
+    empty,
     totalOrders,
     subscribed,
     payingAccounts: accounts.size,
     multiDevice,
+    realBranches: multiDevice.filter((a) => a.kind === "branches").length,
     monthly,
     yearly,
     pro,
     platforms,
-    dailyActive,
+    daily,
+    soldDaysByInstall: new Map(
+      [...byInstall.entries()].map(([id, s]) => [id, s.soldDays]),
+    ),
     latest,
   };
 }

@@ -12,6 +12,7 @@ import {
   monthLabel,
   monthOptions,
   monthRange,
+  multiDeviceLabel,
   mxToday,
   type Ping,
   type AiUsage,
@@ -97,21 +98,31 @@ export default async function Admin({
   const ai = summarizeAi(aiRows);
   const t = summarizeToday(todayPings, todayAi);
   const aiByInstall = new Map(ai.byInstall.map((u) => [u.install_id, u]));
-  const maxDaily = Math.max(1, ...s.dailyActive.map((d) => d.count));
+  const maxDaily = Math.max(1, ...s.daily.map((d) => d.active));
 
   const todayKpis = [
-    { v: t.activeInstalls, l: "Negocios activos" },
+    { v: t.selling, l: "Negocios cobrando" },
+    { v: t.activeInstalls, l: "Abrieron la app" },
     { v: t.newInstalls, l: "Nuevas instalaciones" },
     { v: newSubs.length, l: "Se suscribieron hoy" },
     { v: t.orders, l: "Órdenes hoy" },
     { v: t.aiCalls, l: "Llamadas IA" },
   ];
 
+  // De los que cobran, cuántos pagan: la conversión que sí importa.
+  const conversion = s.selling
+    ? Math.round((s.sellingSubscribed / s.selling) * 100)
+    : 0;
+
   const groups = [
     {
       title: "Resumen del mes",
       kpis: [
-        { v: s.activeInstalls, l: "Instalaciones activas" },
+        { v: s.activeInstalls, l: "Abrieron la app" },
+        { v: s.empty, l: "Solo descargaron" },
+        { v: s.configured, l: "Con menú, sin cobrar" },
+        { v: s.selling, l: "Negocios cobrando" },
+        { v: `${s.sellingSubscribed} · ${conversion}%`, l: "De esos, pagan" },
         { v: s.totalOrders, l: "Órdenes del mes" },
         { v: ai.totalCalls, l: "Llamadas IA" },
         { v: ai.usersWithAi, l: "Usuarios con IA" },
@@ -233,8 +244,8 @@ export default async function Admin({
             <div className="l">Órale AI Pro</div>
           </div>
           <div className="kpi">
-            <div className="v">{s.multiDevice.length}</div>
-            <div className="l">Doble sucursal</div>
+            <div className="v">{s.realBranches}</div>
+            <div className="l">Sucursal doble</div>
           </div>
         </div>
 
@@ -287,10 +298,11 @@ export default async function Admin({
       </div>
 
       <div className="panel">
-        <h2>Doble sucursal ({s.multiDevice.length})</h2>
+        <h2>Cuentas en varios equipos ({s.multiDevice.length})</h2>
         <p className="muted">
-          Cuentas de pago usadas en 2+ dispositivos: una sola suscripción
-          operando en varias sucursales.
+          Solo cuenta como sucursal doble si dos equipos COBRARON este mes. En
+          Pro los equipos extra son los meseros, y un equipo que no cobra suele
+          ser un cambio de aparato o una instalación que quedó vacía.
         </p>
         {s.multiDevice.length === 0 ? (
           <p className="muted">
@@ -303,7 +315,9 @@ export default async function Admin({
             <thead>
               <tr>
                 <th>Cuenta</th>
-                <th>Dispositivos</th>
+                <th>Equipos</th>
+                <th>Cobrando</th>
+                <th>Qué es</th>
                 <th>Plan</th>
                 <th>Última visita</th>
               </tr>
@@ -313,6 +327,16 @@ export default async function Admin({
                 <tr key={a.account_key}>
                   <td title={a.account_key}>{a.account_key.slice(0, 12)}</td>
                   <td>{a.device_count}</td>
+                  <td title="Equipos que cerraron ventas este mes">
+                    {a.selling_devices}
+                  </td>
+                  <td>
+                    <span
+                      className={`pill ${a.kind === "branches" ? "warn" : "off"}`}
+                    >
+                      {multiDeviceLabel(a.kind)}
+                    </span>
+                  </td>
                   <td>{planLabel(a.plan)}</td>
                   <td>{a.last_seen}</td>
                 </tr>
@@ -324,15 +348,29 @@ export default async function Admin({
       </div>
 
       <div className="panel">
-        <h2>Negocios activos por día · {monthLabel(month)}</h2>
+        <h2>Negocios cobrando por día · {monthLabel(month)}</h2>
+        <p className="muted">
+          La barra llena es quien cobró ese día; la clara, quien solo abrió la
+          app.
+        </p>
         <div className="bars">
-          {s.dailyActive.map((d) => (
+          {s.daily.map((d) => (
             <div className="bar-col" key={d.date}>
-              <span className="n">{d.count}</span>
+              <span className="n">{d.selling}</span>
               <div
-                className="bar"
-                style={{ height: `${(d.count / maxDaily) * 130}px` }}
-              />
+                className="bar ghost"
+                title={`${d.active} abrieron · ${d.selling} cobraron`}
+                style={{ height: `${(d.active / maxDaily) * 130}px` }}
+              >
+                <div
+                  className="bar fill"
+                  style={{
+                    height: d.active
+                      ? `${(d.selling / d.active) * 100}%`
+                      : "0%",
+                  }}
+                />
+              </div>
               <span className="d">{d.date.slice(8)}</span>
             </div>
           ))}
@@ -342,8 +380,10 @@ export default async function Admin({
       <div className="panel">
         <h2>Usuarios ({s.latest.length})</h2>
         <p className="muted">
-          Una fila por instalación activa en {monthLabel(month)}. Órdenes =
-          total histórico en el dispositivo. IA = llamadas del mes.
+          Una fila por instalación activa en {monthLabel(month)}. «Días
+          cobrando» es lo que de verdad dice si el negocio usa la app; el total
+          histórico llega en cero desde las versiones viejas que aún no lo
+          mandan.
         </p>
         {s.latest.length === 0 ? (
           <p className="muted">
@@ -361,6 +401,7 @@ export default async function Admin({
                 <th>Plataforma</th>
                 <th>Versión</th>
                 <th>Productos</th>
+                <th>Días cobrando</th>
                 <th>Órdenes (total)</th>
                 <th>Hoy</th>
                 <th>Ventas (rango)</th>
@@ -386,6 +427,9 @@ export default async function Admin({
                     <td>{platformLabel(p.platform)}</td>
                     <td>{p.app_version ?? "—"}</td>
                     <td>{p.product_count}</td>
+                    <td title={`Días con ventas en ${monthLabel(month)}`}>
+                      {s.soldDaysByInstall.get(p.install_id) ?? 0}
+                    </td>
                     <td title="Órdenes cerradas acumuladas">
                       {p.orders_total ?? 0}
                     </td>
