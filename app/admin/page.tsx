@@ -178,6 +178,7 @@ export default async function Admin({
               <thead>
                 <tr>
                   <th>Identidad</th>
+                  <th>Tipo</th>
                   <th>Plan</th>
                   <th>Plataforma</th>
                   <th>Hora</th>
@@ -187,6 +188,7 @@ export default async function Admin({
                 {newSubs.map((n) => (
                   <tr key={n.identity}>
                     <td title={n.identity}>{n.identity.slice(0, 12)}</td>
+                    <td>{n.isAccount ? "Cuenta" : "Dispositivo"}</td>
                     <td>{planLabel(n.plan)}</td>
                     <td>{platformLabel(n.platform)}</td>
                     <td>{fechaHora(n.updated_at)}</td>
@@ -247,6 +249,7 @@ export default async function Admin({
               <thead>
                 <tr>
                   <th>ID</th>
+                  <th>Cuenta</th>
                   <th>Última visita</th>
                   <th>Plataforma</th>
                   <th>Versión</th>
@@ -263,6 +266,9 @@ export default async function Admin({
                   return (
                     <tr key={p.install_id}>
                       <td title={p.install_id}>{p.install_id.slice(0, 8)}</td>
+                      <td title={p.account_key ?? "Sin cuenta (gratis)"}>
+                        {p.account_key ? p.account_key.slice(0, 8) : "—"}
+                      </td>
                       <td title={p.ping_date}>{fechaHora(p.updated_at)}</td>
                       <td>{platformLabel(p.platform)}</td>
                       <td>{p.app_version ?? "—"}</td>
