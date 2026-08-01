@@ -2069,8 +2069,23 @@ table.data tbody tr {
 table.data tbody tr:hover {
   background: var(--surface);
 }
+table.data tbody tr.user-row {
+  scroll-margin-top: 24px;
+}
+table.data tbody tr.user-row:target {
+  background: rgba(241, 90, 41, 0.12);
+  outline: 1px solid rgba(241, 90, 41, 0.35);
+}
 table.data tbody tr:last-child td {
   border-bottom: none;
+}
+a.id-link {
+  color: var(--primary);
+  font-weight: 700;
+  text-decoration: none;
+}
+a.id-link:hover {
+  text-decoration: underline;
 }
 .pill {
   display: inline-block;

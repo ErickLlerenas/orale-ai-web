@@ -153,6 +153,15 @@ export default async function Admin({
   }));
   const platformMax = Math.max(1, ...platformRows.map((p) => p.n));
 
+  // Para saltar desde "Se suscribieron hoy" a la fila en Usuarios.
+  const installIds = new Set(s.latest.map((p) => p.install_id));
+  const accountToInstall = new Map<string, string>();
+  for (const p of s.latest) {
+    if (p.account_key && !accountToInstall.has(p.account_key)) {
+      accountToInstall.set(p.account_key, p.install_id);
+    }
+  }
+
   return (
     <main className="admin">
       <header className="admin-header">
@@ -229,23 +238,42 @@ export default async function Admin({
       {newSubs.length > 0 && (
         <div className="panel">
           <h2>Se suscribieron hoy ({newSubs.length})</h2>
+          <p className="muted">
+            Cuenta = tiene sesión (mismo ID en sucursales). Dispositivo = solo
+            instaló y pagó sin cuenta.
+          </p>
           <div className="table-wrap">
             <table className="data">
               <thead>
                 <tr>
-                  <th>Identidad</th>
+                  <th>ID</th>
                   <th>Tipo</th>
                   <th>Plan</th>
                   <th>Plataforma</th>
-                  <th>Hora</th>
                 </tr>
               </thead>
               <tbody>
                 {newSubs.map((n) => {
                   const platform = platformChip(n.platform);
+                  const targetInstall = n.isAccount
+                    ? accountToInstall.get(n.identity)
+                    : installIds.has(n.identity)
+                      ? n.identity
+                      : undefined;
                   return (
                     <tr key={n.identity}>
-                      <td title={n.identity}>{n.identity.slice(0, 12)}</td>
+                      <td title={n.identity}>
+                        {targetInstall ? (
+                          <a
+                            className="id-link"
+                            href={`#user-${targetInstall}`}
+                          >
+                            {n.identity.slice(0, 8)}
+                          </a>
+                        ) : (
+                          n.identity.slice(0, 8)
+                        )}
+                      </td>
                       <td>{n.isAccount ? "Cuenta" : "Dispositivo"}</td>
                       <td>{planLabel(n.plan)}</td>
                       <td>
@@ -253,7 +281,6 @@ export default async function Admin({
                           {platform.label}
                         </span>
                       </td>
-                      <td>{fechaHora(n.updated_at)}</td>
                     </tr>
                   );
                 })}
@@ -327,7 +354,11 @@ export default async function Admin({
                   const tenure = userTenure(p.days_since_install);
                   const platform = platformChip(p.platform);
                   return (
-                    <tr key={p.install_id}>
+                    <tr
+                      key={p.install_id}
+                      id={`user-${p.install_id}`}
+                      className="user-row"
+                    >
                       <td title={p.install_id}>{p.install_id.slice(0, 8)}</td>
                       <td title={p.account_key ?? "Sin cuenta (gratis)"}>
                         {p.account_key ? p.account_key.slice(0, 8) : "—"}
