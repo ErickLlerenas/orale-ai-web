@@ -6,7 +6,7 @@ import {
   summarizeToday,
   newSubscribersToday,
   planLabel,
-  platformLabel,
+  platformChip,
   userTenure,
   fechaHora,
   currentMonth,
@@ -186,15 +186,22 @@ export default async function Admin({
                 </tr>
               </thead>
               <tbody>
-                {newSubs.map((n) => (
-                  <tr key={n.identity}>
-                    <td title={n.identity}>{n.identity.slice(0, 12)}</td>
-                    <td>{n.isAccount ? "Cuenta" : "Dispositivo"}</td>
-                    <td>{planLabel(n.plan)}</td>
-                    <td>{platformLabel(n.platform)}</td>
-                    <td>{fechaHora(n.updated_at)}</td>
-                  </tr>
-                ))}
+                {newSubs.map((n) => {
+                  const platform = platformChip(n.platform);
+                  return (
+                    <tr key={n.identity}>
+                      <td title={n.identity}>{n.identity.slice(0, 12)}</td>
+                      <td>{n.isAccount ? "Cuenta" : "Dispositivo"}</td>
+                      <td>{planLabel(n.plan)}</td>
+                      <td>
+                        <span className={platform.className}>
+                          {platform.label}
+                        </span>
+                      </td>
+                      <td>{fechaHora(n.updated_at)}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -266,6 +273,7 @@ export default async function Admin({
                 {s.latest.map((p) => {
                   const u = aiByInstall.get(p.install_id);
                   const tenure = userTenure(p.days_since_install);
+                  const platform = platformChip(p.platform);
                   return (
                     <tr key={p.install_id}>
                       <td title={p.install_id}>{p.install_id.slice(0, 8)}</td>
@@ -276,7 +284,11 @@ export default async function Admin({
                       <td title={`${p.days_since_install} días desde la descarga`}>
                         <span className={tenure.className}>{tenure.label}</span>
                       </td>
-                      <td>{platformLabel(p.platform)}</td>
+                      <td>
+                        <span className={platform.className}>
+                          {platform.label}
+                        </span>
+                      </td>
                       <td>{p.app_version ?? "—"}</td>
                       <td>{p.product_count}</td>
                       <td title={`Días con ventas en ${monthLabel(month)}`}>

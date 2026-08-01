@@ -1980,6 +1980,33 @@ table.data tbody tr:last-child td {
   background: rgba(241, 90, 41, 0.14);
   color: var(--primary);
 }
+.platform-tag {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.platform-ios {
+  background: rgba(31, 41, 51, 0.1);
+  color: var(--ink);
+}
+.platform-android {
+  background: rgba(30, 142, 62, 0.14);
+  color: #1e8e3e;
+}
+.platform-windows {
+  background: rgba(0, 120, 212, 0.14);
+  color: #0078d4;
+}
+.platform-mac {
+  background: rgba(44, 44, 46, 0.12);
+  color: #2c2c2e;
+}
+.platform-unknown {
+  background: #eef0f2;
+  color: var(--ink-soft);
+}
 .pill.tenure-new {
   background: rgba(241, 90, 41, 0.22);
   color: #c2410c;

@@ -110,6 +110,24 @@ export function platformLabel(platform: string | null): string {
   }
 }
 
+/// Chip de color por plataforma.
+export function platformChip(platform: string | null): {
+  label: string;
+  className: string;
+} {
+  const key =
+    platform === "ios" ||
+    platform === "android" ||
+    platform === "windows" ||
+    platform === "mac"
+      ? platform
+      : "unknown";
+  return {
+    label: platformLabel(platform),
+    className: `platform-tag platform-${key}`,
+  };
+}
+
 /// Fecha de hoy en zona horaria de México (yyyy-mm-dd).
 export function mxToday(): string {
   return new Intl.DateTimeFormat("en-CA", {
