@@ -101,10 +101,6 @@ export default async function Admin({
   const aiByInstall = new Map(ai.byInstall.map((u) => [u.install_id, u]));
   const maxDaily = Math.max(1, ...s.daily.map((d) => d.active));
 
-  // Los pings se pueden purgar: si el mes no arranca con datos, se avisa en vez
-  // de dejar creer que nadie abrió la app esos días.
-  const firstWithData = s.daily.find((d) => d.active > 0)?.date ?? null;
-
   const todayKpis = [
     { v: newSubs.length, l: "Se suscribieron" },
     { v: t.newInstalls, l: "Nuevas instalaciones" },
@@ -261,31 +257,45 @@ export default async function Admin({
       {newSubDetails.length > 0 && <NewSubscribers items={newSubDetails} />}
 
       <div className="panel">
-        <h2>Negocios cobrando por día · {monthLabel(month)}</h2>
-        <p className="muted">
-          La barra llena es quien cobró ese día; la clara, quien solo abrió la
-          app.
-          {firstWithData && firstWithData.slice(8) !== "01" && (
-            <> Solo hay pings guardados desde el {firstWithData.slice(8)}.</>
-          )}
-        </p>
+        <h2>Actividad por día · {monthLabel(month)}</h2>
+        <div className="bars-legend">
+          <span>
+            <i className="swatch open" /> Abrieron
+          </span>
+          <span>
+            <i className="swatch sell" /> Cobraron
+          </span>
+        </div>
         <div className="bars">
           {s.daily.map((d) => (
-            <div className="bar-col" key={d.date}>
-              <span className="n">{d.selling}</span>
-              <div
-                className="bar ghost"
-                title={`${d.active} abrieron · ${d.selling} cobraron`}
-                style={{ height: `${(d.active / maxDaily) * 130}px` }}
-              >
-                <div
-                  className="bar fill"
-                  style={{
-                    height: d.active
-                      ? `${(d.selling / d.active) * 100}%`
-                      : "0%",
-                  }}
-                />
+            <div
+              className="bar-col"
+              key={d.date}
+              title={`${d.date}: ${d.active} abrieron · ${d.selling} cobraron`}
+            >
+              <div className="bar-pair">
+                <div className="bar-stack">
+                  <span className="n open">{d.active || ""}</span>
+                  <div
+                    className="bar open"
+                    style={{
+                      height: d.active
+                        ? `${Math.max(3, (d.active / maxDaily) * 120)}px`
+                        : "0px",
+                    }}
+                  />
+                </div>
+                <div className="bar-stack">
+                  <span className="n sell">{d.selling || ""}</span>
+                  <div
+                    className="bar sell"
+                    style={{
+                      height: d.selling
+                        ? `${Math.max(3, (d.selling / maxDaily) * 120)}px`
+                        : "0px",
+                    }}
+                  />
+                </div>
               </div>
               <span className="d">{d.date.slice(8)}</span>
             </div>
