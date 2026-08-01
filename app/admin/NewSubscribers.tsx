@@ -46,11 +46,15 @@ export default function NewSubscribers({ items }: { items: NewSubDetail[] }) {
                 <span className="sub-card-id" title={n.identity}>
                   {n.identity.slice(0, 8)}
                 </span>
-                <span className={`pill ${n.isAccount ? "sub" : "off"}`}>
+                <span
+                  className={`sub-card-type pill ${n.isAccount ? "sub" : "off"}`}
+                >
                   {n.isAccount ? "Cuenta" : "Dispositivo"}
                 </span>
                 <span className="sub-card-plan">{n.plan}</span>
-                <span className={n.platformClass}>{n.platformLabel}</span>
+                <span className={`sub-card-platform ${n.platformClass}`}>
+                  {n.platformLabel}
+                </span>
                 <span className={`sub-card-chevron${isOpen ? " open" : ""}`}>
                   ▾
                 </span>
