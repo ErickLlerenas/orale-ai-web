@@ -102,10 +102,10 @@ export default async function Admin({
   const maxDaily = Math.max(1, ...s.daily.map((d) => d.active));
 
   const todayKpis = [
-    { v: newSubs.length, l: "Se suscribieron" },
-    { v: t.newInstalls, l: "Nuevas instalaciones" },
-    { v: t.activeInstalls, l: "Abrieron la app" },
-    { v: t.selling, l: "Cobrando hoy" },
+    { v: newSubs.length, l: "Se suscribieron", tone: "subs" },
+    { v: t.newInstalls, l: "Nuevas instalaciones", tone: "new" },
+    { v: t.activeInstalls, l: "Abrieron la app", tone: "open" },
+    { v: t.selling, l: "Cobrando hoy", tone: "sell" },
   ];
 
   // Embudo del mes: de abrir la app a pagar.
@@ -196,13 +196,19 @@ export default async function Admin({
       <section className="kpi-group today-group">
         <h2 className="kpi-group-title">
           <span className="live-dot" />
-          Hoy · {fechaHora(new Date().toISOString()).split(",")[0]}
+          Hoy
+          <span className="today-date">
+            {fechaHora(new Date().toISOString()).split(",")[0]}
+          </span>
         </h2>
-        <div className="kpis">
+        <div className="kpis today-kpis">
           {todayKpis.map((k) => (
-            <div className="kpi" key={k.l}>
+            <div className={`kpi today-kpi tone-${k.tone}`} key={k.l}>
+              <div className="kpi-top">
+                <span className="kpi-dot" />
+                <span className="l">{k.l}</span>
+              </div>
               <div className="v">{k.v}</div>
-              <div className="l">{k.l}</div>
             </div>
           ))}
         </div>
