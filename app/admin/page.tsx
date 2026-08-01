@@ -7,6 +7,7 @@ import {
   newSubscribersToday,
   planLabel,
   platformLabel,
+  userTenure,
   fechaHora,
   currentMonth,
   monthLabel,
@@ -251,6 +252,7 @@ export default async function Admin({
                   <th>ID</th>
                   <th>Cuenta</th>
                   <th>Última visita</th>
+                  <th>Antigüedad</th>
                   <th>Plataforma</th>
                   <th>Versión</th>
                   <th>Productos</th>
@@ -263,6 +265,7 @@ export default async function Admin({
               <tbody>
                 {s.latest.map((p) => {
                   const u = aiByInstall.get(p.install_id);
+                  const tenure = userTenure(p.days_since_install);
                   return (
                     <tr key={p.install_id}>
                       <td title={p.install_id}>{p.install_id.slice(0, 8)}</td>
@@ -270,6 +273,9 @@ export default async function Admin({
                         {p.account_key ? p.account_key.slice(0, 8) : "—"}
                       </td>
                       <td title={p.ping_date}>{fechaHora(p.updated_at)}</td>
+                      <td title={`${p.days_since_install} días desde la descarga`}>
+                        <span className={tenure.className}>{tenure.label}</span>
+                      </td>
                       <td>{platformLabel(p.platform)}</td>
                       <td>{p.app_version ?? "—"}</td>
                       <td>{p.product_count}</td>
