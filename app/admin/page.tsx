@@ -105,24 +105,10 @@ export default async function Admin({
   const firstWithData = s.daily.find((d) => d.active > 0)?.date ?? null;
 
   const todayKpis = [
-    { v: t.selling, l: "Cobrando hoy" },
-    { v: t.activeInstalls, l: "Abrieron la app" },
-    { v: t.newInstalls, l: "Nuevas instalaciones" },
     { v: newSubs.length, l: "Se suscribieron" },
-  ];
-
-  // De los que cobran, cuántos pagan: la conversión que sí importa.
-  const conversion = s.selling
-    ? Math.round((s.sellingSubscribed / s.selling) * 100)
-    : 0;
-
-  const monthKpis = [
-    { v: s.payingAccounts, l: "Cuentas de pago" },
-    { v: s.selling, l: "Negocios cobrando" },
-    { v: `${s.sellingSubscribed} · ${conversion}%`, l: "De esos, pagan" },
-    { v: s.activeInstalls, l: "Abrieron la app" },
-    { v: s.totalOrders, l: "Órdenes" },
-    { v: ai.totalCalls, l: "Llamadas IA" },
+    { v: t.newInstalls, l: "Nuevas instalaciones" },
+    { v: t.activeInstalls, l: "Abrieron la app" },
+    { v: t.selling, l: "Cobrando hoy" },
   ];
 
   return (
@@ -150,25 +136,6 @@ export default async function Admin({
             </div>
           ))}
         </div>
-      </section>
-
-      <section className="kpi-group">
-        <h2 className="kpi-group-title">{monthLabel(month)}</h2>
-        <div className="kpis">
-          {monthKpis.map((k) => (
-            <div className="kpi" key={k.l}>
-              <div className="v">{k.v}</div>
-              <div className="l">{k.l}</div>
-            </div>
-          ))}
-        </div>
-        <p className="muted kpi-note">
-          Planes: {s.monthly} mensual · {s.yearly} anual · {s.pro} Pro ·{" "}
-          {s.realBranches} sucursal doble. Equipos: {s.platforms.ios.installs}{" "}
-          iOS · {s.platforms.android.installs} Android ·{" "}
-          {s.platforms.windows.installs} Windows · {s.platforms.mac.installs}{" "}
-          Mac.
-        </p>
       </section>
 
       {newSubs.length > 0 && (
