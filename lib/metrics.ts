@@ -135,6 +135,29 @@ export function mxToday(): string {
   }).format(new Date());
 }
 
+/// Fecha relativa a hoy en México, en días (ej. -1 = ayer).
+export function mxDateOffset(days: number): string {
+  const [y, m, d] = mxToday().split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d + days));
+  return dt.toISOString().slice(0, 10);
+}
+
+/// Fecha de ayer en zona horaria de México (yyyy-mm-dd).
+export function mxYesterday(): string {
+  return mxDateOffset(-1);
+}
+
+/// Etiqueta corta de un día yyyy-mm-dd, ej. "31 jul 2026".
+export function dayLabel(yyyyMmDd: string): string {
+  const [y, m, d] = yyyyMmDd.split("-").map(Number);
+  return new Intl.DateTimeFormat("es-MX", {
+    timeZone: "UTC",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(new Date(Date.UTC(y, m - 1, d)));
+}
+
 /// Mes actual (yyyy-mm) en zona horaria de México.
 export function currentMonth(): string {
   return mxToday().slice(0, 7);

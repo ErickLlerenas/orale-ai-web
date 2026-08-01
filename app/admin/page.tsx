@@ -14,11 +14,15 @@ import {
   monthOptions,
   monthRange,
   mxToday,
+  mxYesterday,
+  dayLabel,
   type Ping,
   type AiUsage,
+  type NewSubscriber,
 } from "@/lib/metrics";
 import MonthSelect from "./MonthSelect";
-import NewSubscribers, { type NewSubDetail } from "./NewSubscribers";
+import DayTabs, { type DayKpi, type DaySnapshot } from "./DayTabs";
+import { type NewSubDetail } from "./NewSubscribers";
 
 // Siempre datos frescos (sin caché).
 export const dynamic = "force-dynamic";
@@ -40,40 +44,50 @@ export default async function Admin({
   const { start, end } = monthRange(month);
 
   const today = mxToday();
+  const yesterday = mxYesterday();
 
   let rows: Ping[] = [];
   let aiRows: AiUsage[] = [];
   let todayPings: Ping[] = [];
   let todayAi: AiUsage[] = [];
+  let yesterdayPings: Ping[] = [];
+  let yesterdayAi: AiUsage[] = [];
   let errorMsg: string | null = null;
 
   try {
     const supabase = adminClient();
-    const [pings, ai, todayPingsRes, todayAiRes] = await Promise.all([
-      supabase
-        .from("usage_pings")
-        .select("*")
-        .gte("ping_date", start)
-        .lte("ping_date", end)
-        .order("ping_date", { ascending: false }),
-      supabase
-        .from("ai_usage")
-        .select("*")
-        .gte("usage_date", start)
-        .lte("usage_date", end)
-        .order("usage_date", { ascending: false }),
-      supabase.from("usage_pings").select("*").eq("ping_date", today),
-      supabase.from("ai_usage").select("*").eq("usage_date", today),
-    ]);
+    const [pings, ai, todayPingsRes, todayAiRes, yPingsRes, yAiRes] =
+      await Promise.all([
+        supabase
+          .from("usage_pings")
+          .select("*")
+          .gte("ping_date", start)
+          .lte("ping_date", end)
+          .order("ping_date", { ascending: false }),
+        supabase
+          .from("ai_usage")
+          .select("*")
+          .gte("usage_date", start)
+          .lte("usage_date", end)
+          .order("usage_date", { ascending: false }),
+        supabase.from("usage_pings").select("*").eq("ping_date", today),
+        supabase.from("ai_usage").select("*").eq("usage_date", today),
+        supabase.from("usage_pings").select("*").eq("ping_date", yesterday),
+        supabase.from("ai_usage").select("*").eq("usage_date", yesterday),
+      ]);
     if (pings.error) errorMsg = pings.error.message;
     else if (ai.error) errorMsg = ai.error.message;
     else if (todayPingsRes.error) errorMsg = todayPingsRes.error.message;
     else if (todayAiRes.error) errorMsg = todayAiRes.error.message;
+    else if (yPingsRes.error) errorMsg = yPingsRes.error.message;
+    else if (yAiRes.error) errorMsg = yAiRes.error.message;
     else {
       rows = (pings.data ?? []) as Ping[];
       aiRows = (ai.data ?? []) as AiUsage[];
       todayPings = (todayPingsRes.data ?? []) as Ping[];
       todayAi = (todayAiRes.data ?? []) as AiUsage[];
+      yesterdayPings = (yPingsRes.data ?? []) as Ping[];
+      yesterdayAi = (yAiRes.data ?? []) as AiUsage[];
     }
   } catch (e) {
     errorMsg = e instanceof Error ? e.message : String(e);
@@ -92,21 +106,74 @@ export default async function Admin({
     );
   }
 
-  // Nuevos hoy = primera suscripción con fecha de hoy (`subscribed_at`).
-  const newSubs = newSubscribersToday(todayPings, today);
-
   const s = summarize(rows, month);
   const ai = summarizeAi(aiRows, new Set(s.latest.map((p) => p.install_id)));
   const t = summarizeToday(todayPings, todayAi);
+  const y = summarizeToday(yesterdayPings, yesterdayAi);
   const aiByInstall = new Map(ai.byInstall.map((u) => [u.install_id, u]));
   const maxDaily = Math.max(1, ...s.daily.map((d) => d.active));
 
-  const todayKpis = [
-    { v: newSubs.length, l: "Se suscribieron", tone: "subs" },
-    { v: t.newInstalls, l: "Nuevas instalaciones", tone: "new" },
-    { v: t.activeInstalls, l: "Abrieron la app", tone: "open" },
-    { v: t.selling, l: "Cobrando hoy", tone: "sell" },
+  const buildSubs = (
+    subs: NewSubscriber[],
+    dayPings: Ping[],
+  ): NewSubDetail[] =>
+    subs.map((n) => {
+      const match =
+        (n.isAccount
+          ? s.latest.find((p) => p.account_key === n.identity) ??
+            dayPings.find((p) => p.account_key === n.identity)
+          : s.latest.find((p) => p.install_id === n.identity) ??
+            dayPings.find((p) => p.install_id === n.identity)) ?? null;
+      const tenure = userTenure(match?.days_since_install ?? 0);
+      const platform = platformChip(match?.platform ?? n.platform);
+      const u = match ? aiByInstall.get(match.install_id) : undefined;
+      const deviceCount = n.isAccount
+        ? s.latest.filter((p) => p.account_key === n.identity).length || 1
+        : 1;
+      return {
+        identity: n.identity,
+        isAccount: n.isAccount,
+        plan: planLabel(n.plan),
+        platformLabel: platform.label,
+        platformClass: platform.className,
+        tenureLabel: tenure.label,
+        tenureClass: tenure.className,
+        appVersion: match?.app_version ?? "—",
+        productCount: match?.product_count ?? 0,
+        lastSeen: fechaHora(match?.updated_at ?? n.updated_at),
+        aiMonth: u ? String(u.total) : "—",
+        installId: match?.install_id ?? (n.isAccount ? "—" : n.identity),
+        accountKey: match?.account_key ?? (n.isAccount ? n.identity : null),
+        deviceCount,
+      };
+    });
+
+  const dayKpis = (
+    subsCount: number,
+    summary: ReturnType<typeof summarizeToday>,
+  ): DayKpi[] => [
+    { v: subsCount, l: "Se suscribieron", tone: "subs" },
+    { v: summary.newInstalls, l: "Nuevas instalaciones", tone: "new" },
+    { v: summary.activeInstalls, l: "Abrieron la app", tone: "open" },
+    { v: summary.selling, l: "Cobrando", tone: "sell" },
   ];
+
+  const todaySubs = newSubscribersToday(todayPings, today);
+  const yesterdaySubs = newSubscribersToday(yesterdayPings, yesterday);
+
+  const todaySnap: DaySnapshot = {
+    label: "Hoy",
+    dateLabel: dayLabel(today),
+    live: true,
+    kpis: dayKpis(todaySubs.length, t),
+    subscribers: buildSubs(todaySubs, todayPings),
+  };
+  const yesterdaySnap: DaySnapshot = {
+    label: "Ayer",
+    dateLabel: dayLabel(yesterday),
+    kpis: dayKpis(yesterdaySubs.length, y),
+    subscribers: buildSubs(yesterdaySubs, yesterdayPings),
+  };
 
   // Embudo del mes: de abrir la app a pagar.
   const funnel = [
@@ -150,37 +217,6 @@ export default async function Admin({
   }));
   const platformMax = Math.max(1, ...platformRows.map((p) => p.n));
 
-  const newSubDetails: NewSubDetail[] = newSubs.map((n) => {
-    const match =
-      (n.isAccount
-        ? s.latest.find((p) => p.account_key === n.identity) ??
-          todayPings.find((p) => p.account_key === n.identity)
-        : s.latest.find((p) => p.install_id === n.identity) ??
-          todayPings.find((p) => p.install_id === n.identity)) ?? null;
-    const tenure = userTenure(match?.days_since_install ?? 0);
-    const platform = platformChip(match?.platform ?? n.platform);
-    const ai = match ? aiByInstall.get(match.install_id) : undefined;
-    const deviceCount = n.isAccount
-      ? s.latest.filter((p) => p.account_key === n.identity).length || 1
-      : 1;
-    return {
-      identity: n.identity,
-      isAccount: n.isAccount,
-      plan: planLabel(n.plan),
-      platformLabel: platform.label,
-      platformClass: platform.className,
-      tenureLabel: tenure.label,
-      tenureClass: tenure.className,
-      appVersion: match?.app_version ?? "—",
-      productCount: match?.product_count ?? 0,
-      lastSeen: fechaHora(match?.updated_at ?? n.updated_at),
-      aiMonth: ai ? String(ai.total) : "—",
-      installId: match?.install_id ?? (n.isAccount ? "—" : n.identity),
-      accountKey: match?.account_key ?? (n.isAccount ? n.identity : null),
-      deviceCount,
-    };
-  });
-
   return (
     <main className="admin">
       <header className="admin-header">
@@ -193,26 +229,7 @@ export default async function Admin({
         <MonthSelect value={month} options={options} />
       </header>
 
-      <section className="kpi-group today-group">
-        <h2 className="kpi-group-title">
-          <span className="live-dot" />
-          Hoy
-          <span className="today-date">
-            {fechaHora(new Date().toISOString()).split(",")[0]}
-          </span>
-        </h2>
-        <div className="kpis today-kpis">
-          {todayKpis.map((k) => (
-            <div className={`kpi today-kpi tone-${k.tone}`} key={k.l}>
-              <div className="kpi-top">
-                <span className="kpi-dot" />
-                <span className="l">{k.l}</span>
-              </div>
-              <div className="v">{k.v}</div>
-            </div>
-          ))}
-        </div>
-      </section>
+      <DayTabs today={todaySnap} yesterday={yesterdaySnap} />
 
       <section className="kpi-group month-summary">
         <h2 className="kpi-group-title">{monthLabel(month)}</h2>
@@ -259,8 +276,6 @@ export default async function Admin({
           </div>
         </div>
       </section>
-
-      {newSubDetails.length > 0 && <NewSubscribers items={newSubDetails} />}
 
       <div className="panel">
         <h2>Actividad por día · {monthLabel(month)}</h2>

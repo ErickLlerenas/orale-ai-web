@@ -19,12 +19,20 @@ export type NewSubDetail = {
   deviceCount: number;
 };
 
-export default function NewSubscribers({ items }: { items: NewSubDetail[] }) {
+export default function NewSubscribers({
+  items,
+  title = "Se suscribieron hoy",
+}: {
+  items: NewSubDetail[];
+  title?: string;
+}) {
   const [open, setOpen] = useState<string | null>(null);
 
   return (
-    <div className="panel">
-      <h2>Se suscribieron hoy ({items.length})</h2>
+    <div className="day-subs">
+      <h3 className="day-subs-title">
+        {title} ({items.length})
+      </h3>
       <p className="muted">
         Cuenta = tiene sesión (mismo ID en sucursales). Dispositivo = solo
         instaló y pagó sin cuenta. Toca una fila para ver el detalle.
