@@ -244,8 +244,7 @@ export default async function Admin({
       <div className="panel">
         <h2>Usuarios ({s.latest.length})</h2>
         <p className="muted">
-          Una fila por instalación activa en {monthLabel(month)}. «Días
-          cobrando» es lo que de verdad dice si el negocio usa la app.
+          Una fila por instalación activa en {monthLabel(month)}.
         </p>
         {s.latest.length === 0 ? (
           <p className="muted">
@@ -263,8 +262,6 @@ export default async function Admin({
                   <th>Plataforma</th>
                   <th>Versión</th>
                   <th>Productos</th>
-                  <th>Días cobrando</th>
-                  <th>Ventas (rango)</th>
                   <th>IA (mes)</th>
                   <th>Plan</th>
                 </tr>
@@ -291,10 +288,6 @@ export default async function Admin({
                       </td>
                       <td>{p.app_version ?? "—"}</td>
                       <td>{p.product_count}</td>
-                      <td title={`Días con ventas en ${monthLabel(month)}`}>
-                        {s.soldDaysByInstall.get(p.install_id) ?? 0}
-                      </td>
-                      <td>{p.sales_bucket ?? "—"}</td>
                       <td
                         title={
                           u
