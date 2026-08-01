@@ -389,7 +389,7 @@ export default async function Admin({
                             {planLabel(p.plan)}
                           </span>
                         ) : (
-                          <span className="pill off">Inactivo</span>
+                          <span className="pill off">Sin suscripción</span>
                         )}
                       </td>
                     </tr>
