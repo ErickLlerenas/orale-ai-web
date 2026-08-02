@@ -52,35 +52,46 @@ export default async function Admin({
   let todayAi: AiUsage[] = [];
   let yesterdayPings: Ping[] = [];
   let yesterdayAi: AiUsage[] = [];
+  /** install_id que entraron como mesero (código de equipo). */
+  let waiterInstalls = new Set<string>();
   let errorMsg: string | null = null;
 
   try {
     const supabase = adminClient();
-    const [pings, ai, todayPingsRes, todayAiRes, yPingsRes, yAiRes] =
-      await Promise.all([
-        supabase
-          .from("usage_pings")
-          .select("*")
-          .gte("ping_date", start)
-          .lte("ping_date", end)
-          .order("ping_date", { ascending: false }),
-        supabase
-          .from("ai_usage")
-          .select("*")
-          .gte("usage_date", start)
-          .lte("usage_date", end)
-          .order("usage_date", { ascending: false }),
-        supabase.from("usage_pings").select("*").eq("ping_date", today),
-        supabase.from("ai_usage").select("*").eq("usage_date", today),
-        supabase.from("usage_pings").select("*").eq("ping_date", yesterday),
-        supabase.from("ai_usage").select("*").eq("usage_date", yesterday),
-      ]);
+    const [
+      pings,
+      ai,
+      todayPingsRes,
+      todayAiRes,
+      yPingsRes,
+      yAiRes,
+      devicesRes,
+    ] = await Promise.all([
+      supabase
+        .from("usage_pings")
+        .select("*")
+        .gte("ping_date", start)
+        .lte("ping_date", end)
+        .order("ping_date", { ascending: false }),
+      supabase
+        .from("ai_usage")
+        .select("*")
+        .gte("usage_date", start)
+        .lte("usage_date", end)
+        .order("usage_date", { ascending: false }),
+      supabase.from("usage_pings").select("*").eq("ping_date", today),
+      supabase.from("ai_usage").select("*").eq("usage_date", today),
+      supabase.from("usage_pings").select("*").eq("ping_date", yesterday),
+      supabase.from("ai_usage").select("*").eq("usage_date", yesterday),
+      supabase.from("business_devices").select("install_id, role"),
+    ]);
     if (pings.error) errorMsg = pings.error.message;
     else if (ai.error) errorMsg = ai.error.message;
     else if (todayPingsRes.error) errorMsg = todayPingsRes.error.message;
     else if (todayAiRes.error) errorMsg = todayAiRes.error.message;
     else if (yPingsRes.error) errorMsg = yPingsRes.error.message;
     else if (yAiRes.error) errorMsg = yAiRes.error.message;
+    else if (devicesRes.error) errorMsg = devicesRes.error.message;
     else {
       rows = (pings.data ?? []) as Ping[];
       aiRows = (ai.data ?? []) as AiUsage[];
@@ -88,6 +99,11 @@ export default async function Admin({
       todayAi = (todayAiRes.data ?? []) as AiUsage[];
       yesterdayPings = (yPingsRes.data ?? []) as Ping[];
       yesterdayAi = (yAiRes.data ?? []) as AiUsage[];
+      waiterInstalls = new Set(
+        ((devicesRes.data ?? []) as { install_id: string; role: string }[])
+          .filter((d) => d.role === "waiter")
+          .map((d) => d.install_id),
+      );
     }
   } catch (e) {
     errorMsg = e instanceof Error ? e.message : String(e);
@@ -391,6 +407,13 @@ export default async function Admin({
                             title={`Suscrito el ${p.subscribed_at ?? "—"}`}
                           >
                             {planLabel(p.plan)}
+                          </span>
+                        ) : waiterInstalls.has(p.install_id) ? (
+                          <span
+                            className="pill mesero"
+                            title="Entró con código de mesero (no suscribe)"
+                          >
+                            Mesero
                           </span>
                         ) : (
                           <span className="pill off">Sin suscripción</span>

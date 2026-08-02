@@ -2359,6 +2359,10 @@ table.data tbody tr:last-child td {
   background: #eef0f2;
   color: var(--ink-soft);
 }
+.pill.mesero {
+  background: rgba(37, 99, 235, 0.12);
+  color: #2563eb;
+}
 .pill.warn {
   background: rgba(241, 90, 41, 0.14);
   color: var(--primary);
