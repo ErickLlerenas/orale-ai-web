@@ -345,6 +345,7 @@ export default async function Admin({
                   <th>Plataforma</th>
                   <th>Versión</th>
                   <th>Productos</th>
+                  <th>Órdenes</th>
                   <th>IA (mes)</th>
                   <th>Plan</th>
                 </tr>
@@ -371,6 +372,9 @@ export default async function Admin({
                       </td>
                       <td>{p.app_version ?? "—"}</td>
                       <td>{p.product_count}</td>
+                      <td title="Órdenes cerradas acumuladas">
+                        {p.orders_total ?? 0}
+                      </td>
                       <td
                         title={
                           u
