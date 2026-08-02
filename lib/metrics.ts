@@ -75,19 +75,13 @@ export function planLabel(plan: Plan | null): string {
 }
 
 /// Badge de antigüedad desde la primera descarga.
-/// Colores más vivos = más nuevo.
+/// Solo “nuevo” lleva color (teal = buena señal); el resto va neutro.
 export function userTenure(days: number): { label: string; className: string } {
   if (days <= 0) {
     return { label: "Nuevo usuario", className: "pill tenure-new" };
   }
-  if (days <= 3) {
-    return { label: `Nuevo · ${days}d`, className: "pill tenure-fresh" };
-  }
   if (days <= 7) {
-    return { label: `Nuevo · ${days}d`, className: "pill tenure-week" };
-  }
-  if (days <= 30) {
-    return { label: `${days} días`, className: "pill tenure-month" };
+    return { label: `Nuevo · ${days}d`, className: "pill tenure-new" };
   }
   return { label: `${days} días`, className: "pill tenure-old" };
 }

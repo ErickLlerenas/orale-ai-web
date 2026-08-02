@@ -2391,24 +2391,15 @@ table.data tbody tr:last-child td {
   color: var(--ink-soft);
 }
 .pill.tenure-new {
-  background: rgba(241, 90, 41, 0.22);
-  color: #c2410c;
-}
-.pill.tenure-fresh {
-  background: rgba(241, 90, 41, 0.14);
-  color: var(--primary);
-}
-.pill.tenure-week {
-  background: rgba(217, 119, 6, 0.14);
-  color: #b45309;
-}
-.pill.tenure-month {
   background: rgba(21, 163, 138, 0.14);
   color: var(--accent);
 }
 .pill.tenure-old {
-  background: #eef0f2;
+  background: transparent;
   color: var(--ink-soft);
+  font-weight: 600;
+  padding-left: 0;
+  padding-right: 0;
 }
 
 /* Admin responsive */
