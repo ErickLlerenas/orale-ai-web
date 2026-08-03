@@ -215,8 +215,12 @@ export default async function Admin({
     },
   ];
   const funnelMax = Math.max(1, ...funnel.map((f) => f.n));
+  // De los equipos activos, cuántos tienen suscripción.
+  const installConversion = s.activeInstalls
+    ? Math.round((s.subscribed / s.activeInstalls) * 100)
+    : 0;
   // De los equipos que cobran, cuántos tienen suscripción.
-  const conversion = s.selling
+  const sellingConversion = s.selling
     ? Math.round((s.sellingSubscribed / s.selling) * 100)
     : 0;
 
@@ -287,22 +291,37 @@ export default async function Admin({
         </section>
         <section className="panel">
           <h2 className="month-chart-title">Negocio</h2>
-          <p className="muted month-card-hint">Por cliente (cuenta)</p>
           <div className="biz-stats">
             <div className="biz-stat">
               <div className="biz-n">{s.payingAccounts}</div>
               <div className="biz-l">Clientes que pagan</div>
             </div>
             <div className="biz-stat">
-              <div className="biz-n">{conversion}%</div>
-              <div className="biz-l">Equipos que cobran y sí pagan</div>
+              <div className="biz-n">{installConversion}%</div>
+              <div className="biz-l">De los que instalan, se suscriben</div>
+              <div
+                className="biz-meter"
+                title={`${s.subscribed} de ${s.activeInstalls} equipos activos tienen suscripción`}
+              >
+                <div
+                  className="biz-meter-fill"
+                  style={{ width: `${installConversion}%` }}
+                />
+              </div>
+              <div className="biz-meter-hint">
+                {s.subscribed} de {s.activeInstalls} equipos
+              </div>
+            </div>
+            <div className="biz-stat">
+              <div className="biz-n">{sellingConversion}%</div>
+              <div className="biz-l">De los que cobran, pagan</div>
               <div
                 className="biz-meter"
                 title={`${s.sellingSubscribed} de ${s.selling} equipos que cobraron tienen suscripción`}
               >
                 <div
                   className="biz-meter-fill"
-                  style={{ width: `${conversion}%` }}
+                  style={{ width: `${sellingConversion}%` }}
                 />
               </div>
               <div className="biz-meter-hint">
