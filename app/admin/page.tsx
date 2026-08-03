@@ -488,7 +488,22 @@ export default async function Admin({
                       <td>{p.app_version ?? "—"}</td>
                       <td>{p.product_count}</td>
                       <td title="Órdenes cerradas acumuladas">
-                        {p.orders_total ?? 0}
+                        {(p.orders_total ?? 0) > 25 ? (
+                          <span
+                            className={`pill ${
+                              p.subscription_active ? "sub" : "danger"
+                            }`}
+                            title={
+                              p.subscription_active
+                                ? "Mucho uso y con suscripción"
+                                : "Mucho uso sin suscripción"
+                            }
+                          >
+                            {p.orders_total}
+                          </span>
+                        ) : (
+                          (p.orders_total ?? 0)
+                        )}
                       </td>
                       <td
                         title={
