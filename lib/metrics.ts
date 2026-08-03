@@ -24,8 +24,9 @@ export type Ping = {
   sales_bucket: string | null; // rango de ventas del día (no el monto exacto)
   product_count: number;
   days_since_install: number;
-  subscription_active: boolean;
+  subscription_active: boolean; // tiene ACCESO (incluye prueba y gracia)
   plan: Plan | null; // qué producto compró
+  subscription_status: string | null; // estado crudo de Stripe; null en móvil
   subscribed_at: string | null; // yyyy-mm-dd primera suscripción
   updated_at: string;
 };
@@ -71,6 +72,36 @@ export function planLabel(plan: Plan | null): string {
       return "Pro anual";
     default:
       return "—";
+  }
+}
+
+/// Pastilla del plan para una instalación CON acceso.
+///
+/// `subscription_active` solo dice que la app deja operar, y eso incluye la
+/// prueba de 14 días y los 7 de gracia por cobro vencido. El status de Stripe
+/// es lo único que separa el ingreso real de la promesa, así que prueba y pago
+/// pendiente van en ámbar y solo lo cobrado va en verde. En móvil el status
+/// llega null (la tienda no lo expone) y se asume al corriente.
+export function planPill(
+  plan: Plan | null,
+  status: string | null,
+): { label: string; className: string; title: string } {
+  const name = planLabel(plan);
+  switch (status) {
+    case "trialing":
+      return {
+        label: `${name} · prueba`,
+        className: "pill warn",
+        title: "En prueba gratis: todavía no ha pagado",
+      };
+    case "past_due":
+      return {
+        label: `${name} · pago pendiente`,
+        className: "pill warn",
+        title: "El cobro falló; sigue con acceso mientras corre la gracia",
+      };
+    default:
+      return { label: name, className: "pill sub", title: "Cobro al corriente" };
   }
 }
 

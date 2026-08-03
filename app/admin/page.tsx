@@ -6,6 +6,7 @@ import {
   summarizeToday,
   newSubscribersToday,
   planLabel,
+  planPill,
   platformChip,
   userTenure,
   fechaHora,
@@ -470,6 +471,7 @@ export default async function Admin({
                   const u = aiByInstall.get(p.install_id);
                   const tenure = userTenure(p.days_since_install);
                   const platform = platformChip(p.platform);
+                  const pill = planPill(p.plan, p.subscription_status);
                   return (
                     <tr key={p.install_id}>
                       <td title={p.install_id}>{p.install_id.slice(0, 8)}</td>
@@ -517,10 +519,12 @@ export default async function Admin({
                       <td>
                         {p.subscription_active ? (
                           <span
-                            className="pill sub"
-                            title={`Suscrito el ${p.subscribed_at ?? "—"}`}
+                            className={pill.className}
+                            title={`${pill.title} · Suscrito el ${
+                              p.subscribed_at ?? "—"
+                            }`}
                           >
-                            {planLabel(p.plan)}
+                            {pill.label}
                           </span>
                         ) : waiterInstalls.has(p.install_id) ? (
                           <span
