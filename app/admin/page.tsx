@@ -127,7 +127,10 @@ export default async function Admin({
   const t = summarizeToday(todayPings, todayAi);
   const y = summarizeToday(yesterdayPings, yesterdayAi);
   const aiByInstall = new Map(ai.byInstall.map((u) => [u.install_id, u]));
-  const maxDaily = Math.max(1, ...s.daily.map((d) => d.active));
+  const maxDaily = Math.max(
+    1,
+    ...s.daily.map((d) => Math.max(d.active, d.selling, d.newInstalls)),
+  );
 
   const buildSubs = (
     subs: NewSubscriber[],
@@ -302,13 +305,16 @@ export default async function Admin({
           <span>
             <i className="swatch sell" /> Cobraron
           </span>
+          <span>
+            <i className="swatch new" /> Descargas
+          </span>
         </div>
         <div className="bars">
           {s.daily.map((d) => (
             <div
               className="bar-col"
               key={d.date}
-              title={`${d.date}: ${d.active} abrieron · ${d.selling} cobraron`}
+              title={`${d.date}: ${d.active} abrieron · ${d.selling} cobraron · ${d.newInstalls} descargas`}
             >
               <div className="bar-pair">
                 <div className="bar-stack">
@@ -329,6 +335,17 @@ export default async function Admin({
                     style={{
                       height: d.selling
                         ? `${Math.max(3, (d.selling / maxDaily) * 120)}px`
+                        : "0px",
+                    }}
+                  />
+                </div>
+                <div className="bar-stack">
+                  <span className="n new">{d.newInstalls || ""}</span>
+                  <div
+                    className="bar new"
+                    style={{
+                      height: d.newInstalls
+                        ? `${Math.max(3, (d.newInstalls / maxDaily) * 120)}px`
                         : "0px",
                     }}
                   />

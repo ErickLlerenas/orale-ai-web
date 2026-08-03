@@ -223,8 +223,13 @@ export type Summary = {
   latest: Ping[]; // último ping por instalación (más reciente primero)
 };
 
-/// Actividad de un día: cuántos abrieron la app y cuántos cobraron.
-export type DailyPoint = { date: string; active: number; selling: number };
+/// Actividad de un día: abrieron, cobraron y descargas nuevas.
+export type DailyPoint = {
+  date: string;
+  active: number;
+  selling: number;
+  newInstalls: number;
+};
 
 /// Lo que hizo una instalación durante el mes.
 type InstallStats = {
@@ -472,18 +477,25 @@ export function summarize(rows: Ping[], month: string): Summary {
         y.device_count - x.device_count,
     );
 
-  // Por día del mes: cuántos abrieron la app y cuántos cobraron.
+  // Por día del mes: abrieron, cobraron y descargas nuevas.
   const daily: DailyPoint[] = [];
   for (let day = 1; day <= lastDay; day++) {
     const date = `${month}-${String(day).padStart(2, "0")}`;
     const active = new Set<string>();
     const sellingToday = new Set<string>();
+    const newToday = new Set<string>();
     for (const r of rows) {
       if (r.ping_date !== date) continue;
       active.add(r.install_id);
       if ((r.orders_today ?? 0) > 0) sellingToday.add(r.install_id);
+      if (r.days_since_install === 0) newToday.add(r.install_id);
     }
-    daily.push({ date, active: active.size, selling: sellingToday.size });
+    daily.push({
+      date,
+      active: active.size,
+      selling: sellingToday.size,
+      newInstalls: newToday.size,
+    });
   }
 
   return {

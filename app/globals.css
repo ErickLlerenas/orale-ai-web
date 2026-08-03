@@ -2141,10 +2141,13 @@ section {
 .bars-legend .swatch.sell {
   background: var(--primary);
 }
+.bars-legend .swatch.new {
+  background: #64748b;
+}
 .bars {
   display: flex;
   align-items: flex-end;
-  gap: 4px;
+  gap: 6px;
   min-height: 170px;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
@@ -2152,7 +2155,7 @@ section {
 }
 .bar-col {
   flex: 1 0 0;
-  min-width: 28px;
+  min-width: 42px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2184,12 +2187,15 @@ section {
 .bar.sell {
   background: var(--primary);
 }
+.bar.new {
+  background: #64748b;
+}
 .bar-col .d {
   font-size: 10px;
   color: var(--ink-soft);
 }
 .bar-col .n {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
   line-height: 1;
   font-variant-numeric: tabular-nums;
@@ -2200,6 +2206,9 @@ section {
 }
 .bar-col .n.sell {
   color: var(--primary);
+}
+.bar-col .n.new {
+  color: #64748b;
 }
 .table-wrap {
   overflow-x: auto;
@@ -2511,8 +2520,8 @@ table.data tbody tr:last-child td {
     min-height: 150px;
   }
   .bar-col {
-    flex: 0 0 36px;
-    min-width: 36px;
+    flex: 0 0 48px;
+    min-width: 48px;
   }
   .bar-col .n {
     font-size: 9px;
