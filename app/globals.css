@@ -2022,6 +2022,10 @@ section {
   font-weight: 700;
   color: var(--ink);
 }
+.month-card-hint {
+  margin: -8px 0 14px !important;
+  font-size: 12px;
+}
 .biz-stats {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -2158,11 +2162,7 @@ section {
   color: #b45309;
 }
 .funnel-step.step-2 {
-  background: rgba(21, 163, 138, 0.14);
-  color: var(--accent);
-}
-.funnel-step.step-3 {
-  background: rgba(21, 163, 138, 0.28);
+  background: rgba(21, 163, 138, 0.18);
   color: #0f6b5a;
 }
 .funnel-n {

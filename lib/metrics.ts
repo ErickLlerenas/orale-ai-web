@@ -211,12 +211,12 @@ export type Summary = {
   empty: number; // ni menú ni ventas: descargaron y ya
   totalOrders: number; // suma de órdenes del día (actividad del mes)
   subscribed: number; // DISPOSITIVOS con suscripción activa
-  payingAccounts: number; // CUENTAS de pago (deduplicado, no por dispositivo)
+  payingAccounts: number; // CLIENTES: cuentas únicas con suscripción
   multiDevice: AccountRow[]; // cuentas usadas en 2+ dispositivos
   realBranches: number; // de esas, las que sí son dos sucursales cobrando
-  monthly: number;
-  yearly: number;
-  pro: number;
+  monthly: number; // clientes en plan mensual (no Pro)
+  yearly: number; // clientes en plan anual (no Pro)
+  pro: number; // clientes en plan Pro
   platforms: Record<PlatformKey, PlatformStats>;
   daily: DailyPoint[]; // por día del mes
   soldDaysByInstall: Map<string, number>; // días con venta en el mes
@@ -391,9 +391,6 @@ export function summarize(rows: Ping[], month: string): Summary {
     .sort((a, b) => b.updated_at.localeCompare(a.updated_at));
 
   let subscribed = 0;
-  let monthly = 0;
-  let yearly = 0;
-  let pro = 0;
   const platforms: Record<PlatformKey, PlatformStats> = {
     ios: emptyPlatformStats(),
     android: emptyPlatformStats(),
@@ -407,17 +404,9 @@ export function summarize(rows: Ping[], month: string): Summary {
     if (p.subscription_active) {
       subscribed++;
       platforms[key].subscribed++;
-      if (isMonthlyPlan(p.plan)) {
-        monthly++;
-        platforms[key].monthly++;
-      } else if (isYearlyPlan(p.plan)) {
-        yearly++;
-        platforms[key].yearly++;
-      }
-      if (isProPlan(p.plan)) {
-        pro++;
-        platforms[key].pro++;
-      }
+      if (isMonthlyPlan(p.plan)) platforms[key].monthly++;
+      else if (isYearlyPlan(p.plan)) platforms[key].yearly++;
+      if (isProPlan(p.plan)) platforms[key].pro++;
     }
   }
 
@@ -454,6 +443,16 @@ export function summarize(rows: Ping[], month: string): Summary {
         a.plan = p.plan;
       }
     }
+  }
+
+  // Planes por CUENTA (sin doble conteo: Pro no se suma también como mensual).
+  let monthly = 0;
+  let yearly = 0;
+  let pro = 0;
+  for (const a of accounts.values()) {
+    if (isProPlan(a.plan)) pro++;
+    else if (isMonthlyPlan(a.plan)) monthly++;
+    else if (isYearlyPlan(a.plan)) yearly++;
   }
 
   const multiDevice: AccountRow[] = [...accounts.entries()]

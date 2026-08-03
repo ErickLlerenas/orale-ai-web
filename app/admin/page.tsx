@@ -194,30 +194,26 @@ export default async function Admin({
     subscribers: buildSubs(yesterdaySubs, yesterdayPings),
   };
 
-  // Embudo del mes: de abrir la app a pagar.
+  // Embudo de USO por equipo (no clientes).
   const funnel = [
     {
       n: s.activeInstalls,
       l: "Abrieron",
-      tip: "Instalaciones activas en el mes",
+      tip: "Equipos que abrieron la app en el mes",
     },
     {
       n: s.configured + s.selling,
       l: "Con menú",
-      tip: "Ya capturaron productos",
+      tip: "Equipos que ya capturaron productos",
     },
     {
       n: s.selling,
       l: "Cobrando",
-      tip: "Cerraron al menos una venta",
-    },
-    {
-      n: s.sellingSubscribed,
-      l: "Pagan",
-      tip: "De los que cobran, con suscripción",
+      tip: "Equipos que cerraron al menos una venta",
     },
   ];
   const funnelMax = Math.max(1, ...funnel.map((f) => f.n));
+  // De los equipos que cobran, cuántos tienen suscripción.
   const conversion = s.selling
     ? Math.round((s.sellingSubscribed / s.selling) * 100)
     : 0;
@@ -261,6 +257,7 @@ export default async function Admin({
       <div className="month-grid">
         <section className="panel">
           <h2 className="month-chart-title">Embudo de uso</h2>
+          <p className="muted month-card-hint">Por equipo instalado</p>
           <div className="funnel">
             {funnel.map((f, i) => (
               <div
@@ -277,17 +274,18 @@ export default async function Admin({
         </section>
         <section className="panel">
           <h2 className="month-chart-title">Negocio</h2>
+          <p className="muted month-card-hint">Por cliente (cuenta)</p>
           <div className="biz-stats">
             <div className="biz-stat">
               <div className="biz-n">{s.payingAccounts}</div>
-              <div className="biz-l">Cuentas de pago</div>
+              <div className="biz-l">Clientes que pagan</div>
             </div>
             <div className="biz-stat">
               <div className="biz-n">{conversion}%</div>
-              <div className="biz-l">De los que cobran, pagan</div>
+              <div className="biz-l">Equipos que cobran y sí pagan</div>
               <div
                 className="biz-meter"
-                title={`${s.sellingSubscribed} de ${s.selling} cobran y pagan`}
+                title={`${s.sellingSubscribed} de ${s.selling} equipos que cobraron tienen suscripción`}
               >
                 <div
                   className="biz-meter-fill"
@@ -295,11 +293,11 @@ export default async function Admin({
                 />
               </div>
               <div className="biz-meter-hint">
-                {s.sellingSubscribed} de {s.selling}
+                {s.sellingSubscribed} de {s.selling} equipos
               </div>
             </div>
             <div className="biz-stat">
-              <div className="biz-l">Planes</div>
+              <div className="biz-l">Planes de tus clientes</div>
               <div className="plan-mix">
                 <div className="plan-mix-bar">
                   {planMix.map((p) =>
@@ -328,6 +326,7 @@ export default async function Admin({
         </section>
         <section className="panel">
           <h2 className="month-chart-title">Por plataforma</h2>
+          <p className="muted month-card-hint">Por equipo instalado</p>
           <div className="platform-bars">
             {platformRows.map((p) => (
               <div className="platform-bar-row" key={p.key}>
