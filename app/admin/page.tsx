@@ -236,6 +236,13 @@ export default async function Admin({
   }));
   const platformMax = Math.max(1, ...platformRows.map((p) => p.n));
 
+  const planMix = [
+    { key: "monthly", label: "Mensual", n: s.monthly, className: "plan-monthly" },
+    { key: "yearly", label: "Anual", n: s.yearly, className: "plan-yearly" },
+    { key: "pro", label: "Pro", n: s.pro, className: "plan-pro" },
+  ];
+  const planTotal = Math.max(1, planMix.reduce((sum, p) => sum + p.n, 0));
+
   return (
     <main className="admin">
       <header className="admin-header">
@@ -268,11 +275,55 @@ export default async function Admin({
                 </div>
               ))}
             </div>
-            <p className="muted month-chart-note">
-              {s.payingAccounts} cuentas de pago · {conversion}% de los que
-              cobran pagan · {s.monthly} mensual · {s.yearly} anual · {s.pro}{" "}
-              Pro
-            </p>
+          </div>
+          <div>
+            <h3 className="month-chart-title">Negocio</h3>
+            <div className="biz-stats">
+              <div className="biz-stat">
+                <div className="biz-n">{s.payingAccounts}</div>
+                <div className="biz-l">Cuentas de pago</div>
+              </div>
+              <div className="biz-stat">
+                <div className="biz-n">{conversion}%</div>
+                <div className="biz-l">De los que cobran, pagan</div>
+                <div
+                  className="biz-meter"
+                  title={`${s.sellingSubscribed} de ${s.selling} cobran y pagan`}
+                >
+                  <div
+                    className="biz-meter-fill"
+                    style={{ width: `${conversion}%` }}
+                  />
+                </div>
+                <div className="biz-meter-hint">
+                  {s.sellingSubscribed} de {s.selling}
+                </div>
+              </div>
+            </div>
+            <h3 className="month-chart-title biz-plans-title">Planes</h3>
+            <div className="plan-mix">
+              <div className="plan-mix-bar">
+                {planMix.map((p) =>
+                  p.n > 0 ? (
+                    <div
+                      key={p.key}
+                      className={`plan-mix-seg ${p.className}`}
+                      style={{ width: `${(p.n / planTotal) * 100}%` }}
+                      title={`${p.label}: ${p.n}`}
+                    />
+                  ) : null,
+                )}
+              </div>
+              <div className="plan-mix-legend">
+                {planMix.map((p) => (
+                  <div className="plan-mix-item" key={p.key}>
+                    <i className={`swatch ${p.className}`} />
+                    <span className="plan-mix-label">{p.label}</span>
+                    <span className="plan-mix-n">{p.n}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
           <div>
             <h3 className="month-chart-title">Por plataforma</h3>
