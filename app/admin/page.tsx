@@ -257,95 +257,95 @@ export default async function Admin({
 
       <DayTabs today={todaySnap} yesterday={yesterdaySnap} />
 
-      <section className="kpi-group month-summary">
-        <h2 className="kpi-group-title">{monthLabel(month)}</h2>
-        <div className="month-grid">
-          <div>
-            <h3 className="month-chart-title">Embudo de uso</h3>
-            <div className="funnel">
-              {funnel.map((f, i) => (
+      <p className="month-section-label">{monthLabel(month)}</p>
+      <div className="month-grid">
+        <section className="panel">
+          <h2 className="month-chart-title">Embudo de uso</h2>
+          <div className="funnel">
+            {funnel.map((f, i) => (
+              <div
+                className={`funnel-step step-${i}`}
+                key={f.l}
+                title={f.tip}
+                style={{ width: `${Math.max(18, (f.n / funnelMax) * 100)}%` }}
+              >
+                <span className="funnel-n">{f.n}</span>
+                <span className="funnel-l">{f.l}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+        <section className="panel">
+          <h2 className="month-chart-title">Negocio</h2>
+          <div className="biz-stats">
+            <div className="biz-stat">
+              <div className="biz-n">{s.payingAccounts}</div>
+              <div className="biz-l">Cuentas de pago</div>
+            </div>
+            <div className="biz-stat">
+              <div className="biz-n">{conversion}%</div>
+              <div className="biz-l">De los que cobran, pagan</div>
+              <div
+                className="biz-meter"
+                title={`${s.sellingSubscribed} de ${s.selling} cobran y pagan`}
+              >
                 <div
-                  className={`funnel-step step-${i}`}
-                  key={f.l}
-                  title={f.tip}
-                  style={{ width: `${Math.max(18, (f.n / funnelMax) * 100)}%` }}
-                >
-                  <span className="funnel-n">{f.n}</span>
-                  <span className="funnel-l">{f.l}</span>
+                  className="biz-meter-fill"
+                  style={{ width: `${conversion}%` }}
+                />
+              </div>
+              <div className="biz-meter-hint">
+                {s.sellingSubscribed} de {s.selling}
+              </div>
+            </div>
+            <div className="biz-stat">
+              <div className="biz-l">Planes</div>
+              <div className="plan-mix">
+                <div className="plan-mix-bar">
+                  {planMix.map((p) =>
+                    p.n > 0 ? (
+                      <div
+                        key={p.key}
+                        className={`plan-mix-seg ${p.className}`}
+                        style={{ width: `${(p.n / planTotal) * 100}%` }}
+                        title={`${p.label}: ${p.n}`}
+                      />
+                    ) : null,
+                  )}
                 </div>
-              ))}
+                <div className="plan-mix-legend">
+                  {planMix.map((p) => (
+                    <div className="plan-mix-item" key={p.key}>
+                      <i className={`swatch ${p.className}`} />
+                      <span className="plan-mix-label">{p.label}</span>
+                      <span className="plan-mix-n">{p.n}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
-          <div>
-            <h3 className="month-chart-title">Negocio</h3>
-            <div className="biz-stats">
-              <div className="biz-stat">
-                <div className="biz-n">{s.payingAccounts}</div>
-                <div className="biz-l">Cuentas de pago</div>
-              </div>
-              <div className="biz-stat">
-                <div className="biz-n">{conversion}%</div>
-                <div className="biz-l">De los que cobran, pagan</div>
-                <div
-                  className="biz-meter"
-                  title={`${s.sellingSubscribed} de ${s.selling} cobran y pagan`}
-                >
+        </section>
+        <section className="panel">
+          <h2 className="month-chart-title">Por plataforma</h2>
+          <div className="platform-bars">
+            {platformRows.map((p) => (
+              <div className="platform-bar-row" key={p.key}>
+                <span className="platform-bar-label">{p.label}</span>
+                <div className="platform-bar-track">
                   <div
-                    className="biz-meter-fill"
-                    style={{ width: `${conversion}%` }}
+                    className={`platform-bar-fill platform-${p.key}`}
+                    style={{
+                      width: `${(p.n / platformMax) * 100}%`,
+                    }}
                   />
                 </div>
-                <div className="biz-meter-hint">
-                  {s.sellingSubscribed} de {s.selling}
-                </div>
+                <span className="platform-bar-n">{p.n}</span>
               </div>
-            </div>
-            <h3 className="month-chart-title biz-plans-title">Planes</h3>
-            <div className="plan-mix">
-              <div className="plan-mix-bar">
-                {planMix.map((p) =>
-                  p.n > 0 ? (
-                    <div
-                      key={p.key}
-                      className={`plan-mix-seg ${p.className}`}
-                      style={{ width: `${(p.n / planTotal) * 100}%` }}
-                      title={`${p.label}: ${p.n}`}
-                    />
-                  ) : null,
-                )}
-              </div>
-              <div className="plan-mix-legend">
-                {planMix.map((p) => (
-                  <div className="plan-mix-item" key={p.key}>
-                    <i className={`swatch ${p.className}`} />
-                    <span className="plan-mix-label">{p.label}</span>
-                    <span className="plan-mix-n">{p.n}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
+            ))}
           </div>
-          <div>
-            <h3 className="month-chart-title">Por plataforma</h3>
-            <div className="platform-bars">
-              {platformRows.map((p) => (
-                <div className="platform-bar-row" key={p.key}>
-                  <span className="platform-bar-label">{p.label}</span>
-                  <div className="platform-bar-track">
-                    <div
-                      className={`platform-bar-fill platform-${p.key}`}
-                      style={{
-                        width: `${(p.n / platformMax) * 100}%`,
-                      }}
-                    />
-                  </div>
-                  <span className="platform-bar-n">{p.n}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
+        </section>
+      </div>
 
       <div className="panel">
         <h2>Actividad por día · {monthLabel(month)}</h2>
@@ -374,7 +374,7 @@ export default async function Admin({
                     className="bar open"
                     style={{
                       height: d.active
-                        ? `${Math.max(3, (d.active / maxDaily) * 120)}px`
+                        ? `${Math.max(3, (d.active / maxDaily) * 260)}px`
                         : "0px",
                     }}
                   />
@@ -385,7 +385,7 @@ export default async function Admin({
                     className="bar sell"
                     style={{
                       height: d.selling
-                        ? `${Math.max(3, (d.selling / maxDaily) * 120)}px`
+                        ? `${Math.max(3, (d.selling / maxDaily) * 260)}px`
                         : "0px",
                     }}
                   />
@@ -396,7 +396,7 @@ export default async function Admin({
                     className="bar new"
                     style={{
                       height: d.newInstalls
-                        ? `${Math.max(3, (d.newInstalls / maxDaily) * 120)}px`
+                        ? `${Math.max(3, (d.newInstalls / maxDaily) * 260)}px`
                         : "0px",
                     }}
                   />
