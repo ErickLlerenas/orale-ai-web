@@ -2097,16 +2097,16 @@ section {
   height: 100%;
   min-width: 4px;
 }
-.plan-mix-seg.plan-monthly {
+.plan-mix-seg.mix-monthly {
   background: var(--accent);
 }
-.plan-mix-seg.plan-yearly {
+.plan-mix-seg.mix-yearly {
   background: #007aff;
 }
-.plan-mix-seg.plan-pro-monthly {
+.plan-mix-seg.mix-pro-monthly {
   background: var(--pro);
 }
-.plan-mix-seg.plan-pro-yearly {
+.plan-mix-seg.mix-pro-yearly {
   background: var(--pro-dark);
 }
 .plan-mix-legend {
@@ -2126,18 +2126,19 @@ section {
   width: 10px;
   height: 10px;
   border-radius: 3px;
-  display: inline-block;
+  display: block;
+  margin: 0;
 }
-.plan-mix-item .swatch.plan-monthly {
+.plan-mix-item .swatch.mix-monthly {
   background: var(--accent);
 }
-.plan-mix-item .swatch.plan-yearly {
+.plan-mix-item .swatch.mix-yearly {
   background: #007aff;
 }
-.plan-mix-item .swatch.plan-pro-monthly {
+.plan-mix-item .swatch.mix-pro-monthly {
   background: var(--pro);
 }
-.plan-mix-item .swatch.plan-pro-yearly {
+.plan-mix-item .swatch.mix-pro-yearly {
   background: var(--pro-dark);
 }
 .plan-mix-label {

@@ -239,19 +239,19 @@ export default async function Admin({
   const platformMax = Math.max(1, ...platformRows.map((p) => p.n));
 
   const planMix = [
-    { key: "monthly", label: "Mensual", n: s.monthly, className: "plan-monthly" },
-    { key: "yearly", label: "Anual", n: s.yearly, className: "plan-yearly" },
+    { key: "monthly", label: "Mensual", n: s.monthly, className: "mix-monthly" },
+    { key: "yearly", label: "Anual", n: s.yearly, className: "mix-yearly" },
     {
       key: "pro_monthly",
       label: "Pro mensual",
       n: s.proMonthly,
-      className: "plan-pro-monthly",
+      className: "mix-pro-monthly",
     },
     {
       key: "pro_yearly",
       label: "Pro anual",
       n: s.proYearly,
-      className: "plan-pro-yearly",
+      className: "mix-pro-yearly",
     },
   ];
   const planTotal = Math.max(1, planMix.reduce((sum, p) => sum + p.n, 0));
@@ -298,10 +298,10 @@ export default async function Admin({
             </div>
             <div className="biz-stat">
               <div className="biz-n">{installConversion}%</div>
-              <div className="biz-l">De los que instalan, se suscriben</div>
+              <div className="biz-l">De los que abrieron, están suscritos</div>
               <div
                 className="biz-meter"
-                title={`${s.subscribed} de ${s.activeInstalls} equipos activos tienen suscripción`}
+                title={`${s.subscribed} de ${s.activeInstalls} equipos que abrieron tienen suscripción`}
               >
                 <div
                   className="biz-meter-fill"
