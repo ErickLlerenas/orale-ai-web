@@ -216,7 +216,8 @@ export type Summary = {
   realBranches: number; // de esas, las que sí son dos sucursales cobrando
   monthly: number; // clientes en plan mensual (no Pro)
   yearly: number; // clientes en plan anual (no Pro)
-  pro: number; // clientes en plan Pro
+  proMonthly: number; // clientes Pro mensual
+  proYearly: number; // clientes Pro anual
   platforms: Record<PlatformKey, PlatformStats>;
   daily: DailyPoint[]; // por día del mes
   soldDaysByInstall: Map<string, number>; // días con venta en el mes
@@ -445,14 +446,26 @@ export function summarize(rows: Ping[], month: string): Summary {
     }
   }
 
-  // Planes por CUENTA (sin doble conteo: Pro no se suma también como mensual).
+  // Planes por CUENTA (categorías exclusivas).
   let monthly = 0;
   let yearly = 0;
-  let pro = 0;
+  let proMonthly = 0;
+  let proYearly = 0;
   for (const a of accounts.values()) {
-    if (isProPlan(a.plan)) pro++;
-    else if (isMonthlyPlan(a.plan)) monthly++;
-    else if (isYearlyPlan(a.plan)) yearly++;
+    switch (a.plan) {
+      case "pro_monthly":
+        proMonthly++;
+        break;
+      case "pro_yearly":
+        proYearly++;
+        break;
+      case "monthly":
+        monthly++;
+        break;
+      case "yearly":
+        yearly++;
+        break;
+    }
   }
 
   const multiDevice: AccountRow[] = [...accounts.entries()]
@@ -510,7 +523,8 @@ export function summarize(rows: Ping[], month: string): Summary {
     realBranches: multiDevice.filter((a) => a.kind === "branches").length,
     monthly,
     yearly,
-    pro,
+    proMonthly,
+    proYearly,
     platforms,
     daily,
     soldDaysByInstall: new Map(

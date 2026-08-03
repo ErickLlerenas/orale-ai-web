@@ -127,9 +127,11 @@ export default async function Admin({
   const t = summarizeToday(todayPings, todayAi);
   const y = summarizeToday(yesterdayPings, yesterdayAi);
   const aiByInstall = new Map(ai.byInstall.map((u) => [u.install_id, u]));
+  // No pintar el futuro: un equipo con el reloj mal manda pings con fecha adelantada.
+  const daily = s.daily.filter((d) => d.date <= today);
   const maxDaily = Math.max(
     1,
-    ...s.daily.map((d) => Math.max(d.active, d.selling, d.newInstalls)),
+    ...daily.map((d) => Math.max(d.active, d.selling, d.newInstalls)),
   );
 
   const buildSubs = (
@@ -235,7 +237,18 @@ export default async function Admin({
   const planMix = [
     { key: "monthly", label: "Mensual", n: s.monthly, className: "plan-monthly" },
     { key: "yearly", label: "Anual", n: s.yearly, className: "plan-yearly" },
-    { key: "pro", label: "Pro", n: s.pro, className: "plan-pro" },
+    {
+      key: "pro_monthly",
+      label: "Pro mensual",
+      n: s.proMonthly,
+      className: "plan-pro-monthly",
+    },
+    {
+      key: "pro_yearly",
+      label: "Pro anual",
+      n: s.proYearly,
+      className: "plan-pro-yearly",
+    },
   ];
   const planTotal = Math.max(1, planMix.reduce((sum, p) => sum + p.n, 0));
 
@@ -360,7 +373,7 @@ export default async function Admin({
           </span>
         </div>
         <div className="bars">
-          {s.daily.map((d) => (
+          {daily.map((d) => (
             <div
               className="bar-col"
               key={d.date}

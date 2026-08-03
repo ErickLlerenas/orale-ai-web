@@ -2098,8 +2098,11 @@ section {
 .plan-mix-seg.plan-yearly {
   background: #007aff;
 }
-.plan-mix-seg.plan-pro {
+.plan-mix-seg.plan-pro-monthly {
   background: var(--pro);
+}
+.plan-mix-seg.plan-pro-yearly {
+  background: var(--pro-dark);
 }
 .plan-mix-legend {
   display: flex;
@@ -2126,8 +2129,11 @@ section {
 .plan-mix-item .swatch.plan-yearly {
   background: #007aff;
 }
-.plan-mix-item .swatch.plan-pro {
+.plan-mix-item .swatch.plan-pro-monthly {
   background: var(--pro);
+}
+.plan-mix-item .swatch.plan-pro-yearly {
+  background: var(--pro-dark);
 }
 .plan-mix-label {
   color: var(--ink-soft);
