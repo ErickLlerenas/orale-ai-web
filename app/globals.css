@@ -2003,28 +2003,18 @@ section {
   color: var(--ink-soft);
 }
 .month-grid {
-  display: grid;
-  grid-template-columns: 1.1fr 1fr 1fr;
+  display: flex;
+  flex-direction: column;
   gap: 16px;
-  align-items: stretch;
 }
 .month-grid > .panel {
   margin: 0;
+  width: 100%;
 }
 .month-grid > .panel h2.month-chart-title {
   margin: 0 0 14px;
   font-size: 13px;
   letter-spacing: 0;
-}
-@media (max-width: 980px) {
-  .month-grid {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-@media (max-width: 640px) {
-  .month-grid {
-    grid-template-columns: 1fr;
-  }
 }
 .month-chart-title {
   margin: 0 0 14px;
@@ -2033,9 +2023,14 @@ section {
   color: var(--ink);
 }
 .biz-stats {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+@media (max-width: 720px) {
+  .biz-stats {
+    grid-template-columns: 1fr;
+  }
 }
 .biz-stat {
   background: var(--surface);
