@@ -24,6 +24,7 @@ export type Ping = {
   sales_bucket: string | null; // rango de ventas del día (no el monto exacto)
   product_count: number;
   days_since_install: number;
+  is_caja: boolean | null; // rol de hoy; null = versión que aún no lo reporta
   subscription_active: boolean; // tiene ACCESO (incluye prueba y gracia)
   plan: Plan | null; // qué producto compró
   subscription_status: string | null; // estado crudo de Stripe; null en móvil

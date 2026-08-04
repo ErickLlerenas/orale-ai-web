@@ -53,7 +53,7 @@ export default async function Admin({
   let todayAi: AiUsage[] = [];
   let yesterdayPings: Ping[] = [];
   let yesterdayAi: AiUsage[] = [];
-  /** install_id que entraron como mesero (código de equipo). */
+  /** Respaldo de rol para pings sin `is_caja` (versiones viejas de la app). */
   let waiterInstalls = new Set<string>();
   let errorMsg: string | null = null;
 
@@ -100,9 +100,21 @@ export default async function Admin({
       todayAi = (todayAiRes.data ?? []) as AiUsage[];
       yesterdayPings = (yPingsRes.data ?? []) as Ping[];
       yesterdayAi = (yAiRes.data ?? []) as AiUsage[];
+      // El rol es de la pareja (dispositivo, negocio) y estas filas no se
+      // borran nunca: un teléfono que probó unirse como mesero quedaba marcado
+      // de por vida. Si en algún negocio es la caja, no lo contamos mesero.
+      const devices = (devicesRes.data ?? []) as {
+        install_id: string;
+        role: string;
+      }[];
+      const ownerInstalls = new Set(
+        devices.filter((d) => d.role === "owner").map((d) => d.install_id),
+      );
       waiterInstalls = new Set(
-        ((devicesRes.data ?? []) as { install_id: string; role: string }[])
-          .filter((d) => d.role === "waiter")
+        devices
+          .filter(
+            (d) => d.role === "waiter" && !ownerInstalls.has(d.install_id),
+          )
           .map((d) => d.install_id),
       );
     }
@@ -472,6 +484,11 @@ export default async function Admin({
                   const tenure = userTenure(p.days_since_install);
                   const platform = platformChip(p.platform);
                   const pill = planPill(p.plan, p.subscription_status);
+                  // La app reporta el rol; el set solo cubre a quien todavía
+                  // no lo manda.
+                  const isWaiter =
+                    p.is_caja === false ||
+                    (p.is_caja == null && waiterInstalls.has(p.install_id));
                   return (
                     <tr key={p.install_id}>
                       <td title={p.install_id}>{p.install_id.slice(0, 8)}</td>
@@ -526,7 +543,7 @@ export default async function Admin({
                           >
                             {pill.label}
                           </span>
-                        ) : waiterInstalls.has(p.install_id) ? (
+                        ) : isWaiter ? (
                           <span
                             className="pill mesero"
                             title="Entró con código de mesero (no suscribe)"
