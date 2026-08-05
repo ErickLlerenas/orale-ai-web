@@ -299,6 +299,9 @@ function isProPlan(plan: Plan | null): boolean {
   return plan === "pro_monthly" || plan === "pro_yearly";
 }
 
+/// Descargas nuevas del día, partidas por plataforma.
+export type NewInstallsByPlatform = Record<PlatformKey, number>;
+
 /// Métricas del día de hoy (independientes del mes seleccionado).
 export type TodaySummary = {
   activeInstalls: number; // dispositivos que ABRIERON la app hoy
@@ -307,6 +310,7 @@ export type TodaySummary = {
   aiCalls: number; // llamadas a IA hoy
   subscribed: number; // dispositivos con suscripción activa hoy
   newInstalls: number; // instalaciones hechas hoy (days_since_install === 0)
+  newByPlatform: NewInstallsByPlatform;
 };
 
 /// Una suscripción nueva detectada hoy.
@@ -350,15 +354,25 @@ export function newSubscribersToday(
 export function summarizeToday(pings: Ping[], aiRows: AiUsage[]): TodaySummary {
   const installs = new Set<string>();
   const selling = new Set<string>();
+  const newIds = new Set<string>();
+  const newByPlatform: NewInstallsByPlatform = {
+    ios: 0,
+    android: 0,
+    windows: 0,
+    mac: 0,
+    unknown: 0,
+  };
   let orders = 0;
   let subscribed = 0;
-  let newInstalls = 0;
   for (const p of pings) {
     installs.add(p.install_id);
     if ((p.orders_today ?? 0) > 0) selling.add(p.install_id);
     orders += p.orders_today ?? 0;
     if (p.subscription_active) subscribed++;
-    if (p.days_since_install === 0) newInstalls++;
+    if (p.days_since_install === 0 && !newIds.has(p.install_id)) {
+      newIds.add(p.install_id);
+      newByPlatform[platformKey(p.platform)]++;
+    }
   }
   let aiCalls = 0;
   for (const r of aiRows) aiCalls += r.count;
@@ -368,8 +382,31 @@ export function summarizeToday(pings: Ping[], aiRows: AiUsage[]): TodaySummary {
     orders,
     aiCalls,
     subscribed,
-    newInstalls,
+    newInstalls: newIds.size,
+    newByPlatform,
   };
+}
+
+/// Chips de plataforma para las descargas nuevas del día (solo las con count > 0).
+export function newInstallPlatformChips(
+  byPlatform: NewInstallsByPlatform,
+): { key: PlatformKey; label: string; className: string; n: number }[] {
+  return (
+    [
+      ["ios", "iOS"],
+      ["android", "Android"],
+      ["windows", "Windows"],
+      ["mac", "Mac"],
+      ["unknown", "Otra"],
+    ] as const
+  )
+    .map(([key, label]) => ({
+      key,
+      label,
+      className: platformChip(key).className,
+      n: byPlatform[key],
+    }))
+    .filter((p) => p.n > 0);
 }
 
 /// Calcula todas las métricas del dashboard para un mes dado (yyyy-mm).

@@ -9,6 +9,8 @@ import {
   planPill,
   platformChip,
   userTenure,
+  multiDeviceLabel,
+  newInstallPlatformChips,
   fechaHora,
   currentMonth,
   monthLabel,
@@ -200,12 +202,14 @@ export default async function Admin({
     dateLabel: dayLabel(today),
     live: true,
     kpis: dayKpis(todaySubs.length, t),
+    newPlatforms: newInstallPlatformChips(t.newByPlatform),
     subscribers: buildSubs(todaySubs, todayPings),
   };
   const yesterdaySnap: DaySnapshot = {
     label: "Ayer",
     dateLabel: dayLabel(yesterday),
     kpis: dayKpis(yesterdaySubs.length, y),
+    newPlatforms: newInstallPlatformChips(y.newByPlatform),
     subscribers: buildSubs(yesterdaySubs, yesterdayPings),
   };
 
@@ -389,6 +393,51 @@ export default async function Admin({
             ))}
           </div>
         </section>
+      </div>
+
+      <div className="panel">
+        <h2>Cuentas en varios equipos ({s.multiDevice.length})</h2>
+        <p className="muted">
+          Sucursal doble = dos equipos cobraron este mes. Pro = meseros del
+          plan. Cambio de equipo = solo uno cobra (el otro quedó vacío o lo
+          cambiaron).
+        </p>
+        {s.multiDevice.length === 0 ? (
+          <p className="muted">Ninguna cuenta usa más de un dispositivo.</p>
+        ) : (
+          <div className="table-wrap">
+            <table className="data">
+              <thead>
+                <tr>
+                  <th>Cuenta</th>
+                  <th>Equipos</th>
+                  <th>Cobrando</th>
+                  <th>Qué es</th>
+                  <th>Plan</th>
+                  <th>Última visita</th>
+                </tr>
+              </thead>
+              <tbody>
+                {s.multiDevice.map((a) => (
+                  <tr key={a.account_key}>
+                    <td title={a.account_key}>{a.account_key.slice(0, 8)}</td>
+                    <td>{a.device_count}</td>
+                    <td title="Equipos que cerraron ventas este mes">
+                      {a.selling_devices}
+                    </td>
+                    <td>
+                      <span className={`pill kind-${a.kind}`}>
+                        {multiDeviceLabel(a.kind)}
+                      </span>
+                    </td>
+                    <td>{planLabel(a.plan)}</td>
+                    <td>{a.last_seen}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       <div className="panel">

@@ -1866,6 +1866,25 @@ section {
   letter-spacing: 0.06em;
   color: var(--ink-soft);
 }
+.day-platforms {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+.day-platforms-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+.day-platforms-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
 .day-subs {
   margin-top: 20px;
   padding-top: 18px;
@@ -2508,6 +2527,18 @@ table.data tbody tr:last-child td {
 .pill.danger {
   background: rgba(226, 59, 59, 0.14);
   color: var(--danger);
+}
+.pill.kind-branches {
+  background: rgba(241, 90, 41, 0.14);
+  color: var(--primary);
+}
+.pill.kind-pro {
+  background: rgba(245, 185, 66, 0.22);
+  color: #9a7200;
+}
+.pill.kind-device_change {
+  background: #eef0f2;
+  color: var(--ink-soft);
 }
 .platform-tag {
   display: inline-block;

@@ -9,11 +9,18 @@ export type DayKpi = {
   tone: string;
 };
 
+export type DayPlatformChip = {
+  label: string;
+  className: string;
+  n: number;
+};
+
 export type DaySnapshot = {
   label: string;
   dateLabel: string;
   live?: boolean;
   kpis: DayKpi[];
+  newPlatforms: DayPlatformChip[];
   subscribers: NewSubDetail[];
 };
 
@@ -64,6 +71,18 @@ export default function DayTabs({
             </div>
           ))}
         </div>
+        {day.newPlatforms.length > 0 && (
+          <div className="day-platforms">
+            <span className="day-platforms-label">Descargas por plataforma</span>
+            <div className="day-platforms-chips">
+              {day.newPlatforms.map((p) => (
+                <span key={p.label} className={p.className}>
+                  {p.label} · {p.n}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {day.subscribers.length > 0 && (
