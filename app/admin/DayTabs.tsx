@@ -68,21 +68,18 @@ export default function DayTabs({
                 <span className="l">{k.l}</span>
               </div>
               <div className="v">{k.v}</div>
+              {k.tone === "new" && day.newPlatforms.length > 0 && (
+                <div className="kpi-platforms">
+                  {day.newPlatforms.map((p) => (
+                    <span key={p.label}>
+                      {p.label} {p.n}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </div>
-        {day.newPlatforms.length > 0 && (
-          <div className="day-platforms">
-            <span className="day-platforms-label">Descargas por plataforma</span>
-            <div className="day-platforms-chips">
-              {day.newPlatforms.map((p) => (
-                <span key={p.label} className={p.className}>
-                  {p.label} · {p.n}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
 
       {day.subscribers.length > 0 && (

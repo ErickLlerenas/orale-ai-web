@@ -1866,24 +1866,15 @@ section {
   letter-spacing: 0.06em;
   color: var(--ink-soft);
 }
-.day-platforms {
+.kpi-platforms {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  gap: 10px 14px;
-  margin-top: 16px;
-  padding-top: 14px;
-  border-top: 1px solid var(--border);
-}
-.day-platforms-label {
-  font-size: 12px;
-  font-weight: 700;
+  gap: 6px 10px;
+  margin-top: 10px;
+  font-size: 11px;
+  font-weight: 600;
   color: var(--ink-soft);
-}
-.day-platforms-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  font-variant-numeric: tabular-nums;
 }
 .day-subs {
   margin-top: 20px;
