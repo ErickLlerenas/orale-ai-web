@@ -27,7 +27,10 @@ export type Ping = {
   product_count: number;
   days_since_install: number;
   is_caja: boolean | null; // rol de hoy; null = versión que aún no lo reporta
-  subscription_active: boolean; // tiene ACCESO (incluye prueba y gracia)
+  /** Compra en la tienda de este aparato (no incluye herencia). */
+  subscription_active: boolean;
+  /** Acceso prestado vigente (mudanza / Google). No es un pagador nuevo. */
+  inherited_access?: boolean;
   plan: Plan | null; // qué producto compró
   subscription_status: string | null; // estado crudo de Stripe; null en móvil
   subscribed_at: string | null; // yyyy-mm-dd primera suscripción

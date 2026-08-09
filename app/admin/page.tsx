@@ -557,6 +557,8 @@ export default async function Admin({
                   const isWaiter =
                     p.is_caja === false ||
                     (p.is_caja == null && waiterInstalls.has(p.install_id));
+                  const inherited = p.inherited_access === true;
+                  const hasPaidAccess = p.subscription_active || inherited;
                   return (
                     <tr key={p.install_id}>
                       <td title={p.install_id}>{p.install_id.slice(0, 8)}</td>
@@ -578,12 +580,14 @@ export default async function Admin({
                         {(p.orders_total ?? 0) > 25 ? (
                           <span
                             className={`pill ${
-                              p.subscription_active ? "sub" : "danger"
+                              hasPaidAccess ? "sub" : "danger"
                             }`}
                             title={
                               p.subscription_active
                                 ? "Mucho uso y con suscripción"
-                                : "Mucho uso sin suscripción"
+                                : inherited
+                                  ? "Mucho uso con acceso heredado"
+                                  : "Mucho uso sin suscripción"
                             }
                           >
                             {p.orders_total}
@@ -610,6 +614,13 @@ export default async function Admin({
                             }`}
                           >
                             {pill.label}
+                          </span>
+                        ) : inherited ? (
+                          <span
+                            className="pill heredado"
+                            title="Acceso heredado (mudanza / Google). No compró en este aparato."
+                          >
+                            Heredado
                           </span>
                         ) : isWaiter ? (
                           <span
