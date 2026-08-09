@@ -5,6 +5,7 @@ import {
   summarizeAi,
   summarizeToday,
   newSubscribersToday,
+  mergeStripeNewSubscribers,
   planLabel,
   planPill,
   platformChip,
@@ -22,6 +23,7 @@ import {
   type Ping,
   type AiUsage,
   type NewSubscriber,
+  type StripeSubRow,
 } from "@/lib/metrics";
 import MonthSelect from "./MonthSelect";
 import DayTabs, { type DayKpi, type DaySnapshot } from "./DayTabs";
@@ -55,6 +57,7 @@ export default async function Admin({
   let todayAi: AiUsage[] = [];
   let yesterdayPings: Ping[] = [];
   let yesterdayAi: AiUsage[] = [];
+  let stripeSubs: StripeSubRow[] = [];
   /** Respaldo de rol para pings sin `is_caja` (versiones viejas de la app). */
   let waiterInstalls = new Set<string>();
   let errorMsg: string | null = null;
@@ -69,6 +72,7 @@ export default async function Admin({
       yPingsRes,
       yAiRes,
       devicesRes,
+      stripeSubsRes,
     ] = await Promise.all([
       supabase
         .from("usage_pings")
@@ -87,6 +91,11 @@ export default async function Admin({
       supabase.from("usage_pings").select("*").eq("ping_date", yesterday),
       supabase.from("ai_usage").select("*").eq("usage_date", yesterday),
       supabase.from("business_devices").select("install_id, role"),
+      // Altas Windows/Stripe de hoy y ayer (sin esperar ping de la app).
+      supabase
+        .from("subscriptions")
+        .select("user_id, plan, status, subscribed_at, updated_at")
+        .in("subscribed_at", [today, yesterday]),
     ]);
     if (pings.error) errorMsg = pings.error.message;
     else if (ai.error) errorMsg = ai.error.message;
@@ -95,6 +104,7 @@ export default async function Admin({
     else if (yPingsRes.error) errorMsg = yPingsRes.error.message;
     else if (yAiRes.error) errorMsg = yAiRes.error.message;
     else if (devicesRes.error) errorMsg = devicesRes.error.message;
+    else if (stripeSubsRes.error) errorMsg = stripeSubsRes.error.message;
     else {
       rows = (pings.data ?? []) as Ping[];
       aiRows = (ai.data ?? []) as AiUsage[];
@@ -102,6 +112,7 @@ export default async function Admin({
       todayAi = (todayAiRes.data ?? []) as AiUsage[];
       yesterdayPings = (yPingsRes.data ?? []) as Ping[];
       yesterdayAi = (yAiRes.data ?? []) as AiUsage[];
+      stripeSubs = (stripeSubsRes.data ?? []) as StripeSubRow[];
       // El rol es de la pareja (dispositivo, negocio) y estas filas no se
       // borran nunca: un teléfono que probó unirse como mesero quedaba marcado
       // de por vida. Si en algún negocio es la caja, no lo contamos mesero.
@@ -194,8 +205,16 @@ export default async function Admin({
     { v: summary.selling, l: "Cobrando", tone: "sell" },
   ];
 
-  const todaySubs = newSubscribersToday(todayPings, today);
-  const yesterdaySubs = newSubscribersToday(yesterdayPings, yesterday);
+  const todaySubs = mergeStripeNewSubscribers(
+    newSubscribersToday(todayPings, today),
+    stripeSubs,
+    today,
+  );
+  const yesterdaySubs = mergeStripeNewSubscribers(
+    newSubscribersToday(yesterdayPings, yesterday),
+    stripeSubs,
+    yesterday,
+  );
 
   const todaySnap: DaySnapshot = {
     label: "Hoy",

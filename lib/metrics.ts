@@ -1,3 +1,5 @@
+import { createHash } from "crypto";
+
 export type Plan =
   | "monthly"
   | "yearly"
@@ -344,6 +346,61 @@ export function newSubscribersToday(
         subscribed_at: p.subscribed_at,
       });
     }
+  }
+  return [...byIdentity.values()].sort((a, b) =>
+    b.updated_at.localeCompare(a.updated_at),
+  );
+}
+
+/// Fila de `subscriptions` (Windows / Stripe) para el panel.
+export type StripeSubRow = {
+  user_id: string;
+  plan: Plan | string | null;
+  status: string;
+  subscribed_at: string | null;
+  updated_at: string;
+};
+
+/// SHA-256 hex del user_id: mismo `account_key` que manda la app en Windows.
+export function accountKeyFromUserId(userId: string): string {
+  return createHash("sha256").update(userId).digest("hex");
+}
+
+const STRIPE_LIVE = new Set(["active", "trialing", "past_due"]);
+
+/// Une pings del día con altas Stripe del mismo día (sin esperar a la app).
+export function mergeStripeNewSubscribers(
+  fromPings: NewSubscriber[],
+  stripeRows: StripeSubRow[],
+  day: string,
+): NewSubscriber[] {
+  const byIdentity = new Map<string, NewSubscriber>(
+    fromPings.map((s) => [s.identity, s]),
+  );
+  for (const row of stripeRows) {
+    if (row.subscribed_at !== day) continue;
+    if (!STRIPE_LIVE.has(row.status)) continue;
+    const identity = accountKeyFromUserId(row.user_id);
+    const prev = byIdentity.get(identity);
+    if (prev) {
+      // Enriquecer plan/plataforma si el ping llegó incompleto.
+      byIdentity.set(identity, {
+        ...prev,
+        plan: (row.plan as Plan) ?? prev.plan,
+        platform: prev.platform ?? "windows",
+        updated_at:
+          row.updated_at > prev.updated_at ? row.updated_at : prev.updated_at,
+      });
+      continue;
+    }
+    byIdentity.set(identity, {
+      identity,
+      isAccount: true,
+      plan: (row.plan as Plan) ?? null,
+      platform: "windows",
+      updated_at: row.updated_at,
+      subscribed_at: row.subscribed_at,
+    });
   }
   return [...byIdentity.values()].sort((a, b) =>
     b.updated_at.localeCompare(a.updated_at),
