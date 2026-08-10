@@ -157,7 +157,7 @@ export default async function Admin({
   const daily = s.daily.filter((d) => d.date <= today);
   const maxDaily = Math.max(
     1,
-    ...daily.map((d) => Math.max(d.active, d.selling, d.newInstalls)),
+    ...daily.map((d) => Math.max(d.newInstalls, d.newSubs)),
   );
 
   const buildSubs = (
@@ -460,16 +460,13 @@ export default async function Admin({
       </div>
 
       <div className="panel">
-        <h2>Actividad por día · {monthLabel(month)}</h2>
+        <h2>Descargas y suscripciones · {monthLabel(month)}</h2>
         <div className="bars-legend">
           <span>
-            <i className="swatch open" /> Abrieron
-          </span>
-          <span>
-            <i className="swatch sell" /> Cobraron
-          </span>
-          <span>
             <i className="swatch new" /> Descargas
+          </span>
+          <span>
+            <i className="swatch open" /> Suscripciones
           </span>
         </div>
         <div className="bars">
@@ -477,31 +474,9 @@ export default async function Admin({
             <div
               className="bar-col"
               key={d.date}
-              title={`${d.date}: ${d.active} abrieron · ${d.selling} cobraron · ${d.newInstalls} descargas`}
+              title={`${d.date}: ${d.newInstalls} descargas · ${d.newSubs} suscripciones`}
             >
               <div className="bar-pair">
-                <div className="bar-stack">
-                  <span className="n open">{d.active || ""}</span>
-                  <div
-                    className="bar open"
-                    style={{
-                      height: d.active
-                        ? `${Math.max(3, (d.active / maxDaily) * 260)}px`
-                        : "0px",
-                    }}
-                  />
-                </div>
-                <div className="bar-stack">
-                  <span className="n sell">{d.selling || ""}</span>
-                  <div
-                    className="bar sell"
-                    style={{
-                      height: d.selling
-                        ? `${Math.max(3, (d.selling / maxDaily) * 260)}px`
-                        : "0px",
-                    }}
-                  />
-                </div>
                 <div className="bar-stack">
                   <span className="n new">{d.newInstalls || ""}</span>
                   <div
@@ -509,6 +484,17 @@ export default async function Admin({
                     style={{
                       height: d.newInstalls
                         ? `${Math.max(3, (d.newInstalls / maxDaily) * 260)}px`
+                        : "0px",
+                    }}
+                  />
+                </div>
+                <div className="bar-stack">
+                  <span className="n open">{d.newSubs || ""}</span>
+                  <div
+                    className="bar open"
+                    style={{
+                      height: d.newSubs
+                        ? `${Math.max(3, (d.newSubs / maxDaily) * 260)}px`
                         : "0px",
                     }}
                   />

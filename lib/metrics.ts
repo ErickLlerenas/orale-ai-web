@@ -261,12 +261,11 @@ export type Summary = {
   latest: Ping[]; // último ping por instalación (más reciente primero)
 };
 
-/// Actividad de un día: abrieron, cobraron y descargas nuevas.
+/// Actividad de un día: descargas nuevas y suscripciones nuevas.
 export type DailyPoint = {
   date: string;
-  active: number;
-  selling: number;
   newInstalls: number;
+  newSubs: number;
 };
 
 /// Lo que hizo una instalación durante el mes.
@@ -618,24 +617,32 @@ export function summarize(rows: Ping[], month: string): Summary {
         y.device_count - x.device_count,
     );
 
-  // Por día del mes: abrieron, cobraron y descargas nuevas.
+  // Suscripciones nuevas por día (cuenta o dispositivo), según subscribed_at.
+  const subsByDay = new Map<string, Set<string>>();
+  for (const p of latest) {
+    if (!p.subscribed_at || !p.subscribed_at.startsWith(month)) continue;
+    const identity = p.account_key ?? p.install_id;
+    let set = subsByDay.get(p.subscribed_at);
+    if (!set) {
+      set = new Set();
+      subsByDay.set(p.subscribed_at, set);
+    }
+    set.add(identity);
+  }
+
+  // Por día del mes: descargas nuevas y suscripciones nuevas.
   const daily: DailyPoint[] = [];
   for (let day = 1; day <= lastDay; day++) {
     const date = `${month}-${String(day).padStart(2, "0")}`;
-    const active = new Set<string>();
-    const sellingToday = new Set<string>();
     const newToday = new Set<string>();
     for (const r of rows) {
       if (r.ping_date !== date) continue;
-      active.add(r.install_id);
-      if ((r.orders_today ?? 0) > 0) sellingToday.add(r.install_id);
       if (r.days_since_install === 0) newToday.add(r.install_id);
     }
     daily.push({
       date,
-      active: active.size,
-      selling: sellingToday.size,
       newInstalls: newToday.size,
+      newSubs: subsByDay.get(date)?.size ?? 0,
     });
   }
 
