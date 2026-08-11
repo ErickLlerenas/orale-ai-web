@@ -153,9 +153,15 @@ export default async function Admin({
   const t = summarizeToday(todayPings, todayAi);
   const y = summarizeToday(yesterdayPings, yesterdayAi);
   const aiByInstall = new Map(ai.byInstall.map((u) => [u.install_id, u]));
-  // No pintar el futuro: un equipo con el reloj mal manda pings con fecha adelantada.
-  const daily = s.daily.filter((d) => d.date <= today);
-  const maxSubs = Math.max(1, ...daily.map((d) => d.newSubs));
+  // Días futuros en 0 (evita pings con reloj adelantado y llena el mes visualmente).
+  const daily = s.daily.map((d) =>
+    d.date <= today ? d : { ...d, newInstalls: 0, newSubs: 0 },
+  );
+  const maxSubs = Math.max(
+    1,
+    ...daily.filter((d) => d.date <= today).map((d) => d.newSubs),
+  );
+  const monthSubsTotal = daily.reduce((sum, d) => sum + d.newSubs, 0);
 
   const buildSubs = (
     subs: NewSubscriber[],
@@ -456,29 +462,48 @@ export default async function Admin({
         )}
       </div>
 
-      <div className="panel">
-        <h2>Suscripciones · {monthLabel(month)}</h2>
-        <div className="bars bars-main">
-          {daily.map((d) => (
-            <div
-              className="bar-col"
-              key={d.date}
-              title={`${d.date}: ${d.newSubs} suscripciones`}
-            >
-              <div className="bar-stack">
-                <span className="n sell">{d.newSubs || ""}</span>
-                <div
-                  className="bar sell"
-                  style={{
-                    height: d.newSubs
-                      ? `${Math.max(4, (d.newSubs / maxSubs) * 220)}px`
-                      : "0px",
-                  }}
-                />
+      <div className="panel subs-panel">
+        <div className="subs-head">
+          <div>
+            <h2>Suscripciones · {monthLabel(month)}</h2>
+            <p className="muted month-card-hint">Nuevas por día</p>
+          </div>
+          <div className="subs-total">
+            <span className="subs-total-n">{monthSubsTotal}</span>
+            <span className="subs-total-l">en el mes</span>
+          </div>
+        </div>
+        <div className="bars bars-subs">
+          {daily.map((d) => {
+            const isFuture = d.date > today;
+            const h = d.newSubs
+              ? Math.max(6, (d.newSubs / maxSubs) * 140)
+              : isFuture
+                ? 0
+                : 3;
+            return (
+              <div
+                className={`bar-col${isFuture ? " future" : ""}${d.newSubs ? "" : " empty"}`}
+                key={d.date}
+                title={
+                  isFuture
+                    ? d.date
+                    : `${d.date}: ${d.newSubs} suscripciones`
+                }
+              >
+                <div className="bar-stack">
+                  <span className="n sell">
+                    {!isFuture && d.newSubs ? d.newSubs : ""}
+                  </span>
+                  <div
+                    className={`bar${d.newSubs ? " sell" : " ghost"}`}
+                    style={{ height: `${h}px` }}
+                  />
+                </div>
+                <span className="d">{d.date.slice(8)}</span>
               </div>
-              <span className="d">{d.date.slice(8)}</span>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
