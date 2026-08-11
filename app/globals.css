@@ -2281,7 +2281,7 @@ section {
   background: var(--primary);
 }
 .bars-legend .swatch.new {
-  background: #64748b;
+  background: #007aff;
 }
 .bars {
   display: flex;
@@ -2327,7 +2327,7 @@ section {
   background: var(--primary);
 }
 .bar.new {
-  background: #64748b;
+  background: #007aff;
 }
 .bar-col .d {
   font-size: 10px;
@@ -2347,7 +2347,7 @@ section {
   color: var(--primary);
 }
 .bar-col .n.new {
-  color: #64748b;
+  color: #007aff;
 }
 .table-wrap {
   overflow-x: auto;

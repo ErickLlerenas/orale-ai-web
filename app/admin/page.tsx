@@ -155,10 +155,8 @@ export default async function Admin({
   const aiByInstall = new Map(ai.byInstall.map((u) => [u.install_id, u]));
   // No pintar el futuro: un equipo con el reloj mal manda pings con fecha adelantada.
   const daily = s.daily.filter((d) => d.date <= today);
-  const maxDaily = Math.max(
-    1,
-    ...daily.map((d) => Math.max(d.newInstalls, d.newSubs)),
-  );
+  const maxDownloads = Math.max(1, ...daily.map((d) => d.newInstalls));
+  const maxSubs = Math.max(1, ...daily.map((d) => d.newSubs));
 
   const buildSubs = (
     subs: NewSubscriber[],
@@ -463,10 +461,10 @@ export default async function Admin({
         <h2>Descargas y suscripciones · {monthLabel(month)}</h2>
         <div className="bars-legend">
           <span>
-            <i className="swatch new" /> Descargas
+            <i className="swatch sell" /> Suscripciones
           </span>
           <span>
-            <i className="swatch open" /> Suscripciones
+            <i className="swatch new" /> Descargas
           </span>
         </div>
         <div className="bars">
@@ -474,27 +472,27 @@ export default async function Admin({
             <div
               className="bar-col"
               key={d.date}
-              title={`${d.date}: ${d.newInstalls} descargas · ${d.newSubs} suscripciones`}
+              title={`${d.date}: ${d.newSubs} suscripciones · ${d.newInstalls} descargas`}
             >
               <div className="bar-pair">
+                <div className="bar-stack">
+                  <span className="n sell">{d.newSubs || ""}</span>
+                  <div
+                    className="bar sell"
+                    style={{
+                      height: d.newSubs
+                        ? `${Math.max(4, (d.newSubs / maxSubs) * 260)}px`
+                        : "0px",
+                    }}
+                  />
+                </div>
                 <div className="bar-stack">
                   <span className="n new">{d.newInstalls || ""}</span>
                   <div
                     className="bar new"
                     style={{
                       height: d.newInstalls
-                        ? `${Math.max(3, (d.newInstalls / maxDaily) * 260)}px`
-                        : "0px",
-                    }}
-                  />
-                </div>
-                <div className="bar-stack">
-                  <span className="n open">{d.newSubs || ""}</span>
-                  <div
-                    className="bar open"
-                    style={{
-                      height: d.newSubs
-                        ? `${Math.max(3, (d.newSubs / maxDaily) * 260)}px`
+                        ? `${Math.max(3, (d.newInstalls / maxDownloads) * 160)}px`
                         : "0px",
                     }}
                   />
