@@ -7,7 +7,7 @@
 
 /// Hasta cuándo duran los precios de abajo, para anunciarlos como promoción.
 /// `null` = no hay aumento anunciado y no se muestra el aviso.
-export const promoEndsAt = "31 de agosto de 2026";
+export const promoEndsAt: string | null = "31 de agosto de 2026";
 
 /// Lo que costarán al terminar la promoción. Solo se usa en el aviso, para que
 /// nadie se entere del precio nuevo hasta el día que ya lo tiene que pagar.
