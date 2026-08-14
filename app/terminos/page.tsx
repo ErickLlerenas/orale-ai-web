@@ -1,5 +1,6 @@
 import Footer from "@/components/Footer";
 import Nav from "@/components/Nav";
+import { mxn, prices, promoEndsAt } from "@/lib/pricing";
 
 export const metadata = {
   title: "Términos y condiciones · Órale AI",
@@ -69,18 +70,42 @@ export default function Terms() {
         </p>
         <ul>
           <li>
-            <strong>Plan normal mensual:</strong> $99 MXN al mes.
+            <strong>Plan normal mensual:</strong> {mxn(prices.base.monthly)} MXN
+            al mes.
           </li>
           <li>
-            <strong>Plan normal anual:</strong> $799 MXN al año.
+            <strong>Plan normal anual:</strong> {mxn(prices.base.yearly)} MXN al
+            año.
           </li>
           <li>
-            <strong>Órale AI Pro mensual:</strong> $199 MXN al mes.
+            <strong>Órale AI Pro mensual:</strong> {mxn(prices.pro.monthly)} MXN
+            al mes.
           </li>
           <li>
-            <strong>Órale AI Pro anual:</strong> $1,599 MXN al año.
+            <strong>Órale AI Pro anual:</strong> {mxn(prices.pro.yearly)} MXN al
+            año.
           </li>
         </ul>
+        <p>
+          Podemos <strong>cambiar estos precios</strong> avisándote con
+          anticipación razonable desde la app, esta página o la tienda donde te
+          suscribiste. Si ya estás suscrito,{" "}
+          <strong>
+            un aumento no se te aplica automáticamente: conservas el precio con
+            el que contrataste
+          </strong>{" "}
+          mientras tu suscripción siga activa y no la canceles ni cambies de
+          plan. Si en algún momento tuviéramos que moverte a un precio nuevo, te
+          avisaríamos antes y tendrías que aceptarlo o podrías cancelar sin
+          costo.
+          {promoEndsAt && (
+            <>
+              {" "}
+              Los precios de arriba son de lanzamiento y están vigentes hasta el{" "}
+              <strong>{promoEndsAt}</strong>.
+            </>
+          )}
+        </p>
         <p>
           El plan normal en App Store / Google Play incluye{" "}
           <strong>14 días de prueba</strong> al suscribirte.{" "}

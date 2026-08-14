@@ -1441,6 +1441,24 @@ section {
   padding: 6px 12px;
   border-radius: 10px;
 }
+/* Aviso de que los precios de abajo suben pronto. */
+.promo-note {
+  max-width: 620px;
+  margin: -28px auto 40px;
+  padding: 14px 18px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 107, 53, 0.3);
+  background: rgba(255, 107, 53, 0.08);
+  color: var(--ink-soft);
+  font-size: 14px;
+  line-height: 1.6;
+  text-align: center;
+}
+.promo-note strong {
+  color: var(--primary-dark);
+  font-weight: 800;
+}
+
 .plan-name {
   font-family: var(--font-sans);
   margin: 0 0 4px;

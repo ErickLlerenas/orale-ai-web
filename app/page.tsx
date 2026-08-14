@@ -2,6 +2,7 @@ import Footer from "@/components/Footer";
 import HeroTablet from "@/components/HeroTablet";
 import ProSyncVisual from "@/components/ProSyncVisual";
 import StoreBadges from "@/components/StoreBadges";
+import { mxn, nextPrices, prices, promoEndsAt } from "@/lib/pricing";
 
 const pillars = [
   {
@@ -155,6 +156,14 @@ export default function Home() {
           <p className="section-sub">
             Empieza gratis 14 días. Si tu equipo crece, sube a Pro.
           </p>
+          {promoEndsAt && (
+            <p className="promo-note">
+              <strong>Precio de lanzamiento hasta el {promoEndsAt}.</strong>{" "}
+              Después el plan normal sube a {mxn(nextPrices.base.monthly)} y Pro
+              a {mxn(nextPrices.pro.monthly)} al mes. Si te suscribes antes,
+              conservas el precio de hoy mientras no canceles.
+            </p>
+          )}
           <div className="pricing">
             <div className="plan-card recommended">
               <span className="plan-ribbon">Recomendado</span>
@@ -163,10 +172,12 @@ export default function Home() {
                 Un dispositivo · funciona sin internet
               </p>
               <div className="plan-price">
-                <span className="amount">$99</span>
+                <span className="amount">{mxn(prices.base.monthly)}</span>
                 <span className="period">MXN / mes</span>
               </div>
-              <p className="plan-yearly">o $799 MXN / año</p>
+              <p className="plan-yearly">
+                o {mxn(prices.base.yearly)} MXN / año
+              </p>
               <ul className="plan-list">
                 <li>Punto de venta completo</li>
                 <li>Menú y reportes con IA</li>
@@ -186,10 +197,12 @@ export default function Home() {
                 Varios meseros · requiere WiFi del local
               </p>
               <div className="plan-price">
-                <span className="amount">$199</span>
+                <span className="amount">{mxn(prices.pro.monthly)}</span>
                 <span className="period">MXN / mes</span>
               </div>
-              <p className="plan-yearly">o $1,599 MXN / año</p>
+              <p className="plan-yearly">
+                o {mxn(prices.pro.yearly)} MXN / año
+              </p>
               <ul className="plan-list">
                 <li>Incluye todo el plan normal</li>
                 <li>Cada mesero pide desde su celular</li>
