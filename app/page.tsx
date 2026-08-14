@@ -2,7 +2,45 @@ import Footer from "@/components/Footer";
 import HeroTablet from "@/components/HeroTablet";
 import ProSyncVisual from "@/components/ProSyncVisual";
 import StoreBadges from "@/components/StoreBadges";
-import { mxn, nextPrices, prices, promoEndsAt } from "@/lib/pricing";
+import { discountPct, mxn, pricingNow, type PlanAmounts } from "@/lib/pricing";
+
+/// Cada cuánto se regenera el HTML estático. Es lo que hace que los precios
+/// cambien solos el día del aumento sin necesidad de un deploy.
+export const revalidate = 600;
+
+/// Precio mensual y anual de un plan, con el precio que viene tachado al lado
+/// mientras la promoción siga viva.
+///
+/// El tachado es el precio FUTURO, no uno que se haya cobrado antes. Por eso el
+/// aviso de arriba lleva la fecha: sin ese contexto, el tachado se leería como
+/// un precio viejo inventado, que es publicidad engañosa.
+function PlanPrice({ now, next }: { now: PlanAmounts; next?: PlanAmounts }) {
+  return (
+    <>
+      <div className="plan-price">
+        <span className="amount">{mxn(now.monthly)}</span>
+        <span className="period">MXN / mes</span>
+        {next && (
+          <>
+            <s className="amount-next">{mxn(next.monthly)}</s>
+            <span className="plan-discount">
+              −{discountPct(now.monthly, next.monthly)}%
+            </span>
+          </>
+        )}
+      </div>
+      <p className="plan-yearly">
+        o{" "}
+        {next && (
+          <>
+            <s>{mxn(next.yearly)}</s>{" "}
+          </>
+        )}
+        {mxn(now.yearly)} MXN / año
+      </p>
+    </>
+  );
+}
 
 const pillars = [
   {
@@ -59,6 +97,8 @@ const steps = [
 ];
 
 export default function Home() {
+  const { prices, next, promoEndsLabel, increaseOnLabel } = pricingNow();
+
   return (
     <>
       <main>
@@ -156,12 +196,13 @@ export default function Home() {
           <p className="section-sub">
             Empieza gratis 14 días. Si tu equipo crece, sube a Pro.
           </p>
-          {promoEndsAt && (
+          {promoEndsLabel && next && increaseOnLabel && (
             <p className="promo-note">
-              <strong>Precio de lanzamiento hasta el {promoEndsAt}.</strong>{" "}
-              Después el plan normal sube a {mxn(nextPrices.base.monthly)} y Pro
-              a {mxn(nextPrices.pro.monthly)} al mes. Si te suscribes antes,
-              conservas el precio de hoy mientras no canceles.
+              <strong>Precio de lanzamiento hasta el {promoEndsLabel}.</strong>{" "}
+              El {increaseOnLabel} el plan normal pasa a{" "}
+              {mxn(next.base.monthly)} y Pro a {mxn(next.pro.monthly)} al mes.
+              Si te suscribes hoy, te quedas en este precio mientras no
+              canceles.
             </p>
           )}
           <div className="pricing">
@@ -171,13 +212,7 @@ export default function Home() {
               <p className="plan-tagline">
                 Un dispositivo · funciona sin internet
               </p>
-              <div className="plan-price">
-                <span className="amount">{mxn(prices.base.monthly)}</span>
-                <span className="period">MXN / mes</span>
-              </div>
-              <p className="plan-yearly">
-                o {mxn(prices.base.yearly)} MXN / año
-              </p>
+              <PlanPrice now={prices.base} next={next?.base} />
               <ul className="plan-list">
                 <li>Punto de venta completo</li>
                 <li>Menú y reportes con IA</li>
@@ -196,13 +231,7 @@ export default function Home() {
               <p className="plan-tagline">
                 Varios meseros · requiere WiFi del local
               </p>
-              <div className="plan-price">
-                <span className="amount">{mxn(prices.pro.monthly)}</span>
-                <span className="period">MXN / mes</span>
-              </div>
-              <p className="plan-yearly">
-                o {mxn(prices.pro.yearly)} MXN / año
-              </p>
+              <PlanPrice now={prices.pro} next={next?.pro} />
               <ul className="plan-list">
                 <li>Incluye todo el plan normal</li>
                 <li>Cada mesero pide desde su celular</li>
