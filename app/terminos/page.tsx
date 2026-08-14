@@ -1,12 +1,17 @@
 import Footer from "@/components/Footer";
 import Nav from "@/components/Nav";
-import { mxn, prices, promoEndsAt } from "@/lib/pricing";
+import { mxn, pricingNow } from "@/lib/pricing";
 
 export const metadata = {
   title: "Términos y condiciones · Órale AI",
 };
 
+/// Los precios de aquí son los mismos de la portada y cambian el mismo día.
+export const revalidate = 600;
+
 export default function Terms() {
+  const { prices, promoEndsLabel } = pricingNow();
+
   return (
     <>
       <Nav>
@@ -98,11 +103,11 @@ export default function Terms() {
           plan. Si en algún momento tuviéramos que moverte a un precio nuevo, te
           avisaríamos antes y tendrías que aceptarlo o podrías cancelar sin
           costo.
-          {promoEndsAt && (
+          {promoEndsLabel && (
             <>
               {" "}
               Los precios de arriba son de lanzamiento y están vigentes hasta el{" "}
-              <strong>{promoEndsAt}</strong>.
+              <strong>{promoEndsLabel}</strong>.
             </>
           )}
         </p>

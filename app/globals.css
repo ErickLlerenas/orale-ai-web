@@ -1493,6 +1493,38 @@ section {
 .featured .plan-price .period {
   color: var(--pro-ink-soft);
 }
+/* Precio que entra al acabar la promoción, tachado junto al de hoy. */
+.plan-price .amount-next {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  text-decoration: line-through;
+}
+.featured .plan-price .amount-next {
+  color: var(--pro-ink-soft);
+}
+.plan-discount {
+  align-self: center;
+  background: var(--primary);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  padding: 4px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.featured .plan-discount {
+  background: var(--pro);
+  color: var(--pro-on);
+}
+.plan-yearly s {
+  color: var(--ink-soft);
+  opacity: 0.75;
+}
+.featured .plan-yearly s {
+  color: var(--pro-ink-soft);
+}
 .plan-yearly {
   margin: 0 0 22px;
   font-size: 13px;
