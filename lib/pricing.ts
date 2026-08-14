@@ -44,31 +44,42 @@ export type Pricing = {
   next: PlanSet | null;
   /// Último día con precio de lanzamiento ("31 de agosto de 2026"), o `null`.
   promoEndsLabel: string | null;
+  /// El día en que suben ("1 de septiembre de 2026"), o `null`.
+  increaseOnLabel: string | null;
 };
 
 /// Qué enseñar en este momento. [now] se inyecta en las pruebas.
 export function pricingNow(now: Date = new Date()): Pricing {
   const promoActive = priceIncreaseAt != null && now < priceIncreaseAt;
   if (!promoActive) {
-    return { prices: raised, next: null, promoEndsLabel: null };
+    return {
+      prices: raised,
+      next: null,
+      promoEndsLabel: null,
+      increaseOnLabel: null,
+    };
   }
   return {
     prices: launch,
     next: raised,
     promoEndsLabel: lastDayLabel(priceIncreaseAt!),
+    increaseOnLabel: dayLabel(priceIncreaseAt!),
   };
 }
 
-/// El día antes del aumento, que es el último con precio de lanzamiento.
-/// Se calcula para que la fecha del texto no pueda contradecir a la lógica.
-function lastDayLabel(increaseAt: Date): string {
-  const dayBefore = new Date(increaseAt.getTime() - 24 * 60 * 60 * 1000);
+function dayLabel(value: Date): string {
   return new Intl.DateTimeFormat("es-MX", {
     day: "numeric",
     month: "long",
     year: "numeric",
     timeZone: "America/Mexico_City",
-  }).format(dayBefore);
+  }).format(value);
+}
+
+/// El día antes del aumento, que es el último con precio de lanzamiento.
+/// Se calcula para que la fecha del texto no pueda contradecir a la lógica.
+function lastDayLabel(increaseAt: Date): string {
+  return dayLabel(new Date(increaseAt.getTime() - 24 * 60 * 60 * 1000));
 }
 
 /// "$1,599", como se leen los precios en la app y en las tiendas.

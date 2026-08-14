@@ -97,7 +97,7 @@ const steps = [
 ];
 
 export default function Home() {
-  const { prices, next, promoEndsLabel } = pricingNow();
+  const { prices, next, promoEndsLabel, increaseOnLabel } = pricingNow();
 
   return (
     <>
@@ -196,11 +196,13 @@ export default function Home() {
           <p className="section-sub">
             Empieza gratis 14 días. Si tu equipo crece, sube a Pro.
           </p>
-          {promoEndsLabel && (
+          {promoEndsLabel && next && increaseOnLabel && (
             <p className="promo-note">
               <strong>Precio de lanzamiento hasta el {promoEndsLabel}.</strong>{" "}
-              Después entran en vigor los precios tachados. Si te suscribes
-              antes, conservas el precio de hoy mientras no canceles.
+              El {increaseOnLabel} el plan normal pasa a{" "}
+              {mxn(next.base.monthly)} y Pro a {mxn(next.pro.monthly)} al mes.
+              Si te suscribes hoy, te quedas en este precio mientras no
+              canceles.
             </p>
           )}
           <div className="pricing">

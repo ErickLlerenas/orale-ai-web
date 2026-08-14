@@ -93,21 +93,21 @@ export default function Terms() {
         </ul>
         <p>
           Podemos <strong>cambiar estos precios</strong> avisándote con
-          anticipación razonable desde la app, esta página o la tienda donde te
+          anticipación desde la app, esta página o la tienda donde te
           suscribiste. Si ya estás suscrito,{" "}
           <strong>
-            un aumento no se te aplica automáticamente: conservas el precio con
-            el que contrataste
+            un aumento no se te cobra: te quedas en el precio con el que
+            contrataste
           </strong>{" "}
-          mientras tu suscripción siga activa y no la canceles ni cambies de
-          plan. Si en algún momento tuviéramos que moverte a un precio nuevo, te
-          avisaríamos antes y tendrías que aceptarlo o podrías cancelar sin
-          costo.
+          mientras no canceles ni cambies de plan. Si en algún momento
+          tuviéramos que moverte a un precio nuevo, te avisaríamos antes y
+          podrías cancelar sin costo.
           {promoEndsLabel && (
             <>
               {" "}
-              Los precios de arriba son de lanzamiento y están vigentes hasta el{" "}
-              <strong>{promoEndsLabel}</strong>.
+              Los precios de arriba son de lanzamiento y valen hasta el{" "}
+              <strong>{promoEndsLabel}</strong>. Si te suscribes antes, te
+              quedas en ese precio mientras no canceles.
             </>
           )}
         </p>
