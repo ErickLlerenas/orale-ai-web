@@ -1,5 +1,5 @@
 import { unstable_noStore as noStore } from "next/cache";
-import { adminClient } from "@/lib/supabase";
+import { adminClient, fetchAll } from "@/lib/supabase";
 import {
   summarize,
   summarizeAi,
@@ -28,6 +28,7 @@ import {
 import MonthSelect from "./MonthSelect";
 import DayTabs, { type DayKpi, type DaySnapshot } from "./DayTabs";
 import { type NewSubDetail } from "./NewSubscribers";
+import UsersByDay from "./UsersByDay";
 
 // Siempre datos frescos (sin caché).
 export const dynamic = "force-dynamic";
@@ -74,28 +75,66 @@ export default async function Admin({
       devicesRes,
       stripeSubsRes,
     ] = await Promise.all([
-      supabase
-        .from("usage_pings")
-        .select("*")
-        .gte("ping_date", start)
-        .lte("ping_date", end)
-        .order("ping_date", { ascending: false }),
-      supabase
-        .from("ai_usage")
-        .select("*")
-        .gte("usage_date", start)
-        .lte("usage_date", end)
-        .order("usage_date", { ascending: false }),
-      supabase.from("usage_pings").select("*").eq("ping_date", today),
-      supabase.from("ai_usage").select("*").eq("usage_date", today),
-      supabase.from("usage_pings").select("*").eq("ping_date", yesterday),
-      supabase.from("ai_usage").select("*").eq("usage_date", yesterday),
-      supabase.from("business_devices").select("install_id, role"),
+      fetchAll<Ping>(
+        supabase
+          .from("usage_pings")
+          .select("*")
+          .gte("ping_date", start)
+          .lte("ping_date", end)
+          .order("ping_date", { ascending: false })
+          .order("install_id"),
+      ),
+      fetchAll<AiUsage>(
+        supabase
+          .from("ai_usage")
+          .select("*")
+          .gte("usage_date", start)
+          .lte("usage_date", end)
+          .order("usage_date", { ascending: false })
+          .order("install_id"),
+      ),
+      fetchAll<Ping>(
+        supabase
+          .from("usage_pings")
+          .select("*")
+          .eq("ping_date", today)
+          .order("install_id"),
+      ),
+      fetchAll<AiUsage>(
+        supabase
+          .from("ai_usage")
+          .select("*")
+          .eq("usage_date", today)
+          .order("install_id"),
+      ),
+      fetchAll<Ping>(
+        supabase
+          .from("usage_pings")
+          .select("*")
+          .eq("ping_date", yesterday)
+          .order("install_id"),
+      ),
+      fetchAll<AiUsage>(
+        supabase
+          .from("ai_usage")
+          .select("*")
+          .eq("usage_date", yesterday)
+          .order("install_id"),
+      ),
+      fetchAll<{ install_id: string; role: string }>(
+        supabase
+          .from("business_devices")
+          .select("install_id, role")
+          .order("install_id"),
+      ),
       // Altas Windows/Stripe de hoy y ayer (sin esperar ping de la app).
-      supabase
-        .from("subscriptions")
-        .select("user_id, plan, status, subscribed_at, updated_at")
-        .in("subscribed_at", [today, yesterday]),
+      fetchAll<StripeSubRow>(
+        supabase
+          .from("subscriptions")
+          .select("user_id, plan, status, subscribed_at, updated_at")
+          .in("subscribed_at", [today, yesterday])
+          .order("user_id"),
+      ),
     ]);
     if (pings.error) errorMsg = pings.error.message;
     else if (ai.error) errorMsg = ai.error.message;
@@ -507,127 +546,15 @@ export default async function Admin({
         </div>
       </div>
 
-      <div className="panel">
-        <h2>Usuarios ({s.latest.length})</h2>
-        <p className="muted">
-          Una fila por instalación activa en {monthLabel(month)}.
-        </p>
-        {s.latest.length === 0 ? (
-          <p className="muted">
-            Aún no hay datos. Aparecerán cuando las apps manden su primer ping.
-          </p>
-        ) : (
-          <div className="table-wrap">
-            <table className="data">
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Cuenta</th>
-                  <th>Última visita</th>
-                  <th>Antigüedad</th>
-                  <th>Plataforma</th>
-                  <th>Versión</th>
-                  <th>Productos</th>
-                  <th>Órdenes</th>
-                  <th>IA (mes)</th>
-                  <th>Plan</th>
-                </tr>
-              </thead>
-              <tbody>
-                {s.latest.map((p) => {
-                  const u = aiByInstall.get(p.install_id);
-                  const tenure = userTenure(p.days_since_install);
-                  const platform = platformChip(p.platform);
-                  const pill = planPill(p.plan, p.subscription_status);
-                  // La app reporta el rol; el set solo cubre a quien todavía
-                  // no lo manda.
-                  const isWaiter =
-                    p.is_caja === false ||
-                    (p.is_caja == null && waiterInstalls.has(p.install_id));
-                  const inherited = p.inherited_access === true;
-                  const hasPaidAccess = p.subscription_active || inherited;
-                  return (
-                    <tr key={p.install_id}>
-                      <td title={p.install_id}>{p.install_id.slice(0, 8)}</td>
-                      <td title={p.account_key ?? "Sin cuenta (gratis)"}>
-                        {p.account_key ? p.account_key.slice(0, 8) : "—"}
-                      </td>
-                      <td title={p.ping_date}>{fechaHora(p.updated_at)}</td>
-                      <td title={`${p.days_since_install} días desde la descarga`}>
-                        <span className={tenure.className}>{tenure.label}</span>
-                      </td>
-                      <td>
-                        <span className={platform.className}>
-                          {platform.label}
-                        </span>
-                      </td>
-                      <td>{p.app_version ?? "—"}</td>
-                      <td>{p.product_count}</td>
-                      <td title="Órdenes cerradas acumuladas">
-                        {(p.orders_total ?? 0) > 25 ? (
-                          <span
-                            className={`pill ${
-                              hasPaidAccess ? "sub" : "danger"
-                            }`}
-                            title={
-                              p.subscription_active
-                                ? "Mucho uso y con suscripción"
-                                : inherited
-                                  ? "Mucho uso con acceso heredado"
-                                  : "Mucho uso sin suscripción"
-                            }
-                          >
-                            {p.orders_total}
-                          </span>
-                        ) : (
-                          (p.orders_total ?? 0)
-                        )}
-                      </td>
-                      <td
-                        title={
-                          u
-                            ? `Hoy: ${u.today} · Último uso: ${u.lastDate}`
-                            : "Sin uso de IA"
-                        }
-                      >
-                        {u ? u.total : "—"}
-                      </td>
-                      <td>
-                        {p.subscription_active ? (
-                          <span
-                            className={pill.className}
-                            title={`${pill.title} · Suscrito el ${
-                              p.subscribed_at ?? "—"
-                            }`}
-                          >
-                            {pill.label}
-                          </span>
-                        ) : inherited ? (
-                          <span
-                            className="pill heredado"
-                            title="Acceso heredado (mudanza / Google). No compró en este aparato."
-                          >
-                            Heredado
-                          </span>
-                        ) : isWaiter ? (
-                          <span
-                            className="pill mesero"
-                            title="Entró con código de mesero (no suscribe)"
-                          >
-                            Mesero
-                          </span>
-                        ) : (
-                          <span className="pill off">Sin suscripción</span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+      <UsersByDay
+        pings={rows}
+        month={month}
+        today={today}
+        aiByInstall={Object.fromEntries(
+          ai.byInstall.map((u) => [u.install_id, u]),
         )}
-      </div>
+        waiterInstalls={[...waiterInstalls]}
+      />
     </main>
   );
 }

@@ -216,6 +216,18 @@ export function monthRange(month: string): { start: string; end: string } {
   };
 }
 
+/// Días de un mes (yyyy-mm-dd), del 1 al último. `until` recorta (p. ej. hoy).
+export function daysInMonth(month: string, until?: string): string[] {
+  const { end } = monthRange(month);
+  const last = until && until < end ? until : end;
+  const lastN = Number(last.slice(8, 10));
+  const out: string[] = [];
+  for (let d = 1; d <= lastN; d++) {
+    out.push(`${month}-${String(d).padStart(2, "0")}`);
+  }
+  return out;
+}
+
 /// Lista de los últimos `count` meses (más reciente primero) para el selector.
 export function monthOptions(count = 12): { value: string; label: string }[] {
   const [y, m] = currentMonth().split("-").map(Number);

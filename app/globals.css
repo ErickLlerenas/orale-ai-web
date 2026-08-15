@@ -2440,6 +2440,44 @@ section {
     font-size: 8px;
   }
 }
+.users-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.panel .users-head h2 {
+  margin: 0 0 4px;
+}
+.day-pager {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.day-pager-btn {
+  width: 40px;
+  height: 42px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card);
+  color: var(--ink);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+}
+.day-pager-btn:hover:not(:disabled) {
+  border-color: var(--primary);
+}
+.day-pager-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.day-select {
+  min-width: 160px;
+}
 .table-wrap {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
@@ -2679,6 +2717,16 @@ table.data tbody tr:last-child td {
   }
   .month-select {
     width: 100%;
+  }
+  .users-head {
+    align-items: stretch;
+  }
+  .day-pager {
+    width: 100%;
+  }
+  .day-select {
+    flex: 1;
+    min-width: 0;
   }
   .kpi-group,
   .panel {
