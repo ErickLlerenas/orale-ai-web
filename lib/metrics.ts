@@ -261,6 +261,7 @@ export type Summary = {
   totalOrders: number; // suma de órdenes del día (actividad del mes)
   subscribed: number; // DISPOSITIVOS con suscripción activa
   payingAccounts: number; // CLIENTES: cuentas únicas con suscripción
+  payingByPlatform: Record<PlatformKey, number>;
   multiDevice: AccountRow[]; // cuentas usadas en 2+ dispositivos
   realBranches: number; // de esas, las que sí son dos sucursales cobrando
   monthly: number; // clientes en plan mensual (no Pro)
@@ -598,6 +599,7 @@ export function summarize(rows: Ping[], month: string): Summary {
       selling: number; // equipos de la cuenta que sí cobraron
       isPro: boolean;
       plan: Plan | null;
+      platform: PlatformKey;
       last_seen: string;
     }
   >();
@@ -611,6 +613,7 @@ export function summarize(rows: Ping[], month: string): Summary {
         selling: sold,
         isPro: isProPlan(p.plan),
         plan: p.plan,
+        platform: platformKey(p.platform),
         last_seen: p.ping_date,
       });
     } else {
@@ -707,6 +710,9 @@ export function summarize(rows: Ping[], month: string): Summary {
     });
   }
 
+  const payingByPlatform = emptyPlatformCounts();
+  for (const a of accounts.values()) payingByPlatform[a.platform]++;
+
   return {
     activeInstalls: byInstall.size,
     selling,
@@ -716,6 +722,7 @@ export function summarize(rows: Ping[], month: string): Summary {
     totalOrders,
     subscribed,
     payingAccounts: accounts.size,
+    payingByPlatform,
     multiDevice,
     realBranches: multiDevice.filter((a) => a.kind === "branches").length,
     monthly,

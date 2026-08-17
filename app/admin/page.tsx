@@ -411,6 +411,13 @@ export default async function Admin({
             <div className="biz-stat">
               <div className="biz-n">{s.payingAccounts}</div>
               <div className="biz-l">Clientes que pagan</div>
+              <div className="kpi-platforms">
+                {platformCountChips(s.payingByPlatform).map((p) => (
+                  <span key={p.key} className={p.className}>
+                    {p.label} {p.n}
+                  </span>
+                ))}
+              </div>
             </div>
             <div className="biz-stat">
               <div className="biz-n">{installConversion}%</div>
