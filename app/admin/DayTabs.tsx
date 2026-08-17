@@ -71,7 +71,7 @@ export default function DayTabs({
               {k.tone === "new" && day.newPlatforms.length > 0 && (
                 <div className="kpi-platforms">
                   {day.newPlatforms.map((p) => (
-                    <span key={p.label}>
+                    <span key={p.label} className={p.className}>
                       {p.label} {p.n}
                     </span>
                   ))}

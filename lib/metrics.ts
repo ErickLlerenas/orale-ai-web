@@ -273,10 +273,22 @@ export type Summary = {
   latest: Ping[]; // último ping por instalación (más reciente primero)
 };
 
-/// Actividad de un día: descargas nuevas y suscripciones nuevas.
+/// Las tres tiendas que importan. Mac y "otra" solo se muestran si hay números.
+export const PRIMARY_PLATFORMS = [
+  { key: "ios", label: "iOS" },
+  { key: "android", label: "Android" },
+  { key: "windows", label: "Windows" },
+] as const satisfies readonly { key: PlatformKey; label: string }[];
+
+export function emptyPlatformCounts(): Record<PlatformKey, number> {
+  return { ios: 0, android: 0, windows: 0, mac: 0, unknown: 0 };
+}
+
+/// Actividad de un día: descargas nuevas (también por plataforma) y suscripciones.
 export type DailyPoint = {
   date: string;
   newInstalls: number;
+  newByPlatform: Record<PlatformKey, number>;
   newSubs: number;
 };
 
@@ -458,26 +470,25 @@ export function summarizeToday(pings: Ping[], aiRows: AiUsage[]): TodaySummary {
   };
 }
 
-/// Chips de plataforma para las descargas nuevas del día (solo las con count > 0).
+/// Chips de plataforma para las descargas nuevas del día.
+/// iOS, Android y Windows siempre; Mac u otra solo si hubo alguna.
 export function newInstallPlatformChips(
   byPlatform: NewInstallsByPlatform,
 ): { key: PlatformKey; label: string; className: string; n: number }[] {
-  return (
+  const extras = (
     [
-      ["ios", "iOS"],
-      ["android", "Android"],
-      ["windows", "Windows"],
       ["mac", "Mac"],
       ["unknown", "Otra"],
     ] as const
-  )
-    .map(([key, label]) => ({
+  ).filter(([key]) => byPlatform[key] > 0);
+  return [...PRIMARY_PLATFORMS, ...extras.map(([key, label]) => ({ key, label }))].map(
+    ({ key, label }) => ({
       key,
       label,
       className: platformChip(key).className,
       n: byPlatform[key],
-    }))
-    .filter((p) => p.n > 0);
+    }),
+  );
 }
 
 /// Calcula todas las métricas del dashboard para un mes dado (yyyy-mm).
@@ -642,18 +653,23 @@ export function summarize(rows: Ping[], month: string): Summary {
     set.add(identity);
   }
 
-  // Por día del mes: descargas nuevas y suscripciones nuevas.
+  // Por día del mes: descargas nuevas (y de qué tienda) y suscripciones nuevas.
   const daily: DailyPoint[] = [];
   for (let day = 1; day <= lastDay; day++) {
     const date = `${month}-${String(day).padStart(2, "0")}`;
-    const newToday = new Set<string>();
+    const newToday = new Map<string, PlatformKey>();
     for (const r of rows) {
       if (r.ping_date !== date) continue;
-      if (r.days_since_install === 0) newToday.add(r.install_id);
+      if (r.days_since_install === 0 && !newToday.has(r.install_id)) {
+        newToday.set(r.install_id, platformKey(r.platform));
+      }
     }
+    const newByPlatform = emptyPlatformCounts();
+    for (const key of newToday.values()) newByPlatform[key]++;
     daily.push({
       date,
       newInstalls: newToday.size,
+      newByPlatform,
       newSubs: subsByDay.get(date)?.size ?? 0,
     });
   }

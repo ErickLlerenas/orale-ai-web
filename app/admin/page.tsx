@@ -12,6 +12,8 @@ import {
   userTenure,
   multiDeviceLabel,
   newInstallPlatformChips,
+  emptyPlatformCounts,
+  PRIMARY_PLATFORMS,
   fechaHora,
   currentMonth,
   monthLabel,
@@ -194,13 +196,24 @@ export default async function Admin({
   const aiByInstall = new Map(ai.byInstall.map((u) => [u.install_id, u]));
   // Días futuros en 0 (evita pings con reloj adelantado y llena el mes visualmente).
   const daily = s.daily.map((d) =>
-    d.date <= today ? d : { ...d, newInstalls: 0, newSubs: 0 },
+    d.date <= today
+      ? d
+      : { ...d, newInstalls: 0, newSubs: 0, newByPlatform: emptyPlatformCounts() },
   );
-  const maxSubs = Math.max(
-    1,
-    ...daily.filter((d) => d.date <= today).map((d) => d.newSubs),
-  );
+  const pastDays = daily.filter((d) => d.date <= today);
+  const maxSubs = Math.max(1, ...pastDays.map((d) => d.newSubs));
+  const maxInstalls = Math.max(1, ...pastDays.map((d) => d.newInstalls));
   const monthSubsTotal = daily.reduce((sum, d) => sum + d.newSubs, 0);
+  const monthInstallsTotal = daily.reduce((sum, d) => sum + d.newInstalls, 0);
+  const monthByPlatform = daily.reduce(
+    (acc, d) => {
+      for (const key of Object.keys(acc) as (keyof typeof acc)[]) {
+        acc[key] += d.newByPlatform[key];
+      }
+      return acc;
+    },
+    emptyPlatformCounts(),
+  );
 
   const buildSubs = (
     subs: NewSubscriber[],
@@ -302,17 +315,13 @@ export default async function Admin({
     ? Math.round((s.sellingSubscribed / s.selling) * 100)
     : 0;
 
-  const platformRows = (
-    [
-      ["ios", "iOS"],
-      ["android", "Android"],
-      ["windows", "Windows"],
-      ["mac", "Mac"],
-    ] as const
-  ).map(([key, label]) => ({
+  const platformRows = [
+    ...PRIMARY_PLATFORMS,
+    ...(monthByPlatform.mac > 0 ? [{ key: "mac" as const, label: "Mac" }] : []),
+  ].map(({ key, label }) => ({
     key,
     label,
-    n: s.platforms[key].installs,
+    n: monthByPlatform[key],
   }));
   const platformMax = Math.max(1, ...platformRows.map((p) => p.n));
 
@@ -436,7 +445,7 @@ export default async function Admin({
         </section>
         <section className="panel">
           <h2 className="month-chart-title">Por plataforma</h2>
-          <p className="muted month-card-hint">Por equipo instalado</p>
+          <p className="muted month-card-hint">Descargas nuevas del mes</p>
           <div className="platform-bars">
             {platformRows.map((p) => (
               <div className="platform-bar-row" key={p.key}>
@@ -445,7 +454,8 @@ export default async function Admin({
                   <div
                     className={`platform-bar-fill platform-${p.key}`}
                     style={{
-                      width: `${(p.n / platformMax) * 100}%`,
+                      width: p.n ? `${(p.n / platformMax) * 100}%` : "0",
+                      minWidth: p.n ? undefined : 0,
                     }}
                   />
                 </div>
@@ -499,6 +509,78 @@ export default async function Admin({
             </table>
           </div>
         )}
+      </div>
+
+      <div className="panel subs-panel">
+        <div className="subs-head">
+          <div>
+            <h2>Descargas · {monthLabel(month)}</h2>
+            <p className="muted month-card-hint">Nuevas por día y por tienda</p>
+          </div>
+          <div className="subs-total">
+            <span className="subs-total-n">{monthInstallsTotal}</span>
+            <span className="subs-total-l">en el mes</span>
+          </div>
+        </div>
+        <div className="bars-legend">
+          {PRIMARY_PLATFORMS.map((p) => (
+            <span key={p.key}>
+              <i className={`swatch platform-${p.key}`} />
+              {p.label} {monthByPlatform[p.key]}
+            </span>
+          ))}
+        </div>
+        <div className="bars bars-subs">
+          {daily.map((d) => {
+            const isFuture = d.date > today;
+            const h = d.newInstalls
+              ? Math.max(6, (d.newInstalls / maxInstalls) * 140)
+              : isFuture
+                ? 0
+                : 3;
+            const parts: { key: "ios" | "android" | "windows" | "unknown"; n: number }[] =
+              PRIMARY_PLATFORMS.map((p) => ({
+                key: p.key,
+                n: d.newByPlatform[p.key],
+              })).filter((p) => p.n > 0);
+            const other =
+              d.newInstalls - parts.reduce((sum, p) => sum + p.n, 0);
+            if (other > 0) parts.push({ key: "unknown", n: other });
+            return (
+              <div
+                className={`bar-col${isFuture ? " future" : ""}${d.newInstalls ? "" : " empty"}`}
+                key={`dl-${d.date}`}
+                title={
+                  isFuture
+                    ? d.date
+                    : `${d.date}: ${d.newInstalls} descargas · iOS ${d.newByPlatform.ios} · Android ${d.newByPlatform.android} · Windows ${d.newByPlatform.windows}`
+                }
+              >
+                <div className="bar-stack">
+                  <span className="n new">
+                    {!isFuture && d.newInstalls ? d.newInstalls : ""}
+                  </span>
+                  {d.newInstalls ? (
+                    <div className="bar-stack-fill" style={{ height: `${h}px` }}>
+                      {parts.map((p) => (
+                        <div
+                          key={p.key}
+                          className={`bar-seg platform-${p.key}`}
+                          style={{
+                            height: `${(p.n / d.newInstalls) * 100}%`,
+                          }}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="bar ghost" style={{ height: `${h}px` }} />
+                  )}
+                </div>
+                <span className="d">{d.date.slice(8)}</span>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       <div className="panel subs-panel">

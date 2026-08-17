@@ -1919,12 +1919,13 @@ section {
 .kpi-platforms {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px 10px;
+  gap: 6px;
   margin-top: 10px;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--ink-soft);
   font-variant-numeric: tabular-nums;
+}
+.kpi-platforms .platform-tag {
+  font-size: 11px;
+  padding: 2px 8px;
 }
 .day-subs {
   margin-top: 20px;
@@ -2332,6 +2333,38 @@ section {
 }
 .bars-legend .swatch.new {
   background: #cbd5e1;
+}
+.bars-legend .swatch.platform-ios {
+  background: #007aff;
+}
+.bars-legend .swatch.platform-android {
+  background: #1e8e3e;
+}
+.bars-legend .swatch.platform-windows {
+  background: #00a4ef;
+}
+.bar-stack-fill {
+  width: 100%;
+  display: flex;
+  flex-direction: column-reverse;
+  border-radius: 4px 4px 0 0;
+  overflow: hidden;
+  min-height: 3px;
+}
+.bar-seg {
+  width: 100%;
+}
+.bar-seg.platform-ios {
+  background: #007aff;
+}
+.bar-seg.platform-android {
+  background: #1e8e3e;
+}
+.bar-seg.platform-windows {
+  background: #00a4ef;
+}
+.bar-seg.platform-unknown {
+  background: #94a3b8;
 }
 .subs-panel h2 {
   margin: 0;
