@@ -277,8 +277,18 @@ export default async function Admin({
       tone: "new",
       platforms: platformCountChips(summary.newByPlatform),
     },
-    { v: summary.activeInstalls, l: "Abrieron la app", tone: "open" },
-    { v: summary.selling, l: "Cobrando", tone: "sell" },
+    {
+      v: summary.activeInstalls,
+      l: "Abrieron la app",
+      tone: "open",
+      platforms: platformCountChips(summary.openedByPlatform),
+    },
+    {
+      v: summary.selling,
+      l: "Cobrando",
+      tone: "sell",
+      platforms: platformCountChips(summary.sellingByPlatform),
+    },
   ];
 
   const todaySubs = mergeStripeNewSubscribers(

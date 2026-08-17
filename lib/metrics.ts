@@ -340,6 +340,8 @@ export type TodaySummary = {
   subscribed: number; // dispositivos con suscripción activa hoy
   newInstalls: number; // instalaciones hechas hoy (days_since_install === 0)
   newByPlatform: NewInstallsByPlatform;
+  openedByPlatform: NewInstallsByPlatform;
+  sellingByPlatform: NewInstallsByPlatform;
 };
 
 /// Una suscripción nueva detectada hoy.
@@ -436,38 +438,41 @@ export function mergeStripeNewSubscribers(
 
 /// Resume la actividad de hoy. `pings` y `aiRows` ya vienen filtrados a hoy.
 export function summarizeToday(pings: Ping[], aiRows: AiUsage[]): TodaySummary {
-  const installs = new Set<string>();
-  const selling = new Set<string>();
+  const opened = new Map<string, PlatformKey>();
+  const selling = new Map<string, PlatformKey>();
   const newIds = new Set<string>();
-  const newByPlatform: NewInstallsByPlatform = {
-    ios: 0,
-    android: 0,
-    windows: 0,
-    mac: 0,
-    unknown: 0,
-  };
+  const newByPlatform = emptyPlatformCounts();
   let orders = 0;
   let subscribed = 0;
   for (const p of pings) {
-    installs.add(p.install_id);
-    if ((p.orders_today ?? 0) > 0) selling.add(p.install_id);
+    const key = platformKey(p.platform);
+    if (!opened.has(p.install_id)) opened.set(p.install_id, key);
+    if ((p.orders_today ?? 0) > 0 && !selling.has(p.install_id)) {
+      selling.set(p.install_id, key);
+    }
     orders += p.orders_today ?? 0;
     if (p.subscription_active) subscribed++;
     if (p.days_since_install === 0 && !newIds.has(p.install_id)) {
       newIds.add(p.install_id);
-      newByPlatform[platformKey(p.platform)]++;
+      newByPlatform[key]++;
     }
   }
+  const openedByPlatform = emptyPlatformCounts();
+  for (const key of opened.values()) openedByPlatform[key]++;
+  const sellingByPlatform = emptyPlatformCounts();
+  for (const key of selling.values()) sellingByPlatform[key]++;
   let aiCalls = 0;
   for (const r of aiRows) aiCalls += r.count;
   return {
-    activeInstalls: installs.size,
+    activeInstalls: opened.size,
     selling: selling.size,
     orders,
     aiCalls,
     subscribed,
     newInstalls: newIds.size,
     newByPlatform,
+    openedByPlatform,
+    sellingByPlatform,
   };
 }
 
