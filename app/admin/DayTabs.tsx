@@ -3,16 +3,17 @@
 import { useState } from "react";
 import NewSubscribers, { type NewSubDetail } from "./NewSubscribers";
 
-export type DayKpi = {
-  v: number;
-  l: string;
-  tone: string;
-};
-
 export type DayPlatformChip = {
   label: string;
   className: string;
   n: number;
+};
+
+export type DayKpi = {
+  v: number;
+  l: string;
+  tone: string;
+  platforms?: DayPlatformChip[];
 };
 
 export type DaySnapshot = {
@@ -20,7 +21,6 @@ export type DaySnapshot = {
   dateLabel: string;
   live?: boolean;
   kpis: DayKpi[];
-  newPlatforms: DayPlatformChip[];
   subscribers: NewSubDetail[];
 };
 
@@ -68,9 +68,9 @@ export default function DayTabs({
                 <span className="l">{k.l}</span>
               </div>
               <div className="v">{k.v}</div>
-              {k.tone === "new" && day.newPlatforms.length > 0 && (
+              {k.platforms && k.platforms.length > 0 && (
                 <div className="kpi-platforms">
-                  {day.newPlatforms.map((p) => (
+                  {k.platforms.map((p) => (
                     <span key={p.label} className={p.className}>
                       {p.label} {p.n}
                     </span>

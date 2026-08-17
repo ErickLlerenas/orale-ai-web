@@ -284,12 +284,13 @@ export function emptyPlatformCounts(): Record<PlatformKey, number> {
   return { ios: 0, android: 0, windows: 0, mac: 0, unknown: 0 };
 }
 
-/// Actividad de un día: descargas nuevas (también por plataforma) y suscripciones.
+/// Actividad de un día: descargas y suscripciones nuevas, también por tienda.
 export type DailyPoint = {
   date: string;
   newInstalls: number;
   newByPlatform: Record<PlatformKey, number>;
   newSubs: number;
+  subsByPlatform: Record<PlatformKey, number>;
 };
 
 /// Lo que hizo una instalación durante el mes.
@@ -470,10 +471,31 @@ export function summarizeToday(pings: Ping[], aiRows: AiUsage[]): TodaySummary {
   };
 }
 
-/// Chips de plataforma para las descargas nuevas del día.
-/// iOS, Android y Windows siempre; Mac u otra solo si hubo alguna.
-export function newInstallPlatformChips(
-  byPlatform: NewInstallsByPlatform,
+/// Cuenta ítems por la plataforma que reportan.
+export function countByPlatform(
+  items: { platform: string | null }[],
+): Record<PlatformKey, number> {
+  const out = emptyPlatformCounts();
+  for (const item of items) out[platformKey(item.platform)]++;
+  return out;
+}
+
+/// Segmentos de una barra apilada: las 3 tiendas, más "otra" si sobra.
+export function stackSegments(
+  by: Record<PlatformKey, number>,
+  total: number,
+): { key: PlatformKey; n: number }[] {
+  const parts: { key: PlatformKey; n: number }[] = PRIMARY_PLATFORMS.map(
+    (p) => ({ key: p.key, n: by[p.key] }),
+  ).filter((p) => p.n > 0);
+  const other = total - parts.reduce((sum, p) => sum + p.n, 0);
+  if (other > 0) parts.push({ key: "unknown", n: other });
+  return parts;
+}
+
+/// Chips de plataforma. iOS, Android y Windows siempre; Mac u otra solo si hay.
+export function platformCountChips(
+  byPlatform: Record<PlatformKey, number>,
 ): { key: PlatformKey; label: string; className: string; n: number }[] {
   const extras = (
     [
@@ -641,19 +663,21 @@ export function summarize(rows: Ping[], month: string): Summary {
     );
 
   // Suscripciones nuevas por día (cuenta o dispositivo), según subscribed_at.
-  const subsByDay = new Map<string, Set<string>>();
+  // Si la cuenta tiene varios equipos, nos quedamos con el que se vio más
+  // reciente (`latest` ya viene así) para no contar dos veces ni mezclar tiendas.
+  const subsByDay = new Map<string, Map<string, PlatformKey>>();
   for (const p of latest) {
     if (!p.subscribed_at || !p.subscribed_at.startsWith(month)) continue;
     const identity = p.account_key ?? p.install_id;
     let set = subsByDay.get(p.subscribed_at);
     if (!set) {
-      set = new Set();
+      set = new Map();
       subsByDay.set(p.subscribed_at, set);
     }
-    set.add(identity);
+    if (!set.has(identity)) set.set(identity, platformKey(p.platform));
   }
 
-  // Por día del mes: descargas nuevas (y de qué tienda) y suscripciones nuevas.
+  // Por día del mes: descargas y suscripciones nuevas, partidas por tienda.
   const daily: DailyPoint[] = [];
   for (let day = 1; day <= lastDay; day++) {
     const date = `${month}-${String(day).padStart(2, "0")}`;
@@ -666,11 +690,15 @@ export function summarize(rows: Ping[], month: string): Summary {
     }
     const newByPlatform = emptyPlatformCounts();
     for (const key of newToday.values()) newByPlatform[key]++;
+    const daySubs = subsByDay.get(date);
+    const subsByPlatform = emptyPlatformCounts();
+    if (daySubs) for (const key of daySubs.values()) subsByPlatform[key]++;
     daily.push({
       date,
       newInstalls: newToday.size,
       newByPlatform,
-      newSubs: subsByDay.get(date)?.size ?? 0,
+      newSubs: daySubs?.size ?? 0,
+      subsByPlatform,
     });
   }
 

@@ -11,7 +11,9 @@ import {
   platformChip,
   userTenure,
   multiDeviceLabel,
-  newInstallPlatformChips,
+  platformCountChips,
+  countByPlatform,
+  stackSegments,
   emptyPlatformCounts,
   PRIMARY_PLATFORMS,
   fechaHora,
@@ -198,22 +200,31 @@ export default async function Admin({
   const daily = s.daily.map((d) =>
     d.date <= today
       ? d
-      : { ...d, newInstalls: 0, newSubs: 0, newByPlatform: emptyPlatformCounts() },
+      : {
+          ...d,
+          newInstalls: 0,
+          newSubs: 0,
+          newByPlatform: emptyPlatformCounts(),
+          subsByPlatform: emptyPlatformCounts(),
+        },
   );
   const pastDays = daily.filter((d) => d.date <= today);
   const maxSubs = Math.max(1, ...pastDays.map((d) => d.newSubs));
   const maxInstalls = Math.max(1, ...pastDays.map((d) => d.newInstalls));
   const monthSubsTotal = daily.reduce((sum, d) => sum + d.newSubs, 0);
   const monthInstallsTotal = daily.reduce((sum, d) => sum + d.newInstalls, 0);
-  const monthByPlatform = daily.reduce(
-    (acc, d) => {
+  const sumPlatforms = (
+    pick: (d: (typeof daily)[number]) => Record<string, number>,
+  ) =>
+    daily.reduce((acc, d) => {
+      const src = pick(d);
       for (const key of Object.keys(acc) as (keyof typeof acc)[]) {
-        acc[key] += d.newByPlatform[key];
+        acc[key] += src[key];
       }
       return acc;
-    },
-    emptyPlatformCounts(),
-  );
+    }, emptyPlatformCounts());
+  const monthByPlatform = sumPlatforms((d) => d.newByPlatform);
+  const monthSubsByPlatform = sumPlatforms((d) => d.subsByPlatform);
 
   const buildSubs = (
     subs: NewSubscriber[],
@@ -251,11 +262,21 @@ export default async function Admin({
     });
 
   const dayKpis = (
-    subsCount: number,
+    subs: NewSubscriber[],
     summary: ReturnType<typeof summarizeToday>,
   ): DayKpi[] => [
-    { v: subsCount, l: "Se suscribieron", tone: "subs" },
-    { v: summary.newInstalls, l: "Nuevas instalaciones", tone: "new" },
+    {
+      v: subs.length,
+      l: "Se suscribieron",
+      tone: "subs",
+      platforms: platformCountChips(countByPlatform(subs)),
+    },
+    {
+      v: summary.newInstalls,
+      l: "Nuevas instalaciones",
+      tone: "new",
+      platforms: platformCountChips(summary.newByPlatform),
+    },
     { v: summary.activeInstalls, l: "Abrieron la app", tone: "open" },
     { v: summary.selling, l: "Cobrando", tone: "sell" },
   ];
@@ -275,15 +296,13 @@ export default async function Admin({
     label: "Hoy",
     dateLabel: dayLabel(today),
     live: true,
-    kpis: dayKpis(todaySubs.length, t),
-    newPlatforms: newInstallPlatformChips(t.newByPlatform),
+    kpis: dayKpis(todaySubs, t),
     subscribers: buildSubs(todaySubs, todayPings),
   };
   const yesterdaySnap: DaySnapshot = {
     label: "Ayer",
     dateLabel: dayLabel(yesterday),
-    kpis: dayKpis(yesterdaySubs.length, y),
-    newPlatforms: newInstallPlatformChips(y.newByPlatform),
+    kpis: dayKpis(yesterdaySubs, y),
     subscribers: buildSubs(yesterdaySubs, yesterdayPings),
   };
 
@@ -538,14 +557,7 @@ export default async function Admin({
               : isFuture
                 ? 0
                 : 3;
-            const parts: { key: "ios" | "android" | "windows" | "unknown"; n: number }[] =
-              PRIMARY_PLATFORMS.map((p) => ({
-                key: p.key,
-                n: d.newByPlatform[p.key],
-              })).filter((p) => p.n > 0);
-            const other =
-              d.newInstalls - parts.reduce((sum, p) => sum + p.n, 0);
-            if (other > 0) parts.push({ key: "unknown", n: other });
+            const parts = stackSegments(d.newByPlatform, d.newInstalls);
             return (
               <div
                 className={`bar-col${isFuture ? " future" : ""}${d.newInstalls ? "" : " empty"}`}
@@ -587,12 +599,20 @@ export default async function Admin({
         <div className="subs-head">
           <div>
             <h2>Suscripciones · {monthLabel(month)}</h2>
-            <p className="muted month-card-hint">Nuevas por día</p>
+            <p className="muted month-card-hint">Nuevas por día y por tienda</p>
           </div>
           <div className="subs-total">
             <span className="subs-total-n">{monthSubsTotal}</span>
             <span className="subs-total-l">en el mes</span>
           </div>
+        </div>
+        <div className="bars-legend">
+          {PRIMARY_PLATFORMS.map((p) => (
+            <span key={p.key}>
+              <i className={`swatch platform-${p.key}`} />
+              {p.label} {monthSubsByPlatform[p.key]}
+            </span>
+          ))}
         </div>
         <div className="bars bars-subs">
           {daily.map((d) => {
@@ -602,6 +622,7 @@ export default async function Admin({
               : isFuture
                 ? 0
                 : 3;
+            const parts = stackSegments(d.subsByPlatform, d.newSubs);
             return (
               <div
                 className={`bar-col${isFuture ? " future" : ""}${d.newSubs ? "" : " empty"}`}
@@ -609,17 +630,28 @@ export default async function Admin({
                 title={
                   isFuture
                     ? d.date
-                    : `${d.date}: ${d.newSubs} suscripciones`
+                    : `${d.date}: ${d.newSubs} suscripciones · iOS ${d.subsByPlatform.ios} · Android ${d.subsByPlatform.android} · Windows ${d.subsByPlatform.windows}`
                 }
               >
                 <div className="bar-stack">
                   <span className="n sell">
                     {!isFuture && d.newSubs ? d.newSubs : ""}
                   </span>
-                  <div
-                    className={`bar${d.newSubs ? " sell" : " ghost"}`}
-                    style={{ height: `${h}px` }}
-                  />
+                  {d.newSubs ? (
+                    <div className="bar-stack-fill" style={{ height: `${h}px` }}>
+                      {parts.map((p) => (
+                        <div
+                          key={p.key}
+                          className={`bar-seg platform-${p.key}`}
+                          style={{
+                            height: `${(p.n / d.newSubs) * 100}%`,
+                          }}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="bar ghost" style={{ height: `${h}px` }} />
+                  )}
                 </div>
                 <span className="d">{d.date.slice(8)}</span>
               </div>
