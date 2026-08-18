@@ -107,26 +107,34 @@ export default function Home() {
             <span className="hero-orb hero-orb-a" />
             <span className="hero-orb hero-orb-b" />
             <span className="hero-orb hero-orb-c" />
-            <span className="hero-grain" />
           </div>
 
           <div className="hero-content">
-            <p className="hero-name">
-              Órale<span> AI</span>
-            </p>
-            <h1>
-              La <em>IA</em> arma tu menú.
-              <br />
-              Tú solo cobras.
-            </h1>
-            <p className="hero-lead">
-              Punto de venta para taquerías, fondas y food trucks. Fotografía tu
-              menú y la IA lo configura.
-            </p>
+            <div className="hero-copy">
+              <p className="hero-name">
+                Órale<span> AI</span>
+              </p>
+              <p className="hero-eyebrow">
+                Punto de venta para negocios de comida
+              </p>
+              <h1>
+                Fotografía tu menú.
+                <br />
+                Empieza a <em>cobrar</em>
+              </h1>
+              <p className="hero-lead">
+                La IA crea tus productos, precios y categorías. Tú revisas y
+                listo: toma pedidos, imprime comandas y cobra desde la app.
+              </p>
+            </div>
 
-            <HeroTablet />
+            <div className="hero-visual">
+              <HeroTablet />
+            </div>
 
-            <StoreBadges />
+            <div className="hero-cta">
+              <StoreBadges />
+            </div>
           </div>
         </section>
 
@@ -203,7 +211,7 @@ export default function Home() {
               {mxn(next.base.monthly)} y Pro a {mxn(next.pro.monthly)} al mes.
               Si te suscribes hoy, te quedas en este precio mientras no
               canceles.
-            </p>
+              </p>
           )}
           <div className="pricing">
             <div className="plan-card recommended">

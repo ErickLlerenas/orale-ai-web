@@ -28,8 +28,8 @@ const META: Record<
   ios: {
     href: STORE.apple,
     className: "badge-apple",
-    title: "App Store",
-    subtitle: "Descárgalo en la",
+    title: "iPhone y iPad",
+    subtitle: "Descárgalo para",
     short: "iPhone / iPad",
   },
   android: {
