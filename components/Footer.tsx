@@ -4,7 +4,7 @@ export default function Footer() {
     <footer className="footer">
       <div className="footer-inner">
         <div className="copy">
-          © {year} Órale AI · Hecho en México 🇲🇽
+          © {year} Órale AI (Orale AI) · Hecho en México 🇲🇽
         </div>
         <nav>
           <a href="/">Inicio</a>

@@ -1,5 +1,13 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
+import {
+  brandName,
+  brandNamePlain,
+  siteDescription,
+  siteTitle,
+  siteUrl,
+  stores,
+} from "@/lib/seo";
 import "./globals.css";
 
 const jakarta = Plus_Jakarta_Sans({
@@ -9,16 +17,27 @@ const jakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://oraleai.vercel.app"),
-  title: "Órale AI · Punto de venta con IA para tu negocio",
-  description:
-    "Punto de venta con IA para taquerías, fondas y food trucks en México. Menú con foto, reportes claros y funciona sin internet. Pro para varios meseros con WiFi.",
+  metadataBase: new URL(siteUrl),
+  title: siteTitle,
+  description: siteDescription,
+  applicationName: brandNamePlain,
+  keywords: [
+    "Orale AI",
+    "Órale AI",
+    "OraleAI",
+    "punto de venta",
+    "punto de venta taquerías",
+    "POS México",
+    "fondas",
+    "food trucks",
+  ],
+  alternates: { canonical: "/" },
+  robots: { index: true, follow: true },
   openGraph: {
-    title: "Órale AI · Punto de venta con IA para tu negocio",
-    description:
-      "Punto de venta con IA para taquerías, fondas y food trucks. Menú con foto y funciona sin internet.",
+    title: siteTitle,
+    description: siteDescription,
     url: "/",
-    siteName: "Órale AI",
+    siteName: brandName,
     locale: "es_MX",
     type: "website",
     images: [
@@ -26,17 +45,17 @@ export const metadata: Metadata = {
         url: "/og-icon.png",
         width: 200,
         height: 200,
-        alt: "Órale AI",
+        alt: `${brandName} · ${brandNamePlain}`,
       },
     ],
   },
   twitter: {
     card: "summary",
-    title: "Órale AI · Punto de venta con IA para tu negocio",
-    description:
-      "Punto de venta con IA para taquerías, fondas y food trucks. Menú con foto y funciona sin internet.",
+    title: siteTitle,
+    description: siteDescription,
     images: ["/og-icon.png"],
   },
+  itunes: { appId: stores.appleId },
 };
 
 export default function RootLayout({

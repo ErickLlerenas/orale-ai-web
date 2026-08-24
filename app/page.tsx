@@ -3,6 +3,7 @@ import HeroTablet from "@/components/HeroTablet";
 import ProSyncVisual from "@/components/ProSyncVisual";
 import StoreBadges from "@/components/StoreBadges";
 import { discountPct, mxn, pricingNow, type PlanAmounts } from "@/lib/pricing";
+import { softwareJsonLd } from "@/lib/seo";
 
 /// Cada cuánto se regenera el HTML estático. Es lo que hace que los precios
 /// cambien solos el día del aumento sin necesidad de un deploy.
@@ -101,6 +102,10 @@ export default function Home() {
 
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareJsonLd()) }}
+      />
       <main>
         <section className="hero">
           <div className="hero-atmosphere" aria-hidden="true">
