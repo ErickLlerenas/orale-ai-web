@@ -10,7 +10,6 @@ import {
   planPill,
   platformChip,
   userTenure,
-  multiDeviceLabel,
   platformCountChips,
   countByPlatform,
   stackSegments,
@@ -503,39 +502,33 @@ export default async function Admin({
       </div>
 
       <div className="panel">
-        <h2>Cuentas en varios equipos ({s.multiDevice.length})</h2>
+        <h2>Doble sucursal ({s.dualBranches.length})</h2>
         <p className="muted">
-          Sucursal doble = dos equipos cobraron este mes. Pro = meseros del
-          plan. Cambio de equipo = solo uno cobra (el otro quedó vacío o lo
-          cambiaron).
+          Misma cuenta de tienda y dos cajas cobrando el mismo día. Un cambio
+          de celular (deja uno y sigue en el otro) no cuenta. Los meseros Pro
+          tampoco.
         </p>
-        {s.multiDevice.length === 0 ? (
-          <p className="muted">Ninguna cuenta usa más de un dispositivo.</p>
+        {s.dualBranches.length === 0 ? (
+          <p className="muted">Nadie operó dos sucursales este mes.</p>
         ) : (
           <div className="table-wrap">
             <table className="data">
               <thead>
                 <tr>
                   <th>Cuenta</th>
-                  <th>Equipos</th>
-                  <th>Cobrando</th>
-                  <th>Qué es</th>
+                  <th>Cajas</th>
+                  <th>Días en paralelo</th>
                   <th>Plan</th>
                   <th>Última visita</th>
                 </tr>
               </thead>
               <tbody>
-                {s.multiDevice.map((a) => (
+                {s.dualBranches.map((a) => (
                   <tr key={a.account_key}>
                     <td title={a.account_key}>{a.account_key.slice(0, 8)}</td>
-                    <td>{a.device_count}</td>
-                    <td title="Equipos que cerraron ventas este mes">
-                      {a.selling_devices}
-                    </td>
-                    <td>
-                      <span className={`pill kind-${a.kind}`}>
-                        {multiDeviceLabel(a.kind)}
-                      </span>
+                    <td>{a.caja_count}</td>
+                    <td title="Días en que dos cajas de esta cuenta cobraron">
+                      {a.overlap_days}
                     </td>
                     <td>{planLabel(a.plan)}</td>
                     <td>{a.last_seen}</td>

@@ -37,33 +37,18 @@ export type Ping = {
   updated_at: string;
 };
 
-/// Qué es en realidad una cuenta con varios equipos.
-///   - `pro`: plan Pro, donde los celulares de los meseros son parte del plan.
-///   - `branches`: 2+ equipos COBRANDO en el mes = sucursales de verdad.
-///   - `device_change`: solo uno cobra; el otro es un cambio de equipo o una
-///     instalación que quedó vacía.
-export type MultiDeviceKind = "pro" | "branches" | "device_change";
-
-/// Una cuenta de pago y cuántos dispositivos la usan.
-export type AccountRow = {
+/// Cuenta que operó dos sucursales de verdad este mes.
+///
+/// No basta con que la misma cuenta de tienda aparezca en 2 celulares: eso
+/// pasa al cambiar de equipo o cuando un mesero Pro se une. Hace falta que
+/// dos cajas hayan cobrado el mismo día.
+export type DualBranch = {
   account_key: string;
-  device_count: number;
-  selling_devices: number; // equipos que cerraron ventas en el mes
-  kind: MultiDeviceKind;
+  caja_count: number;
+  overlap_days: number;
   plan: Plan | null;
   last_seen: string;
 };
-
-export function multiDeviceLabel(kind: MultiDeviceKind): string {
-  switch (kind) {
-    case "pro":
-      return "Pro (meseros)";
-    case "branches":
-      return "Dos sucursales";
-    case "device_change":
-      return "Cambio de equipo";
-  }
-}
 
 /// Etiqueta legible del plan para la UI.
 export function planLabel(plan: Plan | null): string {
@@ -262,8 +247,7 @@ export type Summary = {
   subscribed: number; // DISPOSITIVOS con suscripción activa
   payingAccounts: number; // CLIENTES: cuentas únicas con suscripción
   payingByPlatform: Record<PlatformKey, number>;
-  multiDevice: AccountRow[]; // cuentas usadas en 2+ dispositivos
-  realBranches: number; // de esas, las que sí son dos sucursales cobrando
+  dualBranches: DualBranch[];
   monthly: number; // clientes en plan mensual (no Pro)
   yearly: number; // clientes en plan anual (no Pro)
   proMonthly: number; // clientes Pro mensual
@@ -519,6 +503,83 @@ export function platformCountChips(
   );
 }
 
+/// Misma cuenta de tienda, dos cajas cobrando el mismo día.
+///
+/// En la app el `account_key` es la cuenta de Apple/Google/Stripe: se repite
+/// al cambiar de celular y también si hay dos locales. El mesero Pro no cobra
+/// (`is_caja === false`). Un cambio de equipo vende en A y luego en B, nunca
+/// el mismo día en los dos. Por eso el cruce de días es la prueba.
+export function findDualBranches(rows: Ping[]): DualBranch[] {
+  type Caja = {
+    sold: Set<string>;
+    plan: Plan | null;
+    last_seen: string;
+    waiter: boolean;
+  };
+  const byAccount = new Map<
+    string,
+    { plan: Plan | null; last_seen: string; cajas: Map<string, Caja> }
+  >();
+
+  for (const p of rows) {
+    if (!p.account_key) continue;
+    let acc = byAccount.get(p.account_key);
+    if (!acc) {
+      acc = { plan: p.plan, last_seen: p.ping_date, cajas: new Map() };
+      byAccount.set(p.account_key, acc);
+    }
+    if (p.ping_date > acc.last_seen) {
+      acc.last_seen = p.ping_date;
+      acc.plan = p.plan;
+    }
+    let caja = acc.cajas.get(p.install_id);
+    if (!caja) {
+      caja = {
+        sold: new Set(),
+        plan: p.plan,
+        last_seen: p.ping_date,
+        waiter: p.is_caja === false,
+      };
+      acc.cajas.set(p.install_id, caja);
+    }
+    if (p.ping_date > caja.last_seen) {
+      caja.last_seen = p.ping_date;
+      caja.plan = p.plan;
+      caja.waiter = p.is_caja === false;
+    }
+    if ((p.orders_today ?? 0) > 0) caja.sold.add(p.ping_date);
+  }
+
+  const out: DualBranch[] = [];
+  for (const [account_key, acc] of byAccount) {
+    const sellingCajas = [...acc.cajas.values()].filter(
+      (c) => !c.waiter && c.sold.size >= 2,
+    );
+    if (sellingCajas.length < 2) continue;
+
+    const onDay = new Map<string, number>();
+    for (const c of sellingCajas) {
+      for (const day of c.sold) onDay.set(day, (onDay.get(day) ?? 0) + 1);
+    }
+    let overlap = 0;
+    for (const n of onDay.values()) if (n >= 2) overlap++;
+    if (overlap < 1) continue;
+
+    out.push({
+      account_key,
+      caja_count: sellingCajas.length,
+      overlap_days: overlap,
+      plan: acc.plan,
+      last_seen: acc.last_seen,
+    });
+  }
+
+  return out.sort(
+    (a, b) =>
+      b.overlap_days - a.overlap_days || b.caja_count - a.caja_count,
+  );
+}
+
 /// Calcula todas las métricas del dashboard para un mes dado (yyyy-mm).
 /// `rows` ya vienen filtradas a ese mes desde la consulta.
 export function summarize(rows: Ping[], month: string): Summary {
@@ -595,9 +656,6 @@ export function summarize(rows: Ping[], month: string): Summary {
   const accounts = new Map<
     string,
     {
-      installs: Set<string>;
-      selling: number; // equipos de la cuenta que sí cobraron
-      isPro: boolean;
       plan: Plan | null;
       platform: PlatformKey;
       last_seen: string;
@@ -605,25 +663,16 @@ export function summarize(rows: Ping[], month: string): Summary {
   >();
   for (const p of latest) {
     if (!p.account_key) continue;
-    const sold = (byInstall.get(p.install_id)?.soldDays ?? 0) > 0 ? 1 : 0;
     const a = accounts.get(p.account_key);
     if (!a) {
       accounts.set(p.account_key, {
-        installs: new Set([p.install_id]),
-        selling: sold,
-        isPro: isProPlan(p.plan),
         plan: p.plan,
         platform: platformKey(p.platform),
         last_seen: p.ping_date,
       });
-    } else {
-      a.installs.add(p.install_id);
-      a.selling += sold;
-      a.isPro = a.isPro || isProPlan(p.plan);
-      if (p.ping_date > a.last_seen) {
-        a.last_seen = p.ping_date;
-        a.plan = p.plan;
-      }
+    } else if (p.ping_date > a.last_seen) {
+      a.last_seen = p.ping_date;
+      a.plan = p.plan;
     }
   }
 
@@ -649,26 +698,7 @@ export function summarize(rows: Ping[], month: string): Summary {
     }
   }
 
-  const multiDevice: AccountRow[] = [...accounts.entries()]
-    .filter(([, a]) => a.installs.size > 1)
-    .map(([account_key, a]) => ({
-      account_key,
-      device_count: a.installs.size,
-      selling_devices: a.selling,
-      // En Pro los equipos extra son los meseros: eso lo vendemos, no es fuga.
-      kind: a.isPro
-        ? ("pro" as const)
-        : a.selling > 1
-          ? ("branches" as const)
-          : ("device_change" as const),
-      plan: a.plan,
-      last_seen: a.last_seen,
-    }))
-    .sort(
-      (x, y) =>
-        y.selling_devices - x.selling_devices ||
-        y.device_count - x.device_count,
-    );
+  const dualBranches = findDualBranches(rows);
 
   // Suscripciones nuevas por día (cuenta o dispositivo), según subscribed_at.
   // Si la cuenta tiene varios equipos, nos quedamos con el que se vio más
@@ -723,8 +753,7 @@ export function summarize(rows: Ping[], month: string): Summary {
     subscribed,
     payingAccounts: accounts.size,
     payingByPlatform,
-    multiDevice,
-    realBranches: multiDevice.filter((a) => a.kind === "branches").length,
+    dualBranches,
     monthly,
     yearly,
     proMonthly,
