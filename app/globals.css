@@ -1482,6 +1482,10 @@ section {
   margin: 0 auto;
   align-items: stretch;
 }
+#precios .plan-warning {
+  max-width: 840px;
+  margin: 20px auto 0;
+}
 .plan-card {
   display: flex;
   flex-direction: column;
@@ -1638,6 +1642,33 @@ section {
 .featured .plan-list li::before {
   background: var(--pro-soft);
   color: var(--pro);
+}
+.plan-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0 0 22px;
+  padding: 14px;
+  border-radius: 14px;
+  background: var(--pro-alert-bg);
+  border: 1px solid var(--pro-border);
+  color: var(--pro-ink-soft);
+  font-size: 12px;
+  line-height: 1.4;
+}
+.plan-warning-icon {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--pro);
+}
+.plan-warning p {
+  margin: 0;
+}
+.plan-warning strong {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--pro-ink);
+  font-weight: 700;
 }
 .plan-cta {
   width: 100%;
