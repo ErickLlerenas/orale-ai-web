@@ -40,7 +40,7 @@ export default function Terms() {
           en el mismo negocio.
         </p>
         <p>
-          En el <strong>plan normal</strong>, la información de tu negocio
+          En el <strong>plan Órale AI</strong>, la información de tu negocio
           (menú, ventas, equipo) se guarda{" "}
           <strong>localmente en cada dispositivo</strong> y no se sincroniza
           entre equipos. Con <strong>Órale AI Pro</strong>, parte de esa
@@ -69,17 +69,16 @@ export default function Terms() {
 
         <h2>3. Suscripción y pagos</h2>
         <p>
-          Órale AI ofrece una <strong>prueba gratis</strong> limitada y luego
-          una suscripción para seguir usando la app. Los planes disponibles
-          (precios en México) son:
+          Órale AI se usa con una <strong>suscripción</strong>. Los planes
+          disponibles (precios en México) son:
         </p>
         <ul>
           <li>
-            <strong>Plan normal mensual:</strong> {mxn(prices.base.monthly)} MXN
+            <strong>Órale AI mensual:</strong> {mxn(prices.base.monthly)} MXN
             al mes.
           </li>
           <li>
-            <strong>Plan normal anual:</strong> {mxn(prices.base.yearly)} MXN al
+            <strong>Órale AI anual:</strong> {mxn(prices.base.yearly)} MXN al
             año.
           </li>
           <li>
@@ -112,9 +111,7 @@ export default function Terms() {
           )}
         </p>
         <p>
-          El plan normal en App Store / Google Play incluye{" "}
-          <strong>14 días de prueba</strong> al suscribirte.{" "}
-          <strong>Órale AI Pro no incluye prueba gratis</strong>. Pro está
+          Ningún plan incluye <strong>prueba gratis</strong>. Pro está
           disponible solo en <strong>México</strong> y también puedes
           contratarlo o activarlo desde la app (Ajustes → Equipo y accesos →
           Varios meseros).
@@ -161,7 +158,7 @@ export default function Terms() {
 
         <h2>5. Disponibilidad del servicio</h2>
         <p>
-          El punto de venta del plan normal funciona sin conexión; algunas
+          El plan Órale AI funciona sin conexión; algunas
           funciones (como la IA) requieren internet. Órale AI Pro requiere
           internet y WiFi del local para sincronizar varios dispositivos.
           Podemos actualizar, cambiar o descontinuar funciones para mejorar el

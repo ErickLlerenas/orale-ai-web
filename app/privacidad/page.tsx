@@ -18,8 +18,7 @@ export default function Privacy() {
 
         <p>
           Órale AI es un punto de venta para iPhone/iPad, Android, Windows y Mac.
-          En
-          el <strong>plan normal</strong>, la información de tu negocio (menú,
+          En el <strong>plan Órale AI</strong>, la información de tu negocio (menú,
           ventas, equipo, clientes) se guarda{" "}
           <strong>localmente en tu dispositivo</strong>. No la vendemos a
           nadie.
@@ -45,7 +44,7 @@ export default function Privacy() {
         <p>
           <strong>Contenido de tu negocio (en tu dispositivo):</strong> tu menú,
           tus ventas y tu equipo viven en la tablet o celular. Solo tú tienes
-          acceso en el plan normal. Si creas un respaldo, el archivo queda bajo
+          acceso en el plan Órale AI. Si creas un respaldo, el archivo queda bajo
           tu control en el lugar que tú elijas.
         </p>
         <p>
@@ -74,7 +73,7 @@ export default function Privacy() {
         </p>
         <p>
           <strong>Pagos y cuenta:</strong> en iPhone, iPad y Android la
-          suscripción (plan normal o Pro) se procesa por App Store (Apple) o
+          suscripción (plan Órale AI o Pro) se procesa por App Store (Apple) o
           Google Play, y no vemos ni guardamos los datos de tu tarjeta. En{" "}
           <strong>Windows</strong>, inicias sesión con tu cuenta de Google para
           gestionar la suscripción: guardamos tu <strong>correo</strong>, un
@@ -111,7 +110,7 @@ export default function Privacy() {
               <td>No</td>
             </tr>
             <tr>
-              <td>Contenido del negocio (plan normal)</td>
+              <td>Contenido del negocio (plan Órale AI)</td>
               <td>Funcionamiento del POS (solo en tu dispositivo)</td>
               <td>No se recopila</td>
             </tr>
@@ -147,7 +146,7 @@ export default function Privacy() {
 
         <h2>4. Tus opciones</h2>
         <p>
-          En el plan normal, como la información vive en tu dispositivo, puedes
+          En el plan Órale AI, como la información vive en tu dispositivo, puedes
           eliminarla desinstalando la app. La analítica es anónima y no permite
           identificarte personalmente.
         </p>

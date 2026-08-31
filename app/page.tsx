@@ -178,7 +178,7 @@ export default function Home() {
                 <p className="pro-sub">
                   Cada mesero pide en su celular y la comanda llega a cocina. Tú
                   cobras en la caja. Pro necesita WiFi del local e impresora de
-                  red; el plan normal no.
+                  red; el plan Órale AI no.
                 </p>
               </div>
               <a className="btn btn-pro" href="#precios">
@@ -199,7 +199,7 @@ export default function Home() {
             </ol>
             <p className="pro-note">
               <strong>Importante:</strong> Pro necesita WiFi del local e
-              impresora de red. Si no los tienes, quédate en el plan normal.
+              impresora de red. Si no los tienes, quédate en el plan Órale AI.
             </p>
           </div>
         </section>
@@ -207,12 +207,12 @@ export default function Home() {
         <section id="precios" className="container">
           <h2 className="section-title">Precios claros</h2>
           <p className="section-sub">
-            Empieza gratis 14 días. Si tu equipo crece, sube a Pro.
+            Si tu equipo crece, sube a Pro.
           </p>
           {promoEndsLabel && next && increaseOnLabel && (
             <p className="promo-note">
               <strong>Precio de lanzamiento hasta el {promoEndsLabel}.</strong>{" "}
-              El {increaseOnLabel} el plan normal pasa a{" "}
+              El {increaseOnLabel} el plan Órale AI pasa a{" "}
               {mxn(next.base.monthly)} y Pro a {mxn(next.pro.monthly)} al mes.
               Si te suscribes hoy, te quedas en este precio mientras no
               canceles.
@@ -221,20 +221,19 @@ export default function Home() {
           <div className="pricing">
             <div className="plan-card recommended">
               <span className="plan-ribbon">Recomendado</span>
-              <h3 className="plan-name">Plan normal</h3>
+              <h3 className="plan-name">Órale AI</h3>
               <p className="plan-tagline">
                 Un dispositivo · funciona sin internet
               </p>
               <PlanPrice now={prices.base} next={next?.base} />
               <ul className="plan-list">
-                <li>Punto de venta completo</li>
+                <li>Órdenes sin límite</li>
                 <li>Menú y reportes con IA</li>
-                <li>Impresión térmica</li>
-                <li>Funciona sin internet</li>
-                <li>14 días de prueba gratis</li>
+                <li>Historial y corte de caja</li>
+                <li>Cobra sin internet</li>
               </ul>
               <a className="btn btn-primary plan-cta" href="#cta">
-                Empezar gratis
+                Empezar
               </a>
               <p className="plan-foot">Ideal si vendes desde un solo equipo</p>
             </div>
@@ -246,11 +245,10 @@ export default function Home() {
               </p>
               <PlanPrice now={prices.pro} next={next?.pro} />
               <ul className="plan-list">
-                <li>Incluye todo el plan normal</li>
+                <li>Incluye todo Órale AI</li>
                 <li>Cada mesero pide desde su celular</li>
                 <li>Las comandas se sincronizan solas</li>
                 <li>Imprimen directo a cocina por la red</li>
-                <li>Ves en caja lo que piden en las mesas</li>
               </ul>
               <a className="btn btn-pro plan-cta" href="#cta">
                 Quiero Pro
@@ -279,7 +277,7 @@ export default function Home() {
         <section id="cta" className="cta-wrap">
           <div className="container">
             <div className="cta">
-              <p className="cta-eyebrow">Empieza gratis</p>
+              <p className="cta-eyebrow">Empieza hoy</p>
               <h2>Órale, ya vendiste</h2>
               <p className="cta-lead">
                 Descarga la app, arma tu menú con IA y cobra hoy. Si tu equipo
