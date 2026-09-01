@@ -34,7 +34,7 @@ const launch: PlanSet = {
 /// Los que entran ese día.
 const raised: PlanSet = {
   base: { monthly: 149, yearly: 1199 },
-  pro: { monthly: 299, yearly: 2399 },
+  pro: { monthly: 249, yearly: 1999 },
 };
 
 export type Pricing = {
