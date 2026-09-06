@@ -1741,7 +1741,7 @@ section {
 
 /* ---- CTA (cierre naranja, como el hero) ---- */
 .cta-wrap {
-  padding: 48px 0 88px;
+  padding: 48px 0 40px;
   background: #fff;
 }
 .cta {
@@ -1785,6 +1785,24 @@ section {
 }
 .cta-inline:hover {
   color: #ffe08a;
+}
+
+.home-negocio-quiet {
+  padding: 0 0 48px;
+  background: #fff;
+}
+.home-negocio-quiet p {
+  margin: 0;
+  text-align: center;
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+.home-negocio-quiet a {
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+.home-negocio-quiet a:hover {
+  color: var(--ink);
 }
 
 /* ---- Footer ---- */

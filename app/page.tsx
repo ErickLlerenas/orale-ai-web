@@ -287,6 +287,15 @@ export default function Home() {
             </div>
           </div>
         </section>
+
+        <section id="negocio" className="home-negocio-quiet">
+          <div className="container">
+            <p>
+              ¿Ya lo activaste en la caja?{" "}
+              <a href="/negocio">Ver mi negocio</a>
+            </p>
+          </div>
+        </section>
       </main>
 
       <Footer />
