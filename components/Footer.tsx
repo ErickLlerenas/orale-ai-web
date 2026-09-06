@@ -8,6 +8,7 @@ export default function Footer() {
         </div>
         <nav>
           <a href="/">Inicio</a>
+          <a href="/negocio">Ver mi negocio</a>
           <a href="/terminos">Términos y condiciones</a>
           <a href="/privacidad">Aviso de privacidad</a>
           <a
