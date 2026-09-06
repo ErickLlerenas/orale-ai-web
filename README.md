@@ -32,7 +32,7 @@ Copia `.env.example` a `.env.local` y llena:
 SUPABASE_URL=https://xxxx.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=...        # service role (secreto, solo servidor)
 ADMIN_USER=admin
-ADMIN_PASSWORD=una_contraseña_fuerte
+ADMIN_PASSWORD=
 NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...    # anon key pública (la misma de la app)
 ```
