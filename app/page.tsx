@@ -290,10 +290,15 @@ export default function Home() {
 
         <section id="negocio" className="home-negocio-quiet">
           <div className="container">
-            <p>
-              ¿Ya lo activaste en la caja?{" "}
-              <a href="/negocio">Ver mi negocio</a>
-            </p>
+            <div className="home-negocio-box">
+              <div>
+                <h2>Ver mi negocio</h2>
+                <p>Si ya lo activaste en la caja, entra con Google.</p>
+              </div>
+              <a className="btn btn-primary" href="/negocio">
+                Entrar
+              </a>
+            </div>
           </div>
         </section>
       </main>

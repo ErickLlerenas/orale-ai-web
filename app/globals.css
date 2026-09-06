@@ -1788,21 +1788,42 @@ section {
 }
 
 .home-negocio-quiet {
-  padding: 0 0 48px;
+  padding: 0 24px 64px;
   background: #fff;
 }
-.home-negocio-quiet p {
+.home-negocio-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 22px 24px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+.home-negocio-box h2 {
+  margin: 0 0 4px;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+.home-negocio-box p {
   margin: 0;
-  text-align: center;
   font-size: 14px;
   color: var(--ink-soft);
 }
-.home-negocio-quiet a {
-  color: var(--ink-soft);
-  font-weight: 600;
+.home-negocio-box .btn {
+  flex-shrink: 0;
+  padding: 12px 22px;
 }
-.home-negocio-quiet a:hover {
-  color: var(--ink);
+@media (max-width: 720px) {
+  .home-negocio-box {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: center;
+  }
 }
 
 /* ---- Footer ---- */
