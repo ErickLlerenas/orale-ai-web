@@ -37,9 +37,12 @@ NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...    # anon key pública (la misma de la app)
 ```
 
-En Supabase → Authentication → URL Configuration, agrega a Redirect URLs:
-`https://tu-dominio/negocio`, `http://localhost:3000/negocio` y
-`http://127.0.0.1:3000/negocio`.
+En Supabase → Authentication → URL Configuration:
+
+- **Site URL:** el dominio de producción (`https://oraleai.vercel.app`). Si
+  queda en `localhost`, el login de prod te manda a tu compu.
+- **Redirect URLs:** `https://oraleai.vercel.app/negocio`,
+  `http://localhost:3000/negocio` y `http://127.0.0.1:3000/negocio`.
 
 > El `service_role` se saca en Supabase → Project Settings → API. Trátalo como
 > contraseña maestra; nunca lo subas al repo.
