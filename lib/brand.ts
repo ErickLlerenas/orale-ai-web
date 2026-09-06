@@ -13,6 +13,8 @@ export const brand = {
   surface: "#F8F9FB",
   card: "#FFFFFF",
   border: "#E8EBF0",
+  success: "#2E9E5B",
+  danger: "#E23B3B",
 } as const;
 
 /** Todo lo “Pro” (web + app): navy oscuro + amber premium. */
