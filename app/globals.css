@@ -2980,28 +2980,51 @@ table.data tbody tr:last-child td {
 /* ---- Ver mi negocio (espejo de la app, ancho web) ---- */
 .owner-app {
   min-height: 100vh;
-  background: var(--surface);
+  isolation: isolate;
+  background:
+    radial-gradient(70% 48% at 100% -8%, rgba(241, 90, 41, 0.16), transparent 55%),
+    radial-gradient(48% 36% at 0% 100%, rgba(18, 138, 114, 0.08), transparent 52%),
+    #f6f1ed;
 }
 .owner-bar {
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   max-width: 1080px;
   margin: 0 auto;
-  padding: 16px 24px 8px;
+  padding: 22px 24px 10px;
 }
 .owner-brand img {
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
   display: block;
+  box-shadow: var(--shadow-sm);
+}
+.owner-bar-copy {
+  min-width: 0;
+}
+.owner-bar-kicker {
+  margin: 0 0 2px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--primary);
 }
 .owner-bar h1 {
   margin: 0;
-  font-size: 22px;
-  font-weight: 700;
-  letter-spacing: -0.03em;
+  font-size: clamp(22px, 3vw, 30px);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1.15;
+}
+.owner-bar-sub {
+  margin: 3px 0 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink-soft);
 }
 .owner-bar-actions {
   display: flex;
@@ -3042,12 +3065,12 @@ table.data tbody tr:last-child td {
 .owner-main {
   max-width: 1080px;
   margin: 0 auto;
-  padding: 8px 24px 48px;
+  padding: 8px 24px 64px;
 }
 .owner-page {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 20px;
 }
 .owner-grid {
   display: grid;
@@ -3062,15 +3085,10 @@ table.data tbody tr:last-child td {
 }
 .owner-caja-col h2,
 .owner-card h3 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 700;
-}
-.owner-biz {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--ink-soft);
+  margin: 4px 0 0;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }
 .owner-chips {
   display: flex;
@@ -3078,8 +3096,8 @@ table.data tbody tr:last-child td {
   gap: 8px;
 }
 .owner-chip {
-  border: 1px solid var(--border);
-  background: var(--card);
+  border: 1px solid rgba(31, 41, 51, 0.08);
+  background: rgba(255, 255, 255, 0.72);
   color: var(--ink);
   border-radius: 999px;
   padding: 8px 14px;
@@ -3089,36 +3107,50 @@ table.data tbody tr:last-child td {
   cursor: pointer;
 }
 .owner-chip.is-on {
-  background: var(--primary-soft);
+  background: var(--primary);
   border-color: var(--primary);
-  color: var(--primary-dark);
+  color: #fff;
 }
 .owner-card {
   background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border: 1px solid rgba(31, 41, 51, 0.06);
+  border-radius: 20px;
   overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+.owner-card-hero {
+  box-shadow: var(--shadow-md);
+  background:
+    linear-gradient(180deg, #fff 0%, #fff 62%, #fff8f4 100%);
 }
 .owner-card-pad {
-  padding: 20px;
+  padding: 24px 24px 20px;
 }
 .owner-kicker {
-  margin: 0 0 4px;
+  margin: 0 0 6px;
   font-size: 13px;
+  font-weight: 600;
   color: var(--ink-soft);
 }
 .owner-hero-money {
   margin: 0;
-  font-size: clamp(36px, 5vw, 48px);
+  font-size: clamp(44px, 6vw, 64px);
   font-weight: 800;
-  letter-spacing: -0.04em;
-  line-height: 1.1;
+  letter-spacing: -0.05em;
+  line-height: 1.05;
+}
+.owner-hero-meta {
+  margin: 8px 0 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink-soft);
 }
 .owner-cash-money {
-  margin: 0 0 8px;
-  font-size: clamp(28px, 4vw, 36px);
-  font-weight: 800;
+  margin: 0 0 10px;
+  font-size: clamp(26px, 3.4vw, 34px);
+  font-weight: 700;
   letter-spacing: -0.03em;
+  color: var(--ink);
 }
 .owner-muted {
   color: var(--ink-soft);
@@ -3130,27 +3162,27 @@ table.data tbody tr:last-child td {
   font-weight: 600;
 }
 .owner-strip {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px 28px;
-  padding: 14px 20px;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 14px 24px;
+  padding: 16px 24px;
+  border-top: 1px solid rgba(31, 41, 51, 0.06);
+  background: rgba(255, 255, 255, 0.55);
 }
 .owner-stat span {
   display: block;
   font-size: 12px;
+  font-weight: 600;
   color: var(--ink-soft);
 }
 .owner-stat strong {
   display: block;
   margin-top: 2px;
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 800;
 }
 .owner-pulse {
-  margin: 12px 0 0;
+  margin: 16px 0 0;
   padding: 10px 12px;
   border-radius: 12px;
   background: var(--primary-soft);
@@ -3209,10 +3241,10 @@ table.data tbody tr:last-child td {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 14px 20px;
-  border-top: 1px solid var(--border);
+  padding: 15px 24px;
+  border-top: 1px solid rgba(31, 41, 51, 0.06);
   text-decoration: none;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--ink);
 }
 .owner-card-link-icon {
@@ -3409,15 +3441,19 @@ table.data tbody tr:last-child td {
   display: grid;
   place-items: center;
   padding: 32px 20px;
-  background: var(--surface);
+  background:
+    radial-gradient(70% 48% at 100% -8%, rgba(241, 90, 41, 0.16), transparent 55%),
+    radial-gradient(48% 36% at 0% 100%, rgba(18, 138, 114, 0.08), transparent 52%),
+    #f6f1ed;
 }
 .owner-login-card {
   width: min(440px, 100%);
   background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  padding: 36px 28px 28px;
+  border: 1px solid rgba(31, 41, 51, 0.06);
+  border-radius: 24px;
+  padding: 40px 32px 32px;
   text-align: center;
+  box-shadow: var(--shadow-md);
 }
 .owner-login-logo {
   width: 56px;
@@ -3444,8 +3480,8 @@ table.data tbody tr:last-child td {
   margin-top: 22px;
   width: 100%;
   height: 52px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border: 1px solid rgba(31, 41, 51, 0.1);
+  border-radius: 14px;
   background: #fff;
   display: inline-flex;
   align-items: center;
@@ -3455,9 +3491,10 @@ table.data tbody tr:last-child td {
   font-weight: 700;
   font-size: 16px;
   cursor: pointer;
+  box-shadow: var(--shadow-sm);
 }
 .owner-google-btn:hover:not(:disabled) {
-  border-color: var(--ink);
+  border-color: var(--primary);
 }
 .owner-google-btn:disabled {
   opacity: 0.55;
@@ -3505,7 +3542,13 @@ table.data tbody tr:last-child td {
     padding-right: 16px;
   }
   .owner-bar h1 {
-    font-size: 18px;
+    font-size: 22px;
+  }
+  .owner-card-pad,
+  .owner-strip,
+  .owner-card-link {
+    padding-left: 18px;
+    padding-right: 18px;
   }
   .owner-cut-sales {
     display: none;

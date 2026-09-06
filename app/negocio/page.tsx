@@ -26,7 +26,12 @@ function NegocioBody() {
 
   if (demo) {
     return (
-      <OwnerChrome title="Hola, Erick" onRefresh={() => undefined} onSignOut={() => undefined}>
+      <OwnerChrome
+        title="Hola, Erick"
+        subtitle="Oralee"
+        onRefresh={() => undefined}
+        onSignOut={() => undefined}
+      >
         <OwnerDashboard
           bundle={previewBundle}
           selectedId={selectedId}
@@ -53,10 +58,12 @@ function NegocioBody() {
   const bizName = metrics.bundle?.days
     .map((day) => day.bizName?.trim())
     .find((name) => name);
+  const title = ownerHomeTitle(auth.user, bizName);
 
   return (
     <OwnerChrome
-      title={ownerHomeTitle(auth.user, bizName)}
+      title={title}
+      subtitle={bizName && title !== bizName ? bizName : undefined}
       onRefresh={metrics.refresh}
       onSignOut={auth.signOut}
       refreshing={metrics.loading}

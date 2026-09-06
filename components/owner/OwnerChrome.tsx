@@ -4,6 +4,8 @@ import { IconRefresh } from "./icons";
 
 type Props = {
   title: string;
+  kicker?: string;
+  subtitle?: string;
   onRefresh?: () => void;
   onSignOut: () => void;
   refreshing?: boolean;
@@ -12,6 +14,8 @@ type Props = {
 
 export default function OwnerChrome({
   title,
+  kicker = "Ver mi negocio",
+  subtitle,
   onRefresh,
   onSignOut,
   refreshing,
@@ -23,7 +27,11 @@ export default function OwnerChrome({
         <a className="owner-brand" href="/">
           <img src="/logo.png" alt="Órale AI" />
         </a>
-        <h1>{title}</h1>
+        <div className="owner-bar-copy">
+          <p className="owner-bar-kicker">{kicker}</p>
+          <h1>{title}</h1>
+          {subtitle && <p className="owner-bar-sub">{subtitle}</p>}
+        </div>
         <div className="owner-bar-actions">
           {onRefresh && (
             <button

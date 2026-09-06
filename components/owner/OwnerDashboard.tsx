@@ -74,7 +74,7 @@ export default function OwnerDashboard({
 
   return (
     <div className="owner-page">
-      {several ? (
+      {several && (
         <div className="owner-chips" role="tablist" aria-label="Sucursales">
           <button
             type="button"
@@ -94,14 +94,11 @@ export default function OwnerDashboard({
             </button>
           ))}
         </div>
-      ) : (
-        summary.bizName && <p className="owner-biz">{summary.bizName}</p>
       )}
 
       <div className="owner-grid">
         <div className="owner-primary">
           <PeriodSalesCard summary={summary} historyHref={historyHref} />
-          <GlanceStrip summary={summary} />
           {waiters.length > 0 && <WaitersCard waiters={waiters} />}
         </div>
         {cajaBlocks.map((block) => (
@@ -167,11 +164,11 @@ function PeriodSalesCard({
   const showLastSale = Boolean(summary.lastSale && orders > 1);
 
   return (
-    <section className="owner-card">
+    <section className="owner-card owner-card-hero">
       <div className="owner-card-pad">
         <p className="owner-kicker">{periodLabel}</p>
         <p className="owner-hero-money">{pesos(total)}</p>
-        <p className="owner-muted">
+        <p className="owner-hero-meta">
           {orders === 0
             ? "Sin ventas en este periodo"
             : `${orders} ${orders === 1 ? "venta" : "ventas"}`}
@@ -197,6 +194,7 @@ function PeriodSalesCard({
           </div>
         )}
       </div>
+      <GlanceStrip summary={summary} />
       <a className="owner-card-link" href={historyHref}>
         <span className="owner-card-link-icon">
           <IconHistory />
