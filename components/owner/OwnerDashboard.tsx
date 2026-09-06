@@ -2,12 +2,20 @@
 
 import { useMemo, useState } from "react";
 import { locationLabel, viewFor } from "@/lib/owner/parse";
-import { cutPeriodNote, dayTimeLabel, ownerDayKey, pesos } from "@/lib/owner/format";
+import {
+  cutPeriodNote,
+  dayTimeLabel,
+  ownerDayKey,
+  pesos,
+  relativeTimeEs,
+  updatedAgoLabel,
+} from "@/lib/owner/format";
 import {
   arqueoBadge,
   expectedCashCents,
   summarizeOwnerDashboard,
   totalSalesCents,
+  vsYesterdayLabel,
   waiterSalesFromOrders,
 } from "@/lib/owner/summary";
 import type {
@@ -124,6 +132,7 @@ export default function OwnerDashboard({
       </div>
 
       <p className="owner-footnote">
+        {summary.syncedAt ? `${updatedAgoLabel(summary.syncedAt)}. ` : ""}
         Solo lectura. Cobrar, entradas y cortes se hacen en la caja del local.
         Los números llegan cuando esa caja tiene internet. Toca Actualizar para
         refrescar.
@@ -150,6 +159,9 @@ function PeriodSalesCard({
   const cash = caja?.cashSalesCents ?? summary.today?.cashCents ?? 0;
   const card = caja?.cardSalesCents ?? summary.today?.cardCents ?? 0;
   const transfer = caja?.transferSalesCents ?? summary.today?.transferCents ?? 0;
+  const vs = summary.vsYesterdayCents;
+  const vsTone =
+    vs == null ? null : vs > 0 ? "up" : vs < 0 ? "down" : "flat";
 
   return (
     <section className="owner-card">
@@ -161,10 +173,49 @@ function PeriodSalesCard({
             ? "Sin ventas en este periodo"
             : `${orders} ${orders === 1 ? "venta" : "ventas"}`}
         </p>
+        {summary.lastSale && (
+          <p className="owner-pulse">
+            Última venta · {relativeTimeEs(summary.lastSale.closedAt)} ·{" "}
+            {summary.lastSale.displayName}
+            {summary.lastSale.waiterName ? ` · ${summary.lastSale.waiterName}` : ""}{" "}
+            · {pesos(summary.lastSale.salesCents)}
+          </p>
+        )}
         <div className="owner-breakdown">
           <Breakdown icon={<IconCash />} label="Efectivo" value={cash} />
           <Breakdown icon={<IconCard />} label="Tarjeta" value={card} />
           <Breakdown icon={<IconTransfer />} label="Transferencia" value={transfer} />
+          {summary.avgTicketCents > 0 && (
+            <div className="owner-row">
+              <span>Ticket promedio</span>
+              <strong>{pesos(summary.avgTicketCents)}</strong>
+            </div>
+          )}
+          {summary.tipCents > 0 && (
+            <div className="owner-row">
+              <span>Propinas</span>
+              <strong>{pesos(summary.tipCents)}</strong>
+            </div>
+          )}
+          {summary.weekOrderCount > 0 && (
+            <div className="owner-row">
+              <span>Esta semana</span>
+              <strong>
+                {pesos(summary.weekTotalCents)}
+                <span className="owner-muted">
+                  {" "}
+                  · {summary.weekOrderCount}{" "}
+                  {summary.weekOrderCount === 1 ? "venta" : "ventas"}
+                </span>
+              </strong>
+            </div>
+          )}
+          {vsTone && (
+            <div className={`owner-row owner-vs is-${vsTone}`}>
+              <span>Hoy vs ayer</span>
+              <strong>{vsYesterdayLabel(vs!)}</strong>
+            </div>
+          )}
         </div>
       </div>
       <a className="owner-card-link" href={historyHref}>

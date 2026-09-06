@@ -26,7 +26,7 @@ en una variable de entorno de Vercel. Next.js lo resuelve de forma nativa.
 
 ## Variables de entorno
 
-Copia `.env.example` a `.env.local` y llena:
+Crea un `.env.local` (no se sube al repo) y llena:
 
 ```
 SUPABASE_URL=https://xxxx.supabase.co

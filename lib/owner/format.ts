@@ -40,6 +40,42 @@ export function ownerDayKey(local = new Date()): string {
   return `${local.getFullYear()}-${two(local.getMonth() + 1)}-${two(local.getDate())}`;
 }
 
+export function prevDayKey(day: string): string {
+  const [year, month, date] = day.split("-").map(Number);
+  const parsed = new Date(year, (month ?? 1) - 1, date ?? 1);
+  parsed.setDate(parsed.getDate() - 1);
+  return ownerDayKey(parsed);
+}
+
+function sameCalendarDay(a: Date, b: Date): boolean {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+
+/** "Hace 12 min", "Hace 3 h", "Ayer · 1:36 a.m." */
+export function relativeTimeEs(value: Date, now = new Date()): string {
+  const minutes = Math.floor((now.getTime() - value.getTime()) / 60_000);
+  if (minutes < 1) return "Ahora";
+  if (minutes < 60) return `Hace ${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 12 && sameCalendarDay(value, now)) return `Hace ${hours} h`;
+  if (sameCalendarDay(value, now)) return `Hoy · ${formatTimeAmPmEs(value)}`;
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (sameCalendarDay(value, yesterday)) return `Ayer · ${formatTimeAmPmEs(value)}`;
+  return dayTimeLabel(value);
+}
+
+export function updatedAgoLabel(value: Date): string {
+  const rel = relativeTimeEs(value);
+  if (rel === "Ahora") return "Actualizado ahora";
+  if (rel.startsWith("Hace")) return `Actualizado ${rel.toLowerCase()}`;
+  return `Actualizado ${rel.toLowerCase()}`;
+}
+
 export function historyDayLabel(day: string): string {
   const parsed = new Date(`${day}T12:00:00`);
   if (Number.isNaN(parsed.getTime())) return day;

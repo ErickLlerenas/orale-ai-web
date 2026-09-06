@@ -2,9 +2,14 @@ import { parseOwnerMetrics } from "./parse";
 import type { OwnerMetricsBundle } from "./types";
 
 const now = new Date();
-const day = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+const pad = (n: number) => String(n).padStart(2, "0");
+const day = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+const y = new Date(now);
+y.setDate(y.getDate() - 1);
+const yesterday = `${y.getFullYear()}-${pad(y.getMonth() + 1)}-${pad(y.getDate())}`;
 const earlier = new Date(now.getTime() - 4 * 60 * 60 * 1000).toISOString();
 const cutAt = new Date(now.getTime() - 26 * 60 * 60 * 1000).toISOString();
+const updatedAt = now.toISOString();
 
 /** Datos de muestra solo para ver el diseño en local (`?demo=1`). */
 export const previewBundle: OwnerMetricsBundle = parseOwnerMetrics({
@@ -22,6 +27,18 @@ export const previewBundle: OwnerMetricsBundle = parseOwnerMetrics({
           transferCents: 80000,
           avgTicketCents: 26944,
           bizName: "Taquería Centro",
+          updatedAt,
+        },
+        {
+          day: yesterday,
+          totalCents: 610000,
+          orderCount: 22,
+          cashCents: 280000,
+          cardCents: 250000,
+          transferCents: 80000,
+          avgTicketCents: 27727,
+          bizName: "Taquería Centro",
+          updatedAt,
         },
       ],
       orders: [
@@ -62,6 +79,7 @@ export const previewBundle: OwnerMetricsBundle = parseOwnerMetrics({
         incomeCents: 0,
         expenseCents: 15000,
         orderCount: 18,
+        updatedAt,
         movements: [
           {
             movementId: "m1",
@@ -102,6 +120,18 @@ export const previewBundle: OwnerMetricsBundle = parseOwnerMetrics({
           transferCents: 0,
           avgTicketCents: 23333,
           bizName: "Sucursal Norte",
+          updatedAt,
+        },
+        {
+          day: yesterday,
+          totalCents: 180000,
+          orderCount: 7,
+          cashCents: 80000,
+          cardCents: 100000,
+          transferCents: 0,
+          avgTicketCents: 25714,
+          bizName: "Sucursal Norte",
+          updatedAt,
         },
       ],
       orders: [
@@ -129,6 +159,7 @@ export const previewBundle: OwnerMetricsBundle = parseOwnerMetrics({
         incomeCents: 20000,
         expenseCents: 0,
         orderCount: 9,
+        updatedAt,
         movements: [
           {
             movementId: "m2",

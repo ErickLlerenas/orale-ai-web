@@ -37,6 +37,7 @@ function parseDay(raw: Record<string, unknown>): OwnerDayMetrics | null {
     transferCents: asInt(raw.transferCents),
     avgTicketCents: asInt(raw.avgTicketCents),
     bizName: bizName || undefined,
+    updatedAt: asDate(raw.updatedAt) ?? undefined,
   };
 }
 
@@ -135,6 +136,7 @@ function parseCaja(raw: Record<string, unknown> | null): OwnerCajaSnapshot | nul
     orderCount: asInt(raw.orderCount),
     movements,
     cuts,
+    updatedAt: asDate(raw.updatedAt),
   };
 }
 
@@ -184,12 +186,16 @@ function sumDay(day: string, rows: OwnerDayMetrics[]): OwnerDayMetrics {
   let cash = 0;
   let card = 0;
   let transfer = 0;
+  let updatedAt: Date | undefined;
   for (const row of rows) {
     total += row.totalCents;
     orders += row.orderCount;
     cash += row.cashCents;
     card += row.cardCents;
     transfer += row.transferCents;
+    if (row.updatedAt && (!updatedAt || row.updatedAt > updatedAt)) {
+      updatedAt = row.updatedAt;
+    }
   }
   return {
     day,
@@ -200,6 +206,7 @@ function sumDay(day: string, rows: OwnerDayMetrics[]): OwnerDayMetrics {
     transferCents: transfer,
     avgTicketCents: orders === 0 ? 0 : Math.round(total / orders),
     bizName: rows.length === 1 ? rows[0].bizName : "Todas las sucursales",
+    updatedAt,
   };
 }
 

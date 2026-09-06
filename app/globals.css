@@ -3129,6 +3129,27 @@ table.data tbody tr:last-child td {
 .owner-strong {
   font-weight: 600;
 }
+.owner-pulse {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--primary-soft);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+.owner-vs.is-up strong,
+.owner-vs.is-up {
+  color: var(--success);
+}
+.owner-vs.is-down strong,
+.owner-vs.is-down {
+  color: var(--danger);
+}
+.owner-vs.is-flat strong {
+  color: var(--ink-soft);
+}
 .owner-breakdown {
   margin-top: 16px;
   display: flex;

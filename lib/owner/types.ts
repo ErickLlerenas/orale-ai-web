@@ -7,6 +7,7 @@ export type OwnerDayMetrics = {
   transferCents: number;
   avgTicketCents: number;
   bizName?: string;
+  updatedAt?: Date;
 };
 
 export type OwnerOrderSummary = {
@@ -58,6 +59,7 @@ export type OwnerCajaSnapshot = {
   orderCount: number;
   movements: OwnerCashMovement[];
   cuts: OwnerCutSummary[];
+  updatedAt: Date | null;
 };
 
 export type OwnerLocation = {
@@ -79,7 +81,15 @@ export type OwnerDashboardSummary = {
   todayKey: string;
   bizName?: string;
   today?: OwnerDayMetrics;
+  yesterday?: OwnerDayMetrics;
   caja: OwnerCajaSnapshot | null;
+  lastSale: OwnerOrderSummary | null;
+  weekTotalCents: number;
+  weekOrderCount: number;
+  tipCents: number;
+  avgTicketCents: number;
+  vsYesterdayCents: number | null;
+  syncedAt: Date | null;
 };
 
 export type OwnerWaiterSales = {
