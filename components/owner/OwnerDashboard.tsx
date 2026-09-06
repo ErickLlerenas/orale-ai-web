@@ -164,7 +164,7 @@ function PeriodSalesCard({
   const showLastSale = Boolean(summary.lastSale && orders > 1);
 
   return (
-    <section className="owner-card owner-card-hero">
+    <section className="owner-card">
       <div className="owner-card-pad">
         <p className="owner-kicker">{periodLabel}</p>
         <p className="owner-hero-money">{pesos(total)}</p>
