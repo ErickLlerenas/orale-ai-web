@@ -101,6 +101,7 @@ export default function OwnerDashboard({
       <div className="owner-grid">
         <div className="owner-primary">
           <PeriodSalesCard summary={summary} historyHref={historyHref} />
+          <GlanceStrip summary={summary} />
           {waiters.length > 0 && <WaitersCard waiters={waiters} />}
         </div>
         {cajaBlocks.map((block) => (
@@ -133,9 +134,7 @@ export default function OwnerDashboard({
 
       <p className="owner-footnote">
         {summary.syncedAt ? `${updatedAgoLabel(summary.syncedAt)}. ` : ""}
-        Solo lectura. Cobrar, entradas y cortes se hacen en la caja del local.
-        Los números llegan cuando esa caja tiene internet. Toca Actualizar para
-        refrescar.
+        Solo lectura.
       </p>
     </div>
   );
@@ -159,9 +158,13 @@ function PeriodSalesCard({
   const cash = caja?.cashSalesCents ?? summary.today?.cashCents ?? 0;
   const card = caja?.cardSalesCents ?? summary.today?.cardCents ?? 0;
   const transfer = caja?.transferSalesCents ?? summary.today?.transferCents ?? 0;
-  const vs = summary.vsYesterdayCents;
-  const vsTone =
-    vs == null ? null : vs > 0 ? "up" : vs < 0 ? "down" : "flat";
+  const methods = [
+    { icon: <IconCash />, label: "Efectivo", value: cash },
+    { icon: <IconCard />, label: "Tarjeta", value: card },
+    { icon: <IconTransfer />, label: "Transferencia", value: transfer },
+  ].filter((method) => method.value > 0);
+  const showSplit = methods.length > 1;
+  const showLastSale = Boolean(summary.lastSale && orders > 1);
 
   return (
     <section className="owner-card">
@@ -173,7 +176,7 @@ function PeriodSalesCard({
             ? "Sin ventas en este periodo"
             : `${orders} ${orders === 1 ? "venta" : "ventas"}`}
         </p>
-        {summary.lastSale && (
+        {showLastSale && summary.lastSale && (
           <p className="owner-pulse">
             Última venta · {relativeTimeEs(summary.lastSale.closedAt)} ·{" "}
             {summary.lastSale.displayName}
@@ -181,42 +184,18 @@ function PeriodSalesCard({
             · {pesos(summary.lastSale.salesCents)}
           </p>
         )}
-        <div className="owner-breakdown">
-          <Breakdown icon={<IconCash />} label="Efectivo" value={cash} />
-          <Breakdown icon={<IconCard />} label="Tarjeta" value={card} />
-          <Breakdown icon={<IconTransfer />} label="Transferencia" value={transfer} />
-          {summary.avgTicketCents > 0 && (
-            <div className="owner-row">
-              <span>Ticket promedio</span>
-              <strong>{pesos(summary.avgTicketCents)}</strong>
-            </div>
-          )}
-          {summary.tipCents > 0 && (
-            <div className="owner-row">
-              <span>Propinas</span>
-              <strong>{pesos(summary.tipCents)}</strong>
-            </div>
-          )}
-          {summary.weekOrderCount > 0 && (
-            <div className="owner-row">
-              <span>Esta semana</span>
-              <strong>
-                {pesos(summary.weekTotalCents)}
-                <span className="owner-muted">
-                  {" "}
-                  · {summary.weekOrderCount}{" "}
-                  {summary.weekOrderCount === 1 ? "venta" : "ventas"}
-                </span>
-              </strong>
-            </div>
-          )}
-          {vsTone && (
-            <div className={`owner-row owner-vs is-${vsTone}`}>
-              <span>Hoy vs ayer</span>
-              <strong>{vsYesterdayLabel(vs!)}</strong>
-            </div>
-          )}
-        </div>
+        {showSplit && (
+          <div className="owner-breakdown">
+            {methods.map((method) => (
+              <Breakdown
+                key={method.label}
+                icon={method.icon}
+                label={method.label}
+                value={method.value}
+              />
+            ))}
+          </div>
+        )}
       </div>
       <a className="owner-card-link" href={historyHref}>
         <span className="owner-card-link-icon">
@@ -226,6 +205,51 @@ function PeriodSalesCard({
         <IconChevron />
       </a>
     </section>
+  );
+}
+
+function GlanceStrip({
+  summary,
+}: {
+  summary: ReturnType<typeof summarizeOwnerDashboard>;
+}) {
+  const periodOrders = summary.caja?.orderCount ?? summary.today?.orderCount ?? 0;
+  const vs = summary.vsYesterdayCents;
+  const vsTone = vs == null ? null : vs > 0 ? "up" : vs < 0 ? "down" : "flat";
+  const items: { label: string; value: string; tone?: string }[] = [];
+
+  if (summary.avgTicketCents > 0 && periodOrders > 1) {
+    items.push({ label: "Ticket promedio", value: pesos(summary.avgTicketCents) });
+  }
+  if (summary.tipCents > 0) {
+    items.push({ label: "Propinas", value: pesos(summary.tipCents) });
+  }
+  if (summary.weekOrderCount > 0) {
+    items.push({
+      label: "Esta semana",
+      value: `${pesos(summary.weekTotalCents)} · ${summary.weekOrderCount} ${
+        summary.weekOrderCount === 1 ? "venta" : "ventas"
+      }`,
+    });
+  }
+  if (vsTone && vs != null) {
+    items.push({
+      label: "Hoy vs ayer",
+      value: vsYesterdayLabel(vs),
+      tone: vsTone,
+    });
+  }
+  if (items.length === 0) return null;
+
+  return (
+    <div className="owner-strip">
+      {items.map((item) => (
+        <div key={item.label} className={`owner-stat${item.tone ? ` owner-vs is-${item.tone}` : ""}`}>
+          <span>{item.label}</span>
+          <strong>{item.value}</strong>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -286,14 +310,20 @@ function CashCard({ caja, title }: { caja: OwnerCajaSnapshot; title?: string }) 
           <strong>{pesos(caja.cashTipsCents)}</strong>
         </div>
       )}
-      <div className="owner-flow">
-        <span className="is-in">
-          <IconIn /> {pesos(caja.incomeCents)}
-        </span>
-        <span className="is-out">
-          <IconOut /> {pesos(caja.expenseCents)}
-        </span>
-      </div>
+      {(caja.incomeCents > 0 || caja.expenseCents > 0) && (
+        <div className="owner-flow">
+          {caja.incomeCents > 0 && (
+            <span className="is-in">
+              <IconIn /> {pesos(caja.incomeCents)}
+            </span>
+          )}
+          {caja.expenseCents > 0 && (
+            <span className="is-out">
+              <IconOut /> {pesos(caja.expenseCents)}
+            </span>
+          )}
+        </div>
+      )}
       {caja.movements.length > 0 && (
         <>
           <h3>Movimientos del turno</h3>
