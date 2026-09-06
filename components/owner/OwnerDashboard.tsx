@@ -230,7 +230,9 @@ function GlanceStrip({
       }`,
     });
   }
-  if (vsTone && vs != null) {
+  const vsMatchesHero = !summary.caja?.periodStart;
+  const yesterdaySold = (summary.yesterday?.orderCount ?? 0) > 0;
+  if (vsTone && vs != null && vsMatchesHero && periodOrders > 1 && yesterdaySold) {
     items.push({
       label: "Hoy vs ayer",
       value: vsYesterdayLabel(vs),
@@ -286,17 +288,25 @@ function WaitersCard({ waiters }: { waiters: OwnerWaiterSales[] }) {
 }
 
 function CashCard({ caja, title }: { caja: OwnerCajaSnapshot; title?: string }) {
+  const expected = expectedCashCents(caja);
+  const showOpening = caja.openingCashCents > 0;
+  const showCashSales = caja.cashSalesCents > 0 && caja.cashSalesCents !== expected;
+
   return (
     <section className="owner-card owner-card-pad">
-      <p className="owner-kicker">{title ?? "Efectivo en caja"}</p>
-      <p className="owner-cash-money">{pesos(expectedCashCents(caja))}</p>
-      <div className="owner-row owner-row-soft">
-        <span className="owner-row-icon">
-          <IconPiggy />
-        </span>
-        <span>Fondo inicial: {pesos(caja.openingCashCents)}</span>
+      <div className="owner-cash-head">
+        <p className="owner-kicker">{title ?? "Efectivo en caja"}</p>
+        <p className="owner-cash-money">{pesos(expected)}</p>
       </div>
-      {caja.cashSalesCents > 0 && (
+      {showOpening && (
+        <div className="owner-row owner-row-soft">
+          <span className="owner-row-icon">
+            <IconPiggy />
+          </span>
+          <span>Fondo inicial: {pesos(caja.openingCashCents)}</span>
+        </div>
+      )}
+      {showCashSales && (
         <div className="owner-row owner-row-soft">
           <span>Ventas en efectivo</span>
           <strong>{pesos(caja.cashSalesCents)}</strong>
