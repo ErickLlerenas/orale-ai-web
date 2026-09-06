@@ -3062,6 +3062,7 @@ table.data tbody tr:last-child td {
   border-radius: 12px;
   display: grid;
   place-items: center;
+  text-decoration: none;
 }
 .owner-icon-btn:hover,
 .owner-text-btn:hover {
@@ -3417,7 +3418,7 @@ table.data tbody tr:last-child td {
   margin: 0 0 8px;
 }
 .owner-back a {
-  color: #fffaf6;
+  color: var(--ink);
   font-weight: 700;
   text-decoration: none;
 }
@@ -3460,11 +3461,10 @@ table.data tbody tr:last-child td {
   }
 }
 .owner-login {
-  min-height: 100vh;
+  min-height: 48vh;
   display: grid;
   place-items: center;
-  padding: 32px 20px;
-  background: var(--surface);
+  padding: 24px 0 8px;
 }
 .owner-login-card {
   width: min(440px, 100%);
@@ -3554,13 +3554,33 @@ table.data tbody tr:last-child td {
   }
 }
 @media (max-width: 720px) {
-  .owner-bar,
-  .owner-main {
+  .owner-bar {
     padding-left: 16px;
     padding-right: 16px;
   }
   .owner-bar h1 {
     font-size: 22px;
+  }
+  .owner-main {
+    max-width: none;
+    padding: 0;
+  }
+  .owner-sheet {
+    background: var(--surface);
+    border-radius: 24px 24px 0 0;
+    overflow: hidden;
+    min-height: calc(100vh - 120px);
+  }
+  .owner-sheet-inner {
+    padding: 16px 16px 64px;
+  }
+  .owner-chip {
+    border: 1px solid var(--border);
+    background: #fff;
+  }
+  .owner-chip.is-on {
+    background: var(--primary-soft);
+    border-color: transparent;
   }
   .owner-card-pad,
   .owner-strip,

@@ -31,10 +31,12 @@ function HistorialBody() {
       ? `/negocio?demo=1&sucursal=${selectedId}`
       : "/negocio?demo=1";
     return (
-      <OwnerChrome title="Historial de ventas" onRefresh={() => undefined} onSignOut={() => undefined}>
-        <p className="owner-back">
-          <a href={back}>← Volver al resumen</a>
-        </p>
+      <OwnerChrome
+        title="Historial de ventas"
+        backHref={back}
+        onRefresh={() => undefined}
+        onSignOut={() => undefined}
+      >
         <OwnerHistory bundle={previewBundle} selectedId={selectedId} />
       </OwnerChrome>
     );
@@ -45,15 +47,11 @@ function HistorialBody() {
   return (
     <OwnerChrome
       title="Historial de ventas"
+      backHref={selectedId ? `/negocio?sucursal=${selectedId}` : "/negocio"}
       onRefresh={metrics.refresh}
       onSignOut={auth.signOut}
       refreshing={metrics.loading}
     >
-      <p className="owner-back">
-        <a href={selectedId ? `/negocio?sucursal=${selectedId}` : "/negocio"}>
-          ← Volver al resumen
-        </a>
-      </p>
       {metrics.loading && !metrics.bundle ? (
         <OwnerSpinner />
       ) : metrics.error && !metrics.bundle ? (

@@ -46,12 +46,14 @@ function NegocioBody() {
 
   if (!auth.session) {
     return (
-      <OwnerLogin
-        busy={auth.busy}
-        error={auth.error}
-        configured={auth.configured}
-        onSignIn={auth.signIn}
-      />
+      <OwnerChrome title="Ver mi negocio">
+        <OwnerLogin
+          busy={auth.busy}
+          error={auth.error}
+          configured={auth.configured}
+          onSignIn={auth.signIn}
+        />
+      </OwnerChrome>
     );
   }
 
