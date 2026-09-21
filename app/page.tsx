@@ -123,13 +123,13 @@ export default function Home() {
                 Punto de venta para negocios de comida
               </p>
               <h1>
-                Fotografía tu menú.
+                Tu menú listo
                 <br />
-                Empieza a <em>cobrar</em>
+                <em>con una foto.</em>
               </h1>
               <p className="hero-lead">
-                La IA crea tus productos, precios y categorías. Tú revisas y
-                listo: toma pedidos, imprime comandas y cobra desde la app.
+                La inteligencia artificial carga tus productos y precios desde
+                una foto. Tú revisas y empiezas a vender.
               </p>
             </div>
 
@@ -138,6 +138,15 @@ export default function Home() {
             </div>
 
             <div className="hero-cta">
+              <a
+                className="hero-rating"
+                href="https://play.google.com/store/apps/details?id=com.oraleai.orale_ai"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <span className="hero-rating-stars" aria-hidden="true">★★★★★</span>
+                <span><strong>4.9 de 5</strong> en Google Play</span>
+              </a>
               <StoreBadges />
             </div>
           </div>
