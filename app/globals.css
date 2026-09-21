@@ -1739,91 +1739,33 @@ section {
   }
 }
 
-/* ---- CTA (cierre naranja, como el hero) ---- */
-.cta-wrap {
-  padding: 48px 0 40px;
-  background: #fff;
-}
-.cta {
-  position: relative;
-  overflow: hidden;
-  isolation: isolate;
-  background:
-    radial-gradient(90% 80% at 50% -20%, #ff8a4c 0%, transparent 55%),
-    linear-gradient(165deg, #f15a29 0%, #d9481c 55%, #b83a16 100%);
-  color: #fffaf6;
-  border-radius: 28px;
-  padding: 52px 32px 44px;
-  text-align: center;
-}
-.cta-eyebrow {
-  margin: 0 0 10px;
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: rgba(255, 250, 246, 0.72);
-}
-.cta h2 {
-  font-family: var(--font-sans);
-  margin: 0 0 12px;
-  font-size: clamp(30px, 5vw, 40px);
-  letter-spacing: -0.035em;
-}
-.cta-lead {
-  margin: 0 auto 28px;
-  color: rgba(255, 250, 246, 0.86);
-  font-size: 16px;
-  line-height: 1.5;
-  max-width: 420px;
-}
-.cta-inline {
-  color: #fff;
-  font-weight: 700;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-.cta-inline:hover {
-  color: #ffe08a;
-}
-
-.home-negocio-quiet {
-  padding: 0 24px 64px;
-  background: #fff;
-}
-.home-negocio-box {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-  max-width: 720px;
-  margin: 0 auto;
-  padding: 22px 24px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--card);
-}
-.home-negocio-box h2 {
-  margin: 0 0 4px;
-  font-size: 18px;
-  font-weight: 800;
-  letter-spacing: -0.03em;
-}
-.home-negocio-box p {
-  margin: 0;
-  font-size: 14px;
-  color: var(--ink-soft);
-}
-.home-negocio-box .btn {
-  flex-shrink: 0;
-  padding: 12px 22px;
-}
+/* ---- Closing download and returning-owner access ---- */
+.cta-wrap { padding: 32px 0 64px; background: #fff; }
+.cta { overflow: hidden; background: #fff8f2; border: 1px solid #f1dfd1; border-radius: 28px; color: #30221b; }
+.cta-main { display: grid; grid-template-columns: 1.25fr 1fr; align-items: center; gap: 48px; padding: 48px; }
+.cta-eyebrow { margin: 0 0 18px; color: #b9431d; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; }
+.cta h2 { margin: 0 0 18px; font-size: clamp(32px, 4vw, 48px); line-height: 1.08; letter-spacing: -.045em; }
+.cta h2 em { color: #d3461c; font-style: normal; }
+.cta-lead { max-width: 360px; margin: 0; font-size: 16px; line-height: 1.6; color: #736359; }
+.cta-benefits { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 24px; color: #7c5743; font-size: 12px; font-weight: 650; }
+.cta-benefits span::before { content: '✓'; color: #c44d25; margin-right: 6px; }
+.cta-download { text-align: center; border-left: 1px solid #ecdccc; padding-left: 40px; }
+.cta-download > img { border-radius: 15px; box-shadow: 0 6px 16px #bb461520; }
+.cta-download h3 { margin: 12px 0 4px; font-size: 20px; letter-spacing: -.025em; }
+.cta-download > p { margin: 0 0 18px; font-size: 13px; color: #736359; }
+.cta .store-download { min-height: auto; }
+.cta .also-on-label { color: #857164; }
+.cta .also-link { background: transparent; border-color: transparent; color: #67564a; padding: 6px 8px; }
+.cta .also-link:hover { color: #b9431d; background: #fbeade; }
+.cta-owner { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 22px 48px; background: #fff; border-top: 1px solid #f1dfd1; }
+.cta-owner strong { display: block; font-size: 14px; margin-bottom: 4px; }
+.cta-owner div > span { font-size: 12px; color: #80746d; }
+.cta-owner > a { color: #a63c1b; text-decoration: none; font-size: 13px; font-weight: 750; flex-shrink: 0; }
+.cta-owner > a:hover { text-decoration: underline; }
 @media (max-width: 720px) {
-  .home-negocio-box {
-    flex-direction: column;
-    align-items: stretch;
-    text-align: center;
-  }
+  .cta-main { grid-template-columns: 1fr; padding: 32px 24px; gap: 28px; }
+  .cta-download { border-left: 0; border-top: 1px solid #ecdccc; padding: 26px 0 0; }
+  .cta-owner { padding: 22px 24px; align-items: flex-start; flex-direction: column; gap: 14px; }
 }
 
 /* ---- Footer ---- */

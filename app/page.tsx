@@ -282,31 +282,27 @@ export default function Home() {
         <section id="cta" className="cta-wrap">
           <div className="container">
             <div className="cta">
-              <p className="cta-eyebrow">Empieza hoy</p>
-              <h2>Órale, ya vendiste</h2>
-              <p className="cta-lead">
-                Descarga la app, arma tu menú con IA y cobra hoy. Si tu equipo
-                crece,{" "}
-                <a className="cta-inline" href="#pro">
-                  sube a Pro
-                </a>
-                .
-              </p>
-              <StoreBadges />
-            </div>
-          </div>
-        </section>
-
-        <section id="negocio" className="home-negocio-quiet">
-          <div className="container">
-            <div className="home-negocio-box">
-              <div>
-                <h2>Ver mi negocio</h2>
-                <p>Si ya lo activaste en la caja, entra con Google.</p>
+              <div className="cta-main">
+                <div className="cta-copy">
+                  <p className="cta-eyebrow">Tu siguiente venta empieza aquí</p>
+                  <h2>Tu negocio.<br /><em>Todo en una app.</em></h2>
+                  <p className="cta-lead">
+                    Carga tu menú, toma pedidos y lleva tus cuentas desde tu
+                    celular o tablet.
+                  </p>
+                  <div className="cta-benefits"><span>Menú con IA</span><span>Mesas y pedidos</span><span>Control de ventas</span></div>
+                </div>
+                <div className="cta-download">
+                  <img src="/logo.png" alt="" width="56" height="56" />
+                  <h3>Descarga Órale AI</h3>
+                  <p>Empieza con tu propio menú.</p>
+                  <StoreBadges />
+                </div>
               </div>
-              <a className="btn btn-primary" href="/negocio">
-                Entrar
-              </a>
+              <div id="negocio" className="cta-owner">
+                <div><strong>¿Ya usas Órale AI?</strong><span>Consulta tu negocio si activaste el acceso desde la caja.</span></div>
+                <a href="/negocio">Entrar a mi negocio <span aria-hidden="true">→</span></a>
+              </div>
             </div>
           </div>
         </section>
