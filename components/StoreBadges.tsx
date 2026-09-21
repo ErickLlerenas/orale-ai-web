@@ -5,8 +5,8 @@ import { useEffect, useState } from "react";
 export type Platform = "ios" | "android" | "windows" | "mac";
 
 export const STORE = {
-  apple: "https://apps.apple.com/app/id6776390828",
-  mac: "macappstore://apps.apple.com/app/id6776390828",
+  apple: "https://apps.apple.com/mx/app/id6776390828",
+  mac: "https://apps.apple.com/mx/app/id6776390828",
   google:
     "https://play.google.com/store/apps/details?id=com.oraleai.orale_ai",
   microsoft:

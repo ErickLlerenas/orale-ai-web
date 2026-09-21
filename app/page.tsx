@@ -46,18 +46,18 @@ function PlanPrice({ now, next }: { now: PlanAmounts; next?: PlanAmounts }) {
 const pillars = [
   {
     num: "01",
-    title: "Menú con una foto",
-    text: "La IA arma productos, precios y categorías. Tú revisas y listo.",
+    title: "Agrega lo que vendes",
+    text: "Toma una foto de tu menú y la IA te ayuda a agregar tus productos y precios. También puedes escribirlos tú.",
   },
   {
     num: "02",
-    title: "Vende y cobra al momento",
-    text: "Orden, comanda, cuenta y propina. Pensado para el mostrador.",
+    title: "Toma pedidos y lleva la cuenta",
+    text: "Anota qué pidió cada mesa o cliente, imprime el pedido para la cocina y calcula cuánto cobrar.",
   },
   {
     num: "03",
-    title: "Sin internet, sigues vendiendo",
-    text: "Tu negocio no se para. Los datos viven en tu dispositivo.",
+    title: "Sigue vendiendo sin internet",
+    text: "Si se va el internet, puedes seguir registrando pedidos y cobros en tu celular o tablet. La IA sí necesita conexión.",
   },
 ];
 
@@ -138,15 +138,15 @@ export default function Home() {
             </div>
 
             <div className="hero-cta">
-              <a
-                className="hero-rating"
-                href="https://play.google.com/store/apps/details?id=com.oraleai.orale_ai"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
+              <div className="hero-rating">
                 <span className="hero-rating-stars" aria-hidden="true">★★★★★</span>
-                <span><strong>4.9 de 5</strong> en Google Play</span>
-              </a>
+                <span>
+                  <strong>4.9 estrellas</strong> en{" "}
+                  <a href="https://apps.apple.com/mx/app/id6776390828" target="_blank" rel="noopener noreferrer">App Store</a>
+                  {" y "}
+                  <a href="https://play.google.com/store/apps/details?id=com.oraleai.orale_ai" target="_blank" rel="noopener noreferrer">Play Store</a>
+                </span>
+              </div>
               <StoreBadges />
             </div>
           </div>
@@ -154,9 +154,9 @@ export default function Home() {
 
         <section id="features" className="pillars">
           <div className="container">
-            <h2 className="section-title">Hecho para el mostrador</h2>
+            <h2 className="section-title">Controla los pedidos y las ventas de tu negocio</h2>
             <p className="section-sub">
-              Lo esencial para vender. Sin complicaciones.
+              Convierte tu celular o tablet en un punto de venta para tu restaurante, cafetería o puesto de comida.
             </p>
             <ol className="pillars-list">
               {pillars.map((p) => (
@@ -170,8 +170,9 @@ export default function Home() {
               ))}
             </ol>
             <p className="pillars-also">
-              También: pedidos para llevar, reportes con IA, caja, inventario,
-              PIN por empleado e impresión térmica.
+              También puedes consultar cuánto vendiste, revisar el dinero de
+              caja, controlar tu inventario y dar a cada empleado su propio
+              código de acceso.
             </p>
           </div>
         </section>
@@ -182,12 +183,11 @@ export default function Home() {
               <div>
                 <p className="pro-eyebrow">Órale AI Pro</p>
                 <h2 className="pro-title">
-                  Cuando ya no basta con un solo dispositivo
+                  Tus meseros toman pedidos desde su celular
                 </h2>
                 <p className="pro-sub">
-                  Cada mesero pide en su celular y la comanda llega a cocina. Tú
-                  cobras en la caja. Pro necesita WiFi del local e impresora de
-                  red; el plan Órale AI no.
+                  Los pedidos llegan a la caja y se imprimen en cocina. Tú llevas
+                  las cuentas y cobras desde un solo lugar.
                 </p>
               </div>
               <a className="btn btn-pro" href="#precios">
