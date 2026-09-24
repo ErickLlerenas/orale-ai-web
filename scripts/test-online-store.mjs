@@ -159,8 +159,9 @@ test("WhatsApp destination is profile phone; message safely encodes notes and to
     checkout,
   );
   const url = new URL(result.url);
-  assert.equal(url.origin, "https://wa.me");
-  assert.equal(url.pathname, "/526641234567");
+  assert.equal(url.origin, "https://api.whatsapp.com");
+  assert.equal(url.pathname, "/send");
+  assert.equal(url.searchParams.get("phone"), "526641234567");
   const text = url.searchParams.get("text");
   assert.equal(
     result.message,
@@ -210,7 +211,7 @@ test("demo destination accepts a country code and rejects malformed numbers", ()
     [line()],
     checkout,
   );
-  assert.equal(new URL(result.url).pathname, "/525512345678");
+  assert.equal(new URL(result.url).searchParams.get("phone"), "525512345678");
   assert.equal(new URL(result.url).searchParams.get("text"), result.message);
 });
 
@@ -247,4 +248,15 @@ test("formatted order separates items, extras, delivery and totals", () => {
   assert.match(result.message, /\*Recoger en:\* Dirección del negocio/);
   assert.match(result.message, /\*Cliente:\* Cliente de prueba/);
   assert.doesNotMatch(result.message, /pedido confirmado|pagado/i);
+});
+
+test("direct WhatsApp link preserves emoji, accents and multiline notes", () => {
+  const result = whatsappOrder(catalog(), [line({ notes: "🌮 Sin cebolla\nSalsa & limón" })], checkout);
+  const url = new URL(result.url);
+  assert.equal(url.origin, "https://api.whatsapp.com");
+  assert.equal(url.pathname, "/send");
+  assert.equal(url.searchParams.get("phone"), catalog().phone);
+  assert.equal(url.searchParams.get("text"), result.message);
+  assert.ok(result.message.includes("🌮 Sin cebolla\nSalsa & limón"));
+  assert.ok(!result.message.includes("�"));
 });
