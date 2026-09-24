@@ -25,6 +25,7 @@ const { quoteCart, whatsappOrder, demoPhoneNumber } = createRequire(
 )(file);
 rmSync(dir, { recursive: true, force: true });
 const catalog = () => ({
+  acceptsDelivery: true,
   version: 1,
   utcOffsetMinutes: -360,
   name: "Tacos de prueba",
@@ -211,4 +212,39 @@ test("demo destination accepts a country code and rejects malformed numbers", ()
   );
   assert.equal(new URL(result.url).pathname, "/525512345678");
   assert.equal(new URL(result.url).searchParams.get("text"), result.message);
+});
+
+test("pickup-only menus reject delivery even if a client submits it manually", () => {
+  for (const value of [false, undefined, "true"]) {
+    const c = { ...catalog(), acceptsDelivery: value };
+    assert.throws(
+      () =>
+        whatsappOrder(c, [line()], {
+          ...checkout,
+          fulfillment: "delivery",
+          address: "Domicilio de prueba",
+        }),
+      /solo acepta pedidos para recoger/,
+    );
+    const pickup = whatsappOrder(c, [line()], checkout);
+    assert.match(pickup.message, /Entrega: Pasar a recoger/);
+    assert.doesNotMatch(pickup.message, /Costo de envío|Dirección:/);
+  }
+});
+test("formatted order separates items, extras, delivery and totals", () => {
+  const c = catalog();
+  c.address = "Dirección del negocio";
+  const result = whatsappOrder(
+    c,
+    [line({ quantity: 2, choiceIds: ["r"], notes: "Sin cebolla" })],
+    checkout,
+  );
+  assert.match(result.message, /\*SOLICITUD DE PEDIDO\*/);
+  assert.match(result.message, /\*2 × Taco\* — \*\$60\.00\*/);
+  assert.match(result.message, /• Roja \(\+\$5\.00 c\/u\)/);
+  assert.match(result.message, /Nota: Sin cebolla/);
+  assert.match(result.message, /\*Total de productos: \$60\.00\*/);
+  assert.match(result.message, /\*Recoger en:\* Dirección del negocio/);
+  assert.match(result.message, /\*Cliente:\* Cliente de prueba/);
+  assert.doesNotMatch(result.message, /pedido confirmado|pagado/i);
 });

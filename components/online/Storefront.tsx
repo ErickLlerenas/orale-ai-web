@@ -270,7 +270,22 @@ export default function Storefront({
         body: JSON.stringify({ revision: menu.revision, lines, checkout }),
       });
       const data = await response.json();
-      if (data.menu) setMenu(data.menu);
+      if (data.menu) {
+        setMenu(data.menu);
+        if (
+          checkout.fulfillment === "delivery" &&
+          data.menu.catalog.acceptsDelivery !== true
+        ) {
+          setCheckout((current) => ({
+            ...current,
+            fulfillment: "pickup",
+            address: "",
+          }));
+          throw new Error(
+            "El negocio ahora solo acepta pedidos para recoger. Revisa tu pedido antes de continuar.",
+          );
+        }
+      }
       if (!response.ok) throw new Error(data.error);
       // Navigation opens WhatsApp; the buyer still presses Send. Keep a
       // fallback link in case this browser cannot open the app.
@@ -527,9 +542,16 @@ export default function Storefront({
                   />
                 </label>
                 <fieldset>
-                  <legend>¿Cómo quieres tu pedido?</legend>
+                  <legend>
+                    {catalog.acceptsDelivery === true
+                      ? "¿Cómo quieres tu pedido?"
+                      : "Pedido para recoger"}
+                  </legend>
                   <div className={styles.fulfillment}>
-                    {(["pickup", "delivery"] as const).map((f) => (
+                    {(catalog.acceptsDelivery === true
+                      ? (["pickup", "delivery"] as const)
+                      : (["pickup"] as const)
+                    ).map((f) => (
                       <label key={f}>
                         <input
                           type="radio"
@@ -605,7 +627,17 @@ export default function Storefront({
             presiona “Enviar” para mandarlo. En la tienda real, el destino será
             el WhatsApp del negocio.
           </p>
-          <pre className={styles.messagePreview}>{previewMessage}</pre>
+          <pre className={styles.messagePreview}>
+            {previewMessage
+              .split(/(\*[^*\n]+\*)/g)
+              .map((part, index) =>
+                part.startsWith("*") && part.endsWith("*") ? (
+                  <strong key={index}>{part.slice(1, -1)}</strong>
+                ) : (
+                  part
+                ),
+              )}
+          </pre>
           {previewWhatsapp && (
             <a
               className={styles.whatsapp}

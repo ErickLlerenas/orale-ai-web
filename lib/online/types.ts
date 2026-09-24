@@ -17,6 +17,7 @@ export type Product = {
   }[];
 };
 export type Catalog = {
+  acceptsDelivery?: boolean;
   version: number;
   utcOffsetMinutes: number;
   name: string;

@@ -123,14 +123,21 @@ export function whatsappOrder(
     (checkout.fulfillment === "delivery" && !checkout.address.trim())
   )
     throw new Error("Completa tu nombre y los datos de entrega.");
+  if (checkout.fulfillment === "delivery" && catalog.acceptsDelivery !== true)
+    throw new Error("Este negocio solo acepta pedidos para recoger.");
   const q = quoteCart(catalog, lines, now);
   const parts = [
-    `Hola, ${catalog.name}. Quiero hacer este pedido:`,
+    "🛍️ *SOLICITUD DE PEDIDO*",
+    `*${catalog.name}*`,
     "",
-    ...q.priced.map(
-      (p) =>
-        `${p.line.quantity} × ${p.product.name}${p.product.variants.length > 1 ? ` (${p.variant.name})` : ""} — ${money(p.total)}${p.choices.length ? `\n  Extras: ${p.choices.map((c) => c.name).join(", ")}` : ""}${p.line.notes.trim() ? `\n  Nota: ${p.line.notes.trim()}` : ""}`,
-    ),
+    ...q.priced.flatMap((p, index) => [
+      ...(index ? [""] : []),
+      `*${p.line.quantity} × ${p.product.name}${p.product.variants.length > 1 ? ` (${p.variant.name})` : ""}* — *${money(p.total)}*`,
+      ...p.choices.map(
+        (c) => `  • ${c.name}${c.price ? ` (+${money(c.price)} c/u)` : ""}`,
+      ),
+      ...(p.line.notes.trim() ? [`  Nota: ${p.line.notes.trim()}`] : []),
+    ]),
     "",
     ...(q.discount
       ? [
@@ -138,13 +145,25 @@ export function whatsappOrder(
           `${q.promotion}: −${money(q.discount)}`,
         ]
       : []),
-    `Total de productos: ${money(q.total)}`,
-    `Nombre: ${checkout.name.trim()}`,
-    checkout.fulfillment === "delivery"
-      ? `Entrega a domicilio: ${checkout.address.trim()}\nCosto de envío por confirmar.`
-      : "Pasaré a recoger.",
+    `*Total de productos: ${money(q.total)}*`,
     "",
-    "¿Me confirman disponibilidad, total y tiempo de entrega?",
+    `👤 *Cliente:* ${checkout.name.trim()}`,
+    ...(checkout.fulfillment === "delivery"
+      ? [
+          "🛵 *Entrega: A domicilio*",
+          `*Dirección:* ${checkout.address.trim()}`,
+          "Costo de envío por confirmar.",
+        ]
+      : [
+          "🛍️ *Entrega: Pasar a recoger*",
+          ...(catalog.address.trim()
+            ? [`*Recoger en:* ${catalog.address.trim()}`]
+            : []),
+        ]),
+    "",
+    checkout.fulfillment === "delivery"
+      ? "¿Me confirman disponibilidad, total y tiempo de entrega?"
+      : "¿Me confirman disponibilidad, total y tiempo de preparación?",
   ];
   const message = parts.join("\n");
   if (message.length > 7500)

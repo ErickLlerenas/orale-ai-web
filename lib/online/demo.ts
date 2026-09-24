@@ -29,6 +29,7 @@ export const demoMenu: Menu = {
   revision: "demo-v1",
   updatedAt: "2026-09-24T12:00:00Z",
   catalog: {
+    acceptsDelivery: true,
     version: 1,
     utcOffsetMinutes: -360,
     name: "Taquería La Esquina",

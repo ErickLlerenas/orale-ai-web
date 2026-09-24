@@ -99,3 +99,10 @@ Fotos ilustrativas de la demo en Unsplash:
 [Tai’s Captures](https://unsplash.com/photos/close-up-photography-of-food-JiRSy0GfqPA),
 [Frankie Lopez](https://unsplash.com/photos/a-wooden-plate-topped-with-three-tacos-and-a-lime-_j4S4V2C8ew)
 y [Spencer Davis](https://unsplash.com/es/fotos/tacos-en-bandeja-gris-bIZmLWPATeA).
+
+
+La opción de domicilio viene del catálogo publicado por el dueño
+(`acceptsDelivery`). Si falta o es falsa, solo se permite recoger; el endpoint
+rechaza pedidos de domicilio aunque el navegador los envíe manualmente.
+Para probar ese caso, abre `/demo/pedidos?entrega=recoger`.
+Los mensajes usan el mismo formato de WhatsApp en la demo y en pedidos reales.

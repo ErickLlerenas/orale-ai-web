@@ -15,6 +15,17 @@ export const metadata: Metadata = {
   twitter: { card: "summary", title, description, images: [] },
 };
 
-export default function OrderDemoPage() {
-  return <Storefront initialMenu={demoMenu} slug="demo" preview />;
+export default function OrderDemoPage({
+  searchParams,
+}: {
+  searchParams: { entrega?: string };
+}) {
+  const menu =
+    searchParams.entrega === "recoger"
+      ? {
+          ...demoMenu,
+          catalog: { ...demoMenu.catalog, acceptsDelivery: false },
+        }
+      : demoMenu;
+  return <Storefront initialMenu={menu} slug="demo" preview />;
 }
