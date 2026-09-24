@@ -34,10 +34,23 @@ function Dialog({
       <header className={styles.dialogHeader}>
         <h2>{title}</h2>
         <button className={styles.close} onClick={close} aria-label="Cerrar">
-          ×
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            aria-hidden="true"
+          >
+            <path
+              d="m6 6 12 12M18 6 6 18"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+            />
+          </svg>
         </button>
       </header>
-      {children}
+      <div className={styles.dialogBody}>{children}</div>
     </dialog>
   );
 }
@@ -332,18 +345,38 @@ export default function Storefront({
                         : "Agotado"}
                     </strong>
                   </div>
-                  {p.image && (
-                    <img
-                      src={p.image}
-                      alt={p.name}
-                      loading="lazy"
-                      width={112}
-                      height={112}
-                    />
-                  )}
-                  {p.available && (
-                    <span className={styles.plus} aria-hidden="true">
-                      +
+                  {(p.image || p.available) && (
+                    <span
+                      className={
+                        p.image ? styles.productVisual : styles.productAction
+                      }
+                    >
+                      {p.image && (
+                        <img
+                          src={p.image}
+                          alt={p.name}
+                          loading="lazy"
+                          width={112}
+                          height={112}
+                        />
+                      )}
+                      {p.available && (
+                        <span className={styles.plus} aria-hidden="true">
+                          <svg
+                            width="20"
+                            height="20"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                          >
+                            <path
+                              d="M12 5v14M5 12h14"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                            />
+                          </svg>
+                        </span>
+                      )}
                     </span>
                   )}
                 </button>

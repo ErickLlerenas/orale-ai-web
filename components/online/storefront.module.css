@@ -85,7 +85,7 @@
   text-align: left;
   cursor: pointer;
   font: inherit;
-  min-height: 145px;
+  min-height: 157px;
   width: 100%;
 }
 .product:disabled {
@@ -95,7 +95,17 @@
 .product:hover:not(:disabled) h3 {
   color: var(--menu-accent);
 }
+.productVisual {
+  position: relative;
+  flex: 0 0 112px;
+  margin: 0 4px 4px 0;
+}
+.productAction {
+  flex: 0 0 36px;
+  align-self: center;
+}
 .product img {
+  display: block;
   width: 112px;
   height: 112px;
   border-radius: 14px;
@@ -104,7 +114,8 @@
 }
 .productCopy {
   flex: 1;
-  padding-right: 16px;
+  min-width: 0;
+  padding-right: 4px;
 }
 .product h3 {
   font-size: 17px;
@@ -125,18 +136,25 @@
   font-size: 16px;
 }
 .plus {
-  position: absolute;
-  right: 0;
-  bottom: 16px;
   background: var(--menu-accent);
   color: #fff;
   border-radius: 50%;
-  width: 32px;
-  height: 32px;
-  display: grid;
-  place-items: center;
-  font-size: 24px;
-  line-height: 1;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 0 3px #fff;
+}
+.plus svg,
+.close svg {
+  display: block;
+  flex-shrink: 0;
+}
+.productVisual .plus {
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
 }
 .footer {
   margin-top: 48px;
@@ -191,11 +209,16 @@
 .whatsapp {
   background: #087d48;
 }
+.dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
 .dialog {
   --menu-accent: #e5481d;
   border: 0;
   border-radius: 22px;
-  padding: 24px;
+  padding: 0;
+  overflow: hidden;
   max-width: 560px;
   width: calc(100% - 24px);
   max-height: 90dvh;
@@ -207,12 +230,21 @@
 .dialog::backdrop {
   background: rgba(15, 20, 26, 0.55);
 }
+.dialogBody {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 20px 24px 24px;
+}
 .dialogHeader {
+  flex-shrink: 0;
+  padding: 20px 24px;
+  border-bottom: 1px solid #edf0f2;
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   gap: 16px;
-  margin-bottom: 18px;
+  margin-bottom: 0;
 }
 .dialog h2 {
   font-size: 24px;
@@ -226,8 +258,12 @@
   border-radius: 50%;
   width: 40px;
   height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  color: inherit;
   flex-shrink: 0;
-  font-size: 28px;
   cursor: pointer;
 }
 .detailImage {
@@ -330,8 +366,8 @@
   white-space: pre-wrap;
 }
 .cartLine label {
-  font-size: 12px;
-  flex: 0 0 76px;
+  font-size: 14px;
+  flex: 0 0 82px;
 }
 .remove {
   border: 0;
@@ -393,6 +429,11 @@
 .unavailable a {
   color: #b73917;
 }
+@media (max-width: 800px) {
+  .products {
+    grid-template-columns: 1fr;
+  }
+}
 @media (max-width: 640px) {
   .store {
     padding: 0 18px 110px;
@@ -400,12 +441,14 @@
   .header {
     padding-top: 30px;
   }
-  .products {
-    grid-template-columns: 1fr;
-  }
   .dialog {
-    padding: 20px;
     max-height: 94dvh;
+  }
+  .dialogHeader {
+    padding: 16px 20px;
+  }
+  .dialogBody {
+    padding: 16px 20px 20px;
   }
   .cartBar {
     padding-left: 18px;
