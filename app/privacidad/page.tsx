@@ -24,7 +24,7 @@ export default function Privacy() {
           nadie.
         </p>
         <p>
-          Si contratas <strong>Órale AI Pro</strong> (varios meseros),
+          Si activas varios meseros con <strong>Órale AI Pro</strong>,
           sincronizamos en nuestros servidores{" "}
           <strong>solo lo necesario</strong> para que varios dispositivos
           operen el mismo negocio: menú, personal (nombre, rol y PIN de acceso)
@@ -53,6 +53,17 @@ export default function Privacy() {
           nuestros servidores (Supabase) guardamos el menú compartido, el
           personal asociado al negocio y las órdenes abiertas mientras el plan
           Pro esté activo. No usamos esos datos para publicidad ni los vendemos.
+        </p>
+        <p>
+          <strong>Órale AI Pro (tienda en línea):</strong> al activar Negocio en línea,
+          publicas el nombre, teléfono, dirección y catálogo que configures, con precios
+          y fotos. Cualquier persona con el enlace puede consultar el menú mientras
+          esté disponible. Conservamos una copia en Supabase para servirlo con la app
+          cerrada. El nombre, teléfono, domicilio y notas que el comprador ingresa
+          se usan para preparar su mensaje de WhatsApp; no los guardamos como pedidos
+          en nuestra base de datos. El comprador decide enviarlo al negocio.
+          Puedes pausar la tienda desde Ajustes; las imágenes ya públicas pueden
+          seguir disponibles mediante sus enlaces.
         </p>
         <p>
           <strong>Analítica de uso (anónima):</strong> para mejorar la app

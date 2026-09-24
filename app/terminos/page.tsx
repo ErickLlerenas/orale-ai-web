@@ -37,7 +37,7 @@ export default function Terms() {
           (Microsoft Store) y <strong>Mac</strong> (app de iPad en Apple
           Silicon). Esas funciones están en todos los planes;{" "}
           <strong>Órale AI Pro</strong> agrega varios dispositivos sincronizados
-          en el mismo negocio.
+          en el mismo negocio y una tienda en línea con pedidos por WhatsApp.
         </p>
         <p>
           En el <strong>plan Órale AI</strong>, la información de tu negocio
@@ -114,14 +114,18 @@ export default function Terms() {
           Ningún plan incluye <strong>prueba gratis</strong>. Pro está
           disponible solo en <strong>México</strong> y también puedes
           contratarlo o activarlo desde la app (Ajustes → Equipo y accesos →
-          Varios meseros).
+          Varios meseros, o Ajustes → Negocio → Negocio en línea).
         </p>
         <p>
-          <strong>Órale AI Pro</strong> está pensado para negocios con{" "}
-          <strong>WiFi en el local</strong>. Permite varios celulares tomando
-          comandas y sincroniza menú y órdenes abiertas. Si cancelas o dejas de
-          pagar Pro, el acceso multi-dispositivo y la sincronización dejan de
-          estar disponibles.
+          <strong>Órale AI Pro</strong> incluye varios celulares tomando
+          comandas y sincronización de menú y órdenes abiertas, con WiFi del local.
+          También incluye una tienda en línea opcional que publica tu menú y abre
+          WhatsApp para que el cliente envíe su pedido. No cobra al cliente ni
+          registra automáticamente ese pedido en caja; el negocio lo confirma.
+          La tienda requiere internet, sin impresora ni dispositivos de meseros.
+          Al terminar el periodo de acceso a Pro, la sincronización y la tienda
+          en línea dejan de estar disponibles. Cancelar la renovación conserva
+          el acceso durante el periodo ya pagado.
         </p>
         <p>
           <strong>En iPhone, iPad, Mac y Android:</strong> el cobro y la
