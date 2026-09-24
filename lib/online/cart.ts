@@ -171,7 +171,8 @@ export function whatsappOrder(
       "Tu pedido es muy largo. Reduce las notas o divídelo en dos mensajes.",
     );
   return {
-    url: `https://wa.me/${catalog.phone}?text=${encodeURIComponent(message)}`,
+    // Avoid wa.me redirects, which can replace non-BMP emoji with U+FFFD.
+    url: `https://api.whatsapp.com/send?phone=${catalog.phone}&text=${encodeURIComponent(message)}`,
     total: q.total,
     message,
   };
