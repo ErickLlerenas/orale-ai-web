@@ -183,17 +183,18 @@ export default function Home() {
               <div>
                 <p className="pro-eyebrow">Órale AI Pro</p>
                 <h2 className="pro-title">
-                  Tus meseros toman pedidos desde su celular
+                  Tu equipo conectado. Tu menú en línea.
                 </h2>
                 <p className="pro-sub">
-                  Los pedidos llegan a la caja y se imprimen en cocina. Tú llevas
-                  las cuentas y cobras desde un solo lugar.
+                  Conecta a tus meseros con cocina y caja, y comparte tu menú para
+                  recibir pedidos por WhatsApp. Ambos beneficios incluidos en Pro.
                 </p>
               </div>
               <a className="btn btn-pro" href="#precios">
                 Ver precios Pro
               </a>
             </div>
+            <h3 className="pro-benefit-title">En tu local: meseros, cocina y caja</h3>
             <ProSyncVisual />
             <ol className="pro-points">
               {proFeatures.map((f) => (
@@ -207,8 +208,24 @@ export default function Home() {
               ))}
             </ol>
             <p className="pro-note">
-              <strong>Importante:</strong> Pro necesita WiFi del local e
-              impresora de red. Si no los tienes, quédate en el plan Órale AI.
+              Para meseros e impresión necesitas WiFi del local e impresora de red.
+            </p>
+            <div className="pro-online-benefit">
+              <div>
+                <p className="pro-eyebrow">También incluido en Pro</p>
+                <h3>Tu tienda en línea, desde la misma app</h3>
+                <p>Activa Negocio en línea y comparte tu enlace. Usamos los productos,
+                  fotos y teléfono de tu negocio. Tú eliges si aceptas domicilio o solo pedidos para recoger.</p>
+              </div>
+              <ol>
+                <li>Tu cliente abre el menú y arma su carrito.</li>
+                <li>Envía el pedido a tu WhatsApp.</li>
+                <li>Tú confirmas disponibilidad, entrega y pago.</li>
+              </ol>
+            </div>
+            <p className="pro-note">
+              El menú en línea necesita internet y WhatsApp; no requiere impresora.
+              Estos pedidos se confirman por WhatsApp y no entran automáticamente a caja.
             </p>
           </div>
         </section>
@@ -216,7 +233,7 @@ export default function Home() {
         <section id="precios" className="container">
           <h2 className="section-title">Precios claros</h2>
           <p className="section-sub">
-            Si tu equipo crece, sube a Pro.
+            Elige Pro para conectar a tu equipo y recibir pedidos por WhatsApp.
           </p>
           {promoEndsLabel && next && increaseOnLabel && (
             <p className="promo-note">
@@ -247,18 +264,19 @@ export default function Home() {
 
             <div className="plan-card featured">
               <h3 className="plan-name">Órale AI Pro</h3>
-              <p className="plan-tagline">Una caja, varios meseros.</p>
+              <p className="plan-tagline">Meseros y tienda en línea.</p>
               <PlanPrice now={prices.pro} next={next?.pro} />
               <ul className="plan-list">
                 <li>Incluye todo Órale AI</li>
                 <li>Cada mesero pide desde su celular</li>
                 <li>Las comandas se sincronizan solas</li>
                 <li>Imprimen directo a cocina por la red</li>
+                <li>Tienda en línea con pedidos por WhatsApp</li>
               </ul>
               <a className="btn btn-pro plan-cta" href="#cta">
                 Quiero Pro
               </a>
-              <p className="plan-foot">Ideal si ya pides desde las mesas</p>
+              <p className="plan-foot">Ambos beneficios en una sola suscripción</p>
             </div>
           </div>
         </section>

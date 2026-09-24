@@ -3123,3 +3123,12 @@ table.data tbody tr:last-child td {
   .demo-photo, .demo-import { display: none; }
   .demo-sale { opacity: 1; transform: none; }
 }
+
+/* Two distinct Pro benefits, retaining the existing waiter animation. */
+.pro-benefit-title { margin: 28px 0 16px; color: var(--pro-ink); font-size: 1.3rem; }
+.pro-online-benefit { display: grid; grid-template-columns: 1.2fr 1fr; gap: 32px; margin-top: 32px; padding: 28px; border: 1px solid var(--pro-border); border-radius: 24px; background: var(--pro-surface-2); }
+.pro-online-benefit h3 { color: var(--pro-ink); font-size: clamp(1.4rem, 3vw, 1.9rem); margin: 8px 0 12px; }
+.pro-online-benefit p, .pro-online-benefit li { color: var(--pro-ink-soft); line-height: 1.65; }
+.pro-online-benefit ol { margin: 0; padding-left: 24px; align-self: center; }
+.pro-online-benefit li + li { margin-top: 14px; }
+@media (max-width: 720px) { .pro-online-benefit { grid-template-columns: 1fr; padding: 22px; gap: 20px; } }
