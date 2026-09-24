@@ -70,3 +70,39 @@ npm run dev
 `/admin` está protegido con Basic Auth vía `middleware.ts` (usuario/contraseña
 por env). Es suficiente para un solo dueño. Si más adelante quieres algo más
 robusto, se puede cambiar a Supabase Auth.
+
+
+## Menú en línea y demo
+
+- `/demo/pedidos`: demo pública con un restaurante ficticio. Funciona sin
+  Supabase, sesión ni suscripción. Permite elegir presentaciones, salsa, extras,
+  cantidades, notas y entrega; al finalizar muestra el mensaje de WhatsApp y permite abrirlo con el
+  número de prueba introducido por el visitante. El visitante pulsa Enviar
+  dentro de WhatsApp. No hay un número personal incluido en el código. Los datos introducidos permanecen en memoria y se
+  descartan al recargar. No se enlaza desde la landing y lleva `noindex`.
+- `/pedir/[slug]`: menú real publicado desde Órale. Requiere la función
+  `online-store` del repositorio de la app y `SUPABASE_URL` (o
+  `NEXT_PUBLIC_SUPABASE_URL`) en Vercel. Las credenciales de Apple/Google viven
+  en Supabase, no en esta web. La demo no sustituye ni omite esa validación.
+- `/api/menu/[slug]/pedido`: vuelve a consultar el menú vigente y valida
+  precios, opciones, existencias y revisión antes de preparar el enlace.
+  No registra una orden, cobra ni reserva inventario.
+
+Para probar: `npm run dev`, abre `/demo/pedidos`, agrega tacos con salsa y
+extras, abre el carrito, escribe tu número con código de país y un nombre de prueba, y pulsa
+**Ver mensaje de WhatsApp**. Desde la vista del mensaje puedes abrir WhatsApp
+para enviarte el pedido. Prueba también domicilio y quitar/cambiar cantidades.
+
+Validación: `node scripts/test-online-store.mjs` y `npm run build`.
+
+Fotos ilustrativas de la demo en Unsplash:
+[Tai’s Captures](https://unsplash.com/photos/close-up-photography-of-food-JiRSy0GfqPA),
+[Frankie Lopez](https://unsplash.com/photos/a-wooden-plate-topped-with-three-tacos-and-a-lime-_j4S4V2C8ew)
+y [Spencer Davis](https://unsplash.com/es/fotos/tacos-en-bandeja-gris-bIZmLWPATeA).
+
+
+La opción de domicilio viene del catálogo publicado por el dueño
+(`acceptsDelivery`). Si falta o es falsa, solo se permite recoger; el endpoint
+rechaza pedidos de domicilio aunque el navegador los envíe manualmente.
+Para probar ese caso, abre `/demo/pedidos?entrega=recoger`.
+Los mensajes usan el mismo formato de WhatsApp en la demo y en pedidos reales.
