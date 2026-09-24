@@ -1,6 +1,7 @@
 import Footer from "@/components/Footer";
 import HeroTablet from "@/components/HeroTablet";
 import ProSyncVisual from "@/components/ProSyncVisual";
+import OnlineStoreVisual from "@/components/OnlineStoreVisual";
 import StoreBadges from "@/components/StoreBadges";
 import { discountPct, mxn, pricingNow, type PlanAmounts } from "@/lib/pricing";
 import { softwareJsonLd } from "@/lib/seo";
@@ -210,18 +211,14 @@ export default function Home() {
             <p className="pro-note">
               Para meseros e impresión necesitas WiFi del local e impresora de red.
             </p>
-            <div className="pro-online-benefit">
+            <div id="menu-en-linea" className="pro-online-benefit">
               <div>
                 <p className="pro-eyebrow">También incluido en Pro</p>
                 <h3>Tu tienda en línea, desde la misma app</h3>
                 <p>Activa Negocio en línea y comparte tu enlace. Usamos los productos,
                   fotos y teléfono de tu negocio. Tú eliges si aceptas domicilio o solo pedidos para recoger.</p>
               </div>
-              <ol>
-                <li>Tu cliente abre el menú y arma su carrito.</li>
-                <li>Envía el pedido a tu WhatsApp.</li>
-                <li>Tú confirmas disponibilidad, entrega y pago.</li>
-              </ol>
+              <OnlineStoreVisual />
             </div>
             <p className="pro-note">
               El menú en línea necesita internet y WhatsApp; no requiere impresora.
