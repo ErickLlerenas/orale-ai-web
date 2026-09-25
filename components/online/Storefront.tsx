@@ -9,6 +9,19 @@ import {
 } from "@/lib/online/cart";
 import styles from "./storefront.module.css";
 
+const plusBadge = (
+  <span className={styles.plus} aria-hidden="true">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+      <path
+        d="M12 5v14M5 12h14"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    </svg>
+  </span>
+);
+
 function Dialog({
   title,
   close,
@@ -234,6 +247,9 @@ export default function Storefront({
   const [previewMessage, setPreviewMessage] = useState<string | null>(null);
   const [whatsapp, setWhatsapp] = useState<string | null>(null);
   const catalog = menu.catalog;
+  // A menu without photos reads better as a dense list than as a column of
+  // empty frames. Decided for the whole menu so rows keep one rhythm.
+  const anyPhoto = catalog.products.some((p) => p.image);
   let quote: ReturnType<typeof quoteCart> | null = null;
   let cartError = "";
   try {
@@ -348,7 +364,13 @@ export default function Storefront({
             className={styles.section}
           >
             <h2>{category.name}</h2>
-            <div className={styles.products}>
+            <div
+              className={
+                anyPhoto
+                  ? styles.products
+                  : `${styles.products} ${styles.compact}`
+              }
+            >
               {products.map((p) => (
                 <button
                   disabled={!p.available}
@@ -366,13 +388,9 @@ export default function Storefront({
                         : "Agotado"}
                     </strong>
                   </div>
-                  {(p.image || p.available) && (
-                    <span
-                      className={
-                        p.image ? styles.productVisual : styles.productAction
-                      }
-                    >
-                      {p.image && (
+                  {anyPhoto ? (
+                    <span className={styles.productVisual}>
+                      {p.image ? (
                         <img
                           src={p.image}
                           alt={p.name}
@@ -380,25 +398,22 @@ export default function Storefront({
                           width={112}
                           height={112}
                         />
-                      )}
-                      {p.available && (
-                        <span className={styles.plus} aria-hidden="true">
-                          <svg
-                            width="20"
-                            height="20"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                          >
-                            <path
-                              d="M12 5v14M5 12h14"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                            />
-                          </svg>
+                      ) : (
+                        // Same width as a photo, so every name starts on the
+                        // same column when only some products have one.
+                        <span
+                          className={styles.productPlaceholder}
+                          aria-hidden="true"
+                        >
+                          {p.name.trim().charAt(0).toUpperCase()}
                         </span>
                       )}
+                      {p.available && plusBadge}
                     </span>
+                  ) : (
+                    p.available && (
+                      <span className={styles.productAction}>{plusBadge}</span>
+                    )
                   )}
                 </button>
               ))}

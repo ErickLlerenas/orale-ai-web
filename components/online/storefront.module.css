@@ -104,6 +104,33 @@
   flex: 0 0 36px;
   align-self: center;
 }
+/* No photos at all: rows stop reserving the height of an image. */
+.compact .product {
+  min-height: 0;
+  padding: 14px 0;
+  align-items: center;
+}
+.compact .product h3 {
+  margin-bottom: 4px;
+}
+.compact .product p {
+  -webkit-line-clamp: 2;
+  margin-bottom: 6px;
+}
+.productPlaceholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 112px;
+  height: 112px;
+  border-radius: 14px;
+  background: #f4f5f7;
+  background: color-mix(in srgb, var(--menu-accent) 9%, #fff);
+  color: var(--menu-accent);
+  font-size: 34px;
+  font-weight: 800;
+  line-height: 1;
+}
 .product img {
   display: block;
   width: 112px;
