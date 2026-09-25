@@ -1,14 +1,13 @@
 import { NextResponse } from "next/server";
 import { loadMenu, MenuError } from "@/lib/online/server";
-import { whatsappOrder } from "@/lib/online/cart";
+import { storeOrder } from "@/lib/online/orders";
 export const dynamic = "force-dynamic";
 export async function POST(
   req: Request,
   { params }: { params: { slug: string } },
 ) {
   try {
-    // No order or customer record is stored. This only validates against the
-    // current menu and composes a WhatsApp link; the buyer must send it.
+    // The buyer still sends WhatsApp; only caja can retrieve this private draft.
     const reader = req.body?.getReader();
     if (!reader)
       return NextResponse.json({ error: "Pedido vacío." }, { status: 400 });
@@ -49,14 +48,15 @@ export async function POST(
         { status: 409 },
       );
     return NextResponse.json(
-      whatsappOrder(menu.catalog, body.lines, body.checkout),
+      await storeOrder(params.slug, menu, body.lines, body.checkout, body.requestKey,
+        req.headers.get("x-vercel-forwarded-for")?.split(",")[0].trim() ?? "local"),
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (e) {
     return NextResponse.json(
       {
         error:
-          e instanceof Error ? e.message : "No pudimos preparar el pedido.",
+          e instanceof MenuError ? e.message : "No pudimos preparar el pedido. Revisa tus datos e intenta de nuevo.",
       },
       { status: e instanceof MenuError ? e.status : 400 },
     );
