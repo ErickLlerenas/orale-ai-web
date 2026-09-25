@@ -111,6 +111,7 @@ export function whatsappOrder(
   lines: CartLine[],
   checkout: Checkout,
   now = new Date(),
+  orderUrl?: string,
 ) {
   if (
     !checkout ||
@@ -165,6 +166,7 @@ export function whatsappOrder(
       ? "¿Me confirman disponibilidad, total y tiempo de entrega?"
       : "¿Me confirman disponibilidad, total y tiempo de preparación?",
   ];
+  if (orderUrl) parts.push("", "📲 *Para la caja · Abrir pedido en Órale AI:*", orderUrl);
   const message = parts.join("\n");
   if (message.length > 7500)
     throw new Error(

@@ -247,6 +247,7 @@ export default function Storefront({
     setWhatsapp(null);
     setError("");
   }
+  const orderRequest = useRef<{fingerprint: string; key: string} | null>(null);
   async function prepare(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
@@ -264,10 +265,15 @@ export default function Storefront({
         setCartOpen(false);
         return;
       }
+      const fingerprint = JSON.stringify({revision: menu.revision, lines, checkout});
+      if (orderRequest.current?.fingerprint !== fingerprint) {
+        const bytes = crypto.getRandomValues(new Uint8Array(32));
+        orderRequest.current = {fingerprint, key: Array.from(bytes, b => b.toString(16).padStart(2, "0")).join("")};
+      }
       const response = await fetch(`/api/menu/${slug}/pedido`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ revision: menu.revision, lines, checkout }),
+        body: JSON.stringify({ revision: menu.revision, lines, checkout, requestKey: orderRequest.current.key }),
       });
       const data = await response.json();
       if (data.menu) {
