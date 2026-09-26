@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import type { CartLine, Checkout, Menu, Product } from "@/lib/online/types";
 import {
   money,
@@ -32,9 +32,9 @@ function Dialog({
   children: ReactNode;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const d = ref.current!;
-    d.showModal();
+    if (!d.open) d.showModal();
     return () => d.close();
   }, []);
   return (
@@ -44,29 +44,70 @@ function Dialog({
       onCancel={close}
       aria-label={title}
     >
-      <header className={styles.dialogHeader}>
-        <h2>{title}</h2>
-        <button className={styles.close} onClick={close} aria-label="Cerrar">
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            aria-hidden="true"
-          >
-            <path
-              d="m6 6 12 12M18 6 6 18"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-            />
-          </svg>
-        </button>
-      </header>
-      <div className={styles.dialogBody}>{children}</div>
+      <div className={styles.dialogPanel}>
+        <header className={styles.dialogHeader}>
+          <h2>{title}</h2>
+          <button className={styles.close} onClick={close} aria-label="Cerrar">
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              aria-hidden="true"
+            >
+              <path
+                d="m6 6 12 12M18 6 6 18"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+            </svg>
+          </button>
+        </header>
+        <div className={styles.dialogBody}>{children}</div>
+      </div>
     </dialog>
   );
 }
+function QuantityStepper({
+  value,
+  max,
+  label,
+  onChange,
+}: {
+  value: number;
+  max: number;
+  label: string;
+  onChange: (next: number) => void;
+}) {
+  const cap = Math.max(1, Math.min(99, max));
+  return (
+    <div className={styles.stepper} role="group" aria-label={label}>
+      <button
+        type="button"
+        aria-label="Disminuir"
+        disabled={value <= 1}
+        onClick={() => onChange(value - 1)}
+      >
+        <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+          <path d="M4 9h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+        </svg>
+      </button>
+      <span aria-live="polite">{value}</span>
+      <button
+        type="button"
+        aria-label="Aumentar"
+        disabled={value >= cap}
+        onClick={() => onChange(value + 1)}
+      >
+        <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+          <path d="M9 4v10M4 9h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+        </svg>
+      </button>
+    </div>
+  );
+}
+
 function ProductForm({
   product,
   add,
@@ -198,17 +239,15 @@ function ProductForm({
             placeholder="Por ejemplo, sin cebolla"
           />
         </label>
-        <label className={styles.field}>
+        <div className={styles.field}>
           Cantidad
-          <input
-            type="number"
-            min={1}
-            max={Math.min(99, product.stock ?? 99)}
-            required
+          <QuantityStepper
             value={quantity}
-            onChange={(e) => setQuantity(Number(e.target.value))}
+            max={product.stock ?? 99}
+            label={`Cantidad de ${product.name}`}
+            onChange={setQuantity}
           />
-        </label>
+        </div>
         {error && (
           <p role="alert" className={styles.error}>
             {error}
@@ -342,7 +381,22 @@ export default function Storefront({
         {catalog.categories
           .filter((c) => catalog.products.some((p) => p.categoryId === c.id))
           .map((c) => (
-            <a key={c.id} href={`#cat-${c.id}`}>
+            <a
+              key={c.id}
+              href={`#cat-${c.id}`}
+              onClick={(event) => {
+                const section = document.getElementById(`cat-${c.id}`);
+                if (!section) return;
+                event.preventDefault();
+                const reduce = window.matchMedia(
+                  "(prefers-reduced-motion: reduce)",
+                ).matches;
+                section.scrollIntoView({
+                  behavior: reduce ? "auto" : "smooth",
+                  block: "start",
+                });
+              }}
+            >
               {c.name}
             </a>
           ))}
@@ -480,25 +534,18 @@ export default function Storefront({
                       Quitar
                     </button>
                   </div>
-                  <label>
-                    Cantidad
-                    <input
-                      aria-label={`Cantidad de ${p?.name ?? "producto"}`}
-                      type="number"
-                      min={1}
-                      max={99}
-                      value={line.quantity}
-                      onChange={(e) =>
-                        changeLines(
-                          lines.map((l, i) =>
-                            i === index
-                              ? { ...l, quantity: Number(e.target.value) }
-                              : l,
-                          ),
-                        )
-                      }
-                    />
-                  </label>
+                  <QuantityStepper
+                    value={line.quantity}
+                    max={p?.stock ?? 99}
+                    label={`Cantidad de ${p?.name ?? "producto"}`}
+                    onChange={(quantity) =>
+                      changeLines(
+                        lines.map((l, i) =>
+                          i === index ? { ...l, quantity } : l,
+                        ),
+                      )
+                    }
+                  />
                 </div>
               );
             })}
