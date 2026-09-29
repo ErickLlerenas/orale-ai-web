@@ -68,10 +68,14 @@ function Figures({ report, onDownload }: { report: Report; onDownload: (report: 
   </>;
 }
 
+function CardTag({ card }: { card: "personal" | "negocio" }) {
+  return <span className={card === "personal" ? styles.personal : styles.negocio}>{card === "personal" ? "Personal" : "Negocio"}</span>;
+}
+
 function CursorExpenses({ reports, month, onDownload }: { reports: Report[]; month: string; onDownload: (report: Report) => void }) {
   const paid = reports.filter(report => report.receipt?.month === month).sort((a, b) => a.period.localeCompare(b.period));
   return <section className={styles.entry}>
-    <div className={styles.row}><h2>Cursor AI</h2>{paid.length === 0 && <span className={styles.missing}>Sin archivo</span>}</div>
+    <div className={styles.row}><div className={styles.name}><h2>Cursor AI</h2><CardTag card="personal"/></div>{paid.length === 0 && <span className={styles.missing}>Sin archivo</span>}</div>
     {paid.length > 0 && <dl className={styles.breakdown}>
       {paid.map(report => <div key={report.period}><dt>{invoiceDate(report.period)}<button type="button" className={styles.csv} onClick={() => onDownload(report)}><Download/>PDF</button></dt><dd>{usd(report.totals.closing)}</dd></div>)}
       <div className={styles.deposit}><dt>Total</dt><dd>{usd(paid.reduce((sum, report) => sum + report.totals.closing, 0))}</dd></div>
@@ -79,11 +83,37 @@ function CursorExpenses({ reports, month, onDownload }: { reports: Report[]; mon
   </section>;
 }
 
-function Platform({ title, reports, month, onDownload }: { title: string; reports: Report[]; month: string; onDownload: (report: Report) => void }) {
+function ChatgptExpenses({ reports, month, onDownload }: { reports: Report[]; month: string; onDownload: (report: Report) => void }) {
+  const paid = reports.filter(report => report.receipt?.month === month).sort((a, b) => a.period.localeCompare(b.period));
+  return <section className={styles.entry}>
+    <div className={styles.row}><div className={styles.name}><h2>ChatGPT</h2><CardTag card="personal"/></div>{paid.length === 0 && <span className={styles.missing}>Sin archivo</span>}</div>
+    {paid.length > 0 && <dl className={styles.breakdown}>
+      {paid.map(report => <div key={report.period}><dt>{invoiceDate(report.period)}<button type="button" className={styles.csv} onClick={() => onDownload(report)}><Download/>PDF</button></dt><dd>{money(report.totals.closing)} MXN</dd></div>)}
+      <div className={styles.deposit}><dt>Total</dt><dd>{money(paid.reduce((sum, report) => sum + report.totals.closing, 0))} MXN</dd></div>
+    </dl>}
+  </section>;
+}
+
+function FacebookExpenses({ reports, month, onDownload }: { reports: Report[]; month: string; onDownload: (report: Report) => void }) {
+  const paid = reports.filter(report => report.receipt?.month === month).sort((a, b) => a.period.localeCompare(b.period));
+  return <section className={styles.entry}>
+    <div className={styles.row}><div className={styles.name}><h2>Facebook Ads</h2><CardTag card="negocio"/></div>{paid.length === 0 && <span className={styles.missing}>Sin archivo</span>}</div>
+    {paid.map(report => <div key={report.period}>
+      <dl className={styles.breakdown}>
+        {report.rows.map(row => <div key={row.line}><dt>{invoiceDate(row.iso || row.date)}</dt><dd>{money(row.amount)} MXN</dd></div>)}
+        <div><dt>IVA<small>En la factura</small></dt><dd>{money(report.totals.tax || 0)} MXN</dd></div>
+        <div className={styles.deposit}><dt>Gasto</dt><dd>{money(report.totals.closing)} MXN</dd></div>
+      </dl>
+      <button type="button" className={styles.csv} onClick={() => onDownload(report)}><Download/>CSV</button>
+    </div>)}
+  </section>;
+}
+
+function Platform({ title, reports, month, onDownload, card }: { title: string; reports: Report[]; month: string; onDownload: (report: Report) => void; card?: "personal" | "negocio" }) {
   const paid = reports.filter(report => report.receipt?.month === month);
   return <section className={styles.entry}>
     <div className={styles.row}>
-      <h2>{title}</h2>
+      <div className={styles.name}><h2>{title}</h2>{card && <CardTag card={card}/>}</div>
       {paid.length === 0 && <span className={styles.missing}>Sin archivo</span>}
     </div>
     {paid.map(report => <Figures key={report.period} report={report} onDownload={onDownload}/>)}
@@ -97,6 +127,8 @@ export default function AccountingPortal({ role, local = false }: { role: "owner
   const [stripe, setStripe] = useState<{ reports: Report[]; version: string }>({ reports: [], version: "" });
   const [mercado, setMercado] = useState<{ reports: Report[]; version: string }>({ reports: [], version: "" });
   const [cursor, setCursor] = useState<{ reports: Report[]; version: string }>({ reports: [], version: "" });
+  const [chatgpt, setChatgpt] = useState<{ reports: Report[]; version: string }>({ reports: [], version: "" });
+  const [facebook, setFacebook] = useState<{ reports: Report[]; version: string }>({ reports: [], version: "" });
   const [loading, setLoading] = useState(true);
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -112,9 +144,9 @@ export default function AccountingPortal({ role, local = false }: { role: "owner
   useEffect(() => {
     let cancelled = false;
     setLoading(true); setError("");
-    Promise.all([request("play"), request("apple"), request("stripe"), request("mercado"), request("cursor")]).then(([playData, appleData, stripeData, mercadoData, cursorData]) => {
+    Promise.all([request("play"), request("apple"), request("stripe"), request("mercado"), request("cursor"), request("facebook"), request("chatgpt")]).then(([playData, appleData, stripeData, mercadoData, cursorData, facebookData, chatgptData]) => {
       if (cancelled) return;
-      setPlay(playData); setApple(appleData); setStripe(stripeData); setMercado(mercadoData); setCursor(cursorData); setReady(true);
+      setPlay(playData); setApple(appleData); setStripe(stripeData); setMercado(mercadoData); setCursor(cursorData); setFacebook(facebookData); setChatgpt(chatgptData); setReady(true);
     }).catch(e => { if (!cancelled) setError(e.message); }).finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, []);
@@ -131,7 +163,7 @@ export default function AccountingPortal({ role, local = false }: { role: "owner
     const list = files ? [...files] : [];
     if (!list.length || busy) return;
     setBusy(true); setError("");
-    const versions: Record<string, string> = { play: play.version, apple: apple.version, stripe: stripe.version, mercado: mercado.version, cursor: cursor.version };
+    const versions: Record<string, string> = { play: play.version, apple: apple.version, stripe: stripe.version, mercado: mercado.version, cursor: cursor.version, facebook: facebook.version, chatgpt: chatgpt.version };
     try {
       for (const file of list) {
       if (file.size > 2_000_000) throw new Error("El archivo debe pesar menos de 2 MB.");
@@ -140,12 +172,15 @@ export default function AccountingPortal({ role, local = false }: { role: "owner
         let binary = "";
         bytes.forEach(byte => { binary += String.fromCharCode(byte); });
         const data = await request("pdf", { action: "upload-report", report: { name: file.name, pdf: btoa(binary) }, versions });
-        const platform = data.platform === "cursor" ? "cursor" : "mercado";
+        const platform = data.platform === "cursor" || data.platform === "chatgpt" ? data.platform : "mercado";
         const saved = data.reports.find(report => report.period === data.period);
         if (!saved) throw new Error("No se pudo guardar el archivo.");
         const paid = await request(platform, { action: "record-receipt", period: saved.period, version: data.version, receipt: { month, amount: depositOf(saved) } });
         versions[platform] = paid.version;
-        if (platform === "cursor") { setCursor(paid); setTab("gastos"); } else setMercado(paid);
+        if (platform === "cursor") setCursor(paid);
+        else if (platform === "chatgpt") setChatgpt(paid);
+        else setMercado(paid);
+        if (platform === "cursor" || platform === "chatgpt") setTab("gastos");
         continue;
       }
       const text = await file.text();
@@ -156,8 +191,8 @@ export default function AccountingPortal({ role, local = false }: { role: "owner
         return;
       }
       const parsed = parseReport(text, file.name);
-      const platform = parsed.kind === "apple" ? "apple" : parsed.kind === "stripe" ? "stripe" : "play";
-      const current = platform === "apple" ? apple : platform === "stripe" ? stripe : play;
+      const platform = parsed.kind === "apple" ? "apple" : parsed.kind === "stripe" ? "stripe" : parsed.kind === "facebook" ? "facebook" : "play";
+      const current = platform === "apple" ? apple : platform === "stripe" ? stripe : platform === "facebook" ? facebook : play;
       const existing = current.reports.find(r => r.period === parsed.period);
       if (existing && existing.text !== parsed.text && !confirm(`¿Reemplazar ${file.name}?`)) continue;
       const data = await request(platform, { action: "upload-report", report: { name: file.name, text: parsed.text }, version: versions[platform] });
@@ -165,7 +200,7 @@ export default function AccountingPortal({ role, local = false }: { role: "owner
       if (!saved) throw new Error("No se pudo guardar el archivo.");
       const paid = await request(platform, { action: "record-receipt", period: saved.period, version: data.version, receipt: { month, amount: depositOf(saved) } });
       versions[platform] = paid.version;
-      if (platform === "apple") setApple(paid); else if (platform === "stripe") setStripe(paid); else setPlay(paid);
+      if (platform === "apple") setApple(paid); else if (platform === "stripe") setStripe(paid); else if (platform === "facebook") { setFacebook(paid); setTab("gastos"); } else setPlay(paid);
       }
     } catch (e) { setError(e instanceof Error ? e.message : "No se pudo cargar el archivo."); }
     finally { setBusy(false); if (input.current) input.current.value = ""; }
@@ -182,8 +217,10 @@ export default function AccountingPortal({ role, local = false }: { role: "owner
     a.download = report.name;
     document.body.appendChild(a);
     a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    setTimeout(() => {
+      a.parentNode?.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 1000);
   }
 
   return <div className={styles.portal}><main className={styles.main}>
@@ -215,7 +252,8 @@ export default function AccountingPortal({ role, local = false }: { role: "owner
     </>}
     {ready && tab === "gastos" && <>
       <CursorExpenses reports={cursor.reports} month={month} onDownload={download}/>
-      <Platform title="Facebook Ads" reports={[]} month={month} onDownload={download}/>
+      <ChatgptExpenses reports={chatgpt.reports} month={month} onDownload={download}/>
+      <FacebookExpenses reports={facebook.reports} month={month} onDownload={download}/>
     </>}
     {ready && tab === "banco" && <Platform title="Estado de cuenta" reports={[]} month={month} onDownload={download}/>}
     <input ref={input} hidden type="file" multiple accept=".csv,.txt,.pdf,text/csv,text/plain,application/pdf" onChange={e => upload(e.target.files)}/>

@@ -6,8 +6,8 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 const json = (body: unknown, status = 200) => NextResponse.json(body, { status, headers: { "Cache-Control": "private, no-store", "X-Robots-Tag": "noindex, nofollow" } });
 const validMonth = (month: string) => /^\d{4}-(0[1-9]|1[0-2])$/.test(month);
-const collectionOf = (platform: string | null) => platform === "apple" ? "apple-reports" : platform === "stripe" ? "stripe-reports" : platform === "mercado" ? "mercado-reports" : platform === "cursor" ? "cursor-reports" : "simple-reports";
-const platformOf = (kind?: string) => kind === "apple" || kind === "stripe" || kind === "mercado" || kind === "cursor" ? kind : "play";
+const collectionOf = (platform: string | null) => platform === "apple" ? "apple-reports" : platform === "stripe" ? "stripe-reports" : platform === "mercado" ? "mercado-reports" : platform === "cursor" ? "cursor-reports" : platform === "facebook" ? "facebook-reports" : platform === "chatgpt" ? "chatgpt-reports" : "simple-reports";
+const platformOf = (kind?: string) => kind === "apple" || kind === "stripe" || kind === "mercado" || kind === "cursor" || kind === "facebook" || kind === "chatgpt" ? kind : "play";
 export async function GET(req: NextRequest) {
   const role = await sessionRole(req.cookies.get(sessionCookie)?.value, req.headers.get("host"));
   if (!role) return json({ error: "Acceso restringido." }, 401);
@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
       }
       const requested = req.nextUrl.searchParams.get("platform");
       const detected = requested === "pdf" ? platformOf((validateWorkspace({ ...emptyWorkspace(), reports: [body.report] }).reports[0]).kind) : requested;
-      const platform = detected === "cursor" || detected === "mercado" || detected === "apple" || detected === "stripe" ? detected : "play";
+      const platform = detected === "cursor" || detected === "mercado" || detected === "apple" || detected === "stripe" || detected === "facebook" || detected === "chatgpt" ? detected : "play";
       const collection = collectionOf(platform);
       const current = await latest(collection);
       const expected = requested === "pdf" ? body.versions?.[platform] ?? "" : body.version;
