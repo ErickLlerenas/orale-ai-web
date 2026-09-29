@@ -1,0 +1,14 @@
+export type Row = { line: number; date: string; iso: string | null; description: string; amount: number; type: string };
+export type Report = { receipt?: { month: string; amount: number; date?: string }; sales?: number; salesBase?: number; salesFee?: number; kind?: 'earnings' | 'apple'; countries?: { code: string; charges: number; gross: number; refunds: number; net: number }[]; name: string; period: string; text: string; rows: Row[]; totals: Record<string, number>; difference: number; importedAt: string; hasOperations: boolean };
+export type Workspace = { reports: Report[]; links: Record<string, string>; notes: Record<string, string>; bank: Record<string, string> };
+export type Payout = Row & { id: string; report: Report };
+export function money(cents: number): string;
+export function validateReceipt(receipt: unknown): { month: string; amount: number; date?: string };
+export function mexicoVat(report: Report): { gross: number; base: number; vat: number } | null;
+export function escapeHtml(value: unknown): string;
+export function parseAmount(value: string): number;
+export function dateISO(value: string): string | null;
+export function parseReport(text: string, name: string): Report;
+export function appleSales(text: string, name: string): { period: string; customer: number; base: number; fee?: number };
+export function payoutRows(reports: Report[], month: string): Payout[];
+export function csv(rows: Record<string, unknown>[]): string;

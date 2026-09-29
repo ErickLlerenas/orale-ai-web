@@ -16,6 +16,9 @@ que consume la analítica de uso anónima desde Supabase.
 | `/privacidad` | Aviso de privacidad (requerido por App Store / Play Store). |
 | `/negocio` | Panel del dueño (Google). Misma lectura que en la app. |
 | `/admin` | Dashboard de métricas. Protegido con Basic Auth. |
+| `/contadores` | Cierre mensual de Google Play. Preparador y lector con accesos separados. |
+
+Configuración y flujo mensual: [Contadores](docs/contadores.md).
 
 ## Por qué Next.js (y no Vite)
 
