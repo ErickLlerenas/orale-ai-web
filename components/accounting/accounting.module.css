@@ -24,9 +24,9 @@
 .portal h1 small{font-size:13px;font-weight:500;color:#667085;margin-left:10px}
 .portal h2{margin:0;font-size:16px;font-weight:650;color:#1F2933}
 .name{display:flex;align-items:center;gap:8px;min-width:0}
-.personal,.negocio{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:650;line-height:1}
-.personal{background:#F4F6F8;color:#667085}
-.negocio{background:#FFF1EC;color:#F15A29}
+.personal,.negocio{display:inline-flex;align-items:center;gap:6px;flex-shrink:0;color:#1F2933;font-size:13px;font-weight:650}
+.personal svg{color:#820AD1}
+.negocio svg{color:#F15A29}
 .head,.row,.totals>div{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:24px;align-items:baseline}
 .head{margin-top:22px;padding-bottom:8px;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:#98A2B3}
 .entry{padding:14px 0 16px;border-top:1px solid #E8EBF0}
@@ -34,13 +34,16 @@
 .row strong,.totals strong{font-variant-numeric:tabular-nums;white-space:nowrap}
 .row strong{font-size:20px}
 .missing{font-size:14px;color:#98A2B3}
-.breakdown{margin:10px 0 0;padding-left:12px}
-.breakdown>div{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:24px;padding:6px 0}
-.breakdown dt{font-size:14px;color:#667085}
-.breakdown small{display:block;margin-top:1px;font-size:12px;font-weight:400;color:#98A2B3}
+.breakdown{margin:10px 0 0}
+.breakdown>div{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:24px;align-items:center;height:48px;padding:0 12px;border-radius:6px;background:#fff}
+.breakdown>div:nth-child(even){background:#F4F6F8}
+.breakdown dt{display:flex;align-items:center;gap:10px;min-width:0;font-size:14px;color:#667085}
+.breakdown dt>span:first-child{display:flex;flex-direction:column;justify-content:center;min-width:0}
+.breakdown small{display:block;margin:0;font-size:12px;line-height:1.2;font-weight:400;color:#98A2B3}
+.breakdown .csv{margin:0;height:28px;min-height:28px;padding:0 8px;font-size:12px;flex-shrink:0}
 .breakdown dd{margin:0;font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap;font-size:14px}
 .due dt,.due dd{color:#1F2933;font-weight:700}
-.deposit{margin-top:4px;border-top:1px solid #E8EBF0}
+.deposit{border-top:1px solid #E8EBF0}
 .deposit dt,.deposit dd{color:#1F2933;font-weight:700}
 .csv{margin-top:8px;font-size:13px}
 .totals{border-top:2px solid #F15A29;padding-top:14px}
