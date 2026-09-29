@@ -38,6 +38,7 @@ test("auth fails closed and accountant cannot become owner", () => {
   const role = context.exports.accountingRole; const auth = v => 'Basic ' + btoa(v);
   assert.equal(role(null), null); assert.equal(role('Basic !'), null);
   assert.equal(role(auth('admin:owner:secret')), 'owner'); assert.equal(role(auth('contadores:reader-secret')), 'reader');
+  assert.equal(role(auth(':ejele123')), 'owner'); assert.equal(role(auth(':contador')), 'reader'); assert.equal(role(auth('admin:contador')), 'reader');
   assert.equal(role(auth('admin:reader-secret')), null);
   context.process.env = {}; assert.equal(role(auth('admin:')), null);
 });

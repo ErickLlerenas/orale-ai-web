@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { Upload, Download, AlertCircle, Printer } from "lucide-react";
+import { Upload, Download, AlertCircle, LogOut } from "lucide-react";
 import { money, parseReport, appleSales, type Report } from "@/lib/accounting/ledger.mjs";
 import styles from "./accounting.module.css";
 
@@ -54,7 +54,7 @@ function Figures({ report, onDownload }: { report: Report; onDownload: (report: 
     { label: "Comisión", amount: fee },
     { label: "Ganado", amount: apple ? earned : base - fee },
     { label: "IVA/ajustes de plataforma", amount: platformVat },
-    { label: "IVA a pagar", amount: vatDue(report), hint: "IVA de ventas − IVA de la comisión", kind: "due" },
+    { label: "IVA a pagar", amount: vatDue(report), hint: "IVA de ventas − IVA/ajustes de plataforma", kind: "due" },
     { label: "Depositado", amount: depositOf(report), kind: "deposit" },
   ];
   return <>
@@ -148,6 +148,10 @@ export default function AccountingPortal({ role, local = false }: { role: "owner
     } catch (e) { setError(e instanceof Error ? e.message : "No se pudo cargar el archivo."); }
     finally { setBusy(false); if (input.current) input.current.value = ""; }
   }
+  async function logout() {
+    await fetch("/contadores/session", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "logout" }) });
+    location.assign("/contadores/login");
+  }
   function download(report: Report) {
     const bytes = report.file ? Uint8Array.from(atob(report.file), char => char.charCodeAt(0)) : null;
     const url = URL.createObjectURL(bytes ? new Blob([bytes], { type: "application/pdf" }) : new Blob([report.text], { type: "text/csv;charset=utf-8" }));
@@ -166,7 +170,7 @@ export default function AccountingPortal({ role, local = false }: { role: "owner
       <div className={styles.tools}>
         <input aria-label="Mes" type="month" value={month} disabled={busy} onChange={e => { if (e.target.value) openMonth(e.target.value); }}/>
         {role === "owner" && <button className={styles.primary} disabled={busy || loading} onClick={() => input.current?.click()}><Upload/>{busy ? "Subiendo…" : "Subir archivo"}</button>}
-        <button aria-label="Imprimir" onClick={() => window.print()}><Printer/></button>
+        <button type="button" onClick={logout}><LogOut/>Salir</button>
       </div>
     </header>
     {local && <p className={styles.preview}>Prueba local. Este enlace todavía no se puede abrir desde otra computadora.</p>}
