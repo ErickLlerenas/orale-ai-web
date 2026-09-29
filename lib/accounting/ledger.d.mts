@@ -1,5 +1,5 @@
 export type Row = { line: number; date: string; iso: string | null; description: string; amount: number; type: string };
-export type Report = { receipt?: { month: string; amount: number; date?: string }; sales?: number; salesBase?: number; salesFee?: number; file?: string; kind?: 'earnings' | 'apple' | 'stripe' | 'mercado'; countries?: { code: string; charges: number; gross: number; refunds: number; net: number }[]; name: string; period: string; text: string; rows: Row[]; totals: Record<string, number>; difference: number; importedAt: string; hasOperations: boolean };
+export type Report = { receipt?: { month: string; amount: number; date?: string }; sales?: number; salesBase?: number; salesFee?: number; file?: string; kind?: 'earnings' | 'apple' | 'stripe' | 'mercado' | 'cursor'; countries?: { code: string; charges: number; gross: number; refunds: number; net: number }[]; name: string; period: string; text: string; rows: Row[]; totals: Record<string, number>; difference: number; importedAt: string; hasOperations: boolean };
 export type Workspace = { reports: Report[]; links: Record<string, string>; notes: Record<string, string>; bank: Record<string, string> };
 export type Payout = Row & { id: string; report: Report };
 export function money(cents: number): string;

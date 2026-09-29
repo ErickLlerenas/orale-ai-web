@@ -6,8 +6,8 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 const json = (body: unknown, status = 200) => NextResponse.json(body, { status, headers: { "Cache-Control": "private, no-store", "X-Robots-Tag": "noindex, nofollow" } });
 const validMonth = (month: string) => /^\d{4}-(0[1-9]|1[0-2])$/.test(month);
-const collectionOf = (platform: string | null) => platform === "apple" ? "apple-reports" : platform === "stripe" ? "stripe-reports" : platform === "mercado" ? "mercado-reports" : "simple-reports";
-const platformOf = (kind?: string) => kind === "apple" || kind === "stripe" || kind === "mercado" ? kind : "play";
+const collectionOf = (platform: string | null) => platform === "apple" ? "apple-reports" : platform === "stripe" ? "stripe-reports" : platform === "mercado" ? "mercado-reports" : platform === "cursor" ? "cursor-reports" : "simple-reports";
+const platformOf = (kind?: string) => kind === "apple" || kind === "stripe" || kind === "mercado" || kind === "cursor" ? kind : "play";
 export async function GET(req: NextRequest) {
   const role = await sessionRole(req.cookies.get(sessionCookie)?.value, req.headers.get("host"));
   if (!role) return json({ error: "Acceso restringido." }, 401);
@@ -67,24 +67,27 @@ export async function POST(req: NextRequest) {
         if (!bytes.length || bytes.length > 2_000_000) return json({ error: "El PDF debe pesar menos de 2 MB." }, 400);
         body.report = { name: String(body.report.name || "mercado.pdf"), text: extractPdfText(bytes), file: body.report.pdf };
       }
-      const platform = req.nextUrl.searchParams.get("platform");
+      const requested = req.nextUrl.searchParams.get("platform");
+      const detected = requested === "pdf" ? platformOf((validateWorkspace({ ...emptyWorkspace(), reports: [body.report] }).reports[0]).kind) : requested;
+      const platform = detected === "cursor" || detected === "mercado" || detected === "apple" || detected === "stripe" ? detected : "play";
       const collection = collectionOf(platform);
       const current = await latest(collection);
-      if (body.version !== (current?.key ?? "")) return json({ error: "Hay información más reciente. Recarga antes de subir el archivo." }, 409);
+      const expected = requested === "pdf" ? body.versions?.[platform] ?? "" : body.version;
+      if (expected !== (current?.key ?? "")) return json({ error: "Hay información más reciente. Recarga antes de subir el archivo." }, 409);
       const uploaded = validateWorkspace({ ...emptyWorkspace(), reports: [body.report] }).reports[0];
       const existing = current?.state.reports.find(r => r.period === uploaded.period);
       uploaded.receipt = existing?.text === uploaded.text ? existing.receipt : undefined;
       if (existing?.sales) uploaded.sales = existing.sales;
       if (existing?.salesBase) uploaded.salesBase = existing.salesBase;
       if (existing?.salesFee != null) uploaded.salesFee = existing.salesFee;
-      if (platformOf(uploaded.kind) !== (platform === "apple" || platform === "stripe" || platform === "mercado" ? platform : "play")) return json({ error: "El archivo no corresponde a la plataforma seleccionada." }, 400);
+      if (platformOf(uploaded.kind) !== platform) return json({ error: "El archivo no corresponde a la plataforma seleccionada." }, 400);
       const state = validateWorkspace({
         ...emptyWorkspace(),
         reports: [...(current?.state.reports ?? []).filter(r => r.period !== uploaded.period), uploaded]
           .sort((a, b) => b.period.localeCompare(a.period)),
       });
       const version = await storeVersion(collection, { state });
-      return json({ reports: state.reports, version, period: uploaded.period });
+      return json({ reports: state.reports, version, period: uploaded.period, platform });
     }
     const current = await latest("drafts");
     if (body.version !== (current?.key ?? "")) return json({ error: "Hay una versión más reciente. Recarga antes de guardar." }, 409);
