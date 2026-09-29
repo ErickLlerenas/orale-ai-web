@@ -58,9 +58,10 @@ export function validateWorkspace(raw: unknown): Workspace {
     if (typeof r.text !== "string" || r.text.length > 2_000_000 || typeof r.name !== "string") throw new Error("Archivo inválido o demasiado grande.");
     const report = parseReport(r.text, r.name);
     if (r.receipt) report.receipt = validateReceipt(r.receipt);
-    if (report.kind === "apple" && Number.isSafeInteger(r.sales) && r.sales > 0) report.sales = r.sales;
-    if (report.kind === "apple" && Number.isSafeInteger(r.salesBase) && r.salesBase > 0) report.salesBase = r.salesBase;
-    if (report.kind === "apple" && Number.isSafeInteger(r.salesFee)) report.salesFee = r.salesFee;
+    const sales = r.sales, salesBase = r.salesBase, salesFee = r.salesFee;
+    if (report.kind === "apple" && typeof sales === "number" && Number.isSafeInteger(sales) && sales > 0) report.sales = sales;
+    if (report.kind === "apple" && typeof salesBase === "number" && Number.isSafeInteger(salesBase) && salesBase > 0) report.salesBase = salesBase;
+    if (report.kind === "apple" && typeof salesFee === "number" && Number.isSafeInteger(salesFee)) report.salesFee = salesFee;
     if (report.kind === "mercado" && typeof r.file === "string" && r.file.length < 3_000_000 && /^[A-Za-z0-9+/=]+$/.test(r.file)) report.file = r.file;
     return report;
   });
