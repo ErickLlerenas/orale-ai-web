@@ -61,6 +61,7 @@ export function validateWorkspace(raw: unknown): Workspace {
     if (report.kind === "apple" && Number.isSafeInteger(r.sales) && r.sales > 0) report.sales = r.sales;
     if (report.kind === "apple" && Number.isSafeInteger(r.salesBase) && r.salesBase > 0) report.salesBase = r.salesBase;
     if (report.kind === "apple" && Number.isSafeInteger(r.salesFee)) report.salesFee = r.salesFee;
+    if (report.kind === "mercado" && typeof r.file === "string" && r.file.length < 3_000_000 && /^[A-Za-z0-9+/=]+$/.test(r.file)) report.file = r.file;
     return report;
   });
   if (new Set(reports.map(r => r.period)).size !== reports.length) throw new Error("Periodos duplicados.");

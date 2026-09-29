@@ -19,11 +19,11 @@
 .portal h1{font-size:28px;line-height:1.25;margin:28px 0 0;font-weight:700}
 .portal h1 small{font-size:13px;font-weight:500;color:#667085;margin-left:10px}
 .portal h2{margin:0;font-size:16px;font-weight:650;color:#1F2933}
-.head,.row,.total{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:24px;align-items:baseline}
+.head,.row,.totals>div{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:24px;align-items:baseline}
 .head{margin-top:22px;padding-bottom:8px;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:#98A2B3}
 .entry{padding:14px 0 16px;border-top:1px solid #E8EBF0}
 .entry:first-of-type{margin-top:22px}
-.row strong,.total strong{font-variant-numeric:tabular-nums;white-space:nowrap}
+.row strong,.totals strong{font-variant-numeric:tabular-nums;white-space:nowrap}
 .row strong{font-size:20px}
 .missing{font-size:14px;color:#98A2B3}
 .breakdown{margin:10px 0 0;padding-left:12px}
@@ -35,8 +35,10 @@
 .deposit{margin-top:4px;border-top:1px solid #E8EBF0}
 .deposit dt,.deposit dd{color:#1F2933;font-weight:700}
 .csv{margin-top:8px;font-size:13px}
-.total{border-top:2px solid #F15A29;padding-top:14px;font-weight:700;font-size:16px}
-.total strong{font-size:20px}
+.totals{border-top:2px solid #F15A29;padding-top:14px}
+.totals>div{font-weight:700;font-size:16px}
+.totals>div+div{margin-top:8px}
+.totals strong{font-size:20px}
 .notice,.error{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;margin:18px 0 0;border-radius:4px;font-size:13px;overflow-wrap:anywhere}
 .notice{background:#FFF0EA;color:#943515}
 .error{background:#fff0ee;color:#983c2d;border:1px solid #efc2b9}
@@ -47,7 +49,7 @@
   .header{align-items:flex-start;flex-direction:column;gap:16px}
   .tools{flex-wrap:wrap}
   .portal h1{font-size:24px}
-  .head,.row,.total,.breakdown>div{gap:12px}
+  .head,.row,.totals>div,.breakdown>div{gap:12px}
 }
 @media print{
   .portal{border:0}

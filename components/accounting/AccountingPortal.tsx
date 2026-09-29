@@ -14,37 +14,55 @@ async function request(platform: string, body?: object) {
   } : { cache: "no-store" });
   const data = await response.json();
   if (!response.ok) throw new Error(data.error || "No se pudo abrir el informe.");
-  return data as { reports: Report[]; version: string };
+  return data as { reports: Report[]; version: string; period?: string };
 }
 
 function depositOf(report: Report) {
   return report.totals.closing;
 }
+function vatDue(report: Report) {
+  if (report.kind === "mercado") return (report.totals.tax || 0) - (report.totals.other || 0);
+  const apple = report.kind === "apple";
+  const included = apple || report.kind === "stripe";
+  const sales = apple ? report.sales || 0 : report.totals.credit || 0;
+  const base = included ? report.salesBase || (sales ? Math.round(sales / 1.16) : 0) : sales;
+  const salesVat = included ? sales - base : Math.round(sales * 0.16);
+  const platformVat = apple ? salesVat - (report.totals.other || 0) : Math.abs(report.totals.tax || 0);
+  return apple ? report.totals.other || 0 : salesVat - platformVat;
+}
 
 function Figures({ report, onDownload }: { report: Report; onDownload: (report: Report) => void }) {
+  const mercado = report.kind === "mercado";
   const apple = report.kind === "apple";
+  const included = apple || report.kind === "stripe";
   const sales = apple ? report.sales || 0 : report.totals.credit || 0;
-  const base = apple ? report.salesBase || (sales ? Math.round(sales / 1.16) : 0) : sales;
-  const salesVat = apple ? sales - base : Math.round(sales * 0.16);
+  const base = included ? report.salesBase || (sales ? Math.round(sales / 1.16) : 0) : sales;
+  const salesVat = included ? sales - base : Math.round(sales * 0.16);
   const earned = apple ? report.totals.credit || 0 : 0;
   const fee = apple ? (report.salesFee ?? base - earned) : Math.abs(report.totals.debit || 0);
   const platformVat = apple ? salesVat - (report.totals.other || 0) : Math.abs(report.totals.tax || 0);
-  const rows: { label: string; amount: number; hint?: string; kind?: "due" | "deposit" }[] = [
+  const rows: { label: string; amount: number; hint?: string; kind?: "due" | "deposit" }[] = mercado ? [
+    { label: "Ingreso antes de impuestos", amount: report.totals.credit },
+    { label: "IVA trasladado", amount: report.totals.tax },
+    { label: "IVA retenido", amount: report.totals.other },
+    { label: "ISR retenido", amount: report.totals.debit },
+    { label: "Depositado", amount: depositOf(report), kind: "deposit" },
+  ] : [
     { label: "Ventas", amount: sales },
     { label: "Sin IVA", amount: base },
-    { label: "IVA de ventas", amount: salesVat, hint: apple ? "Incluido en las ventas" : "16% de las ventas" },
+    { label: "IVA de ventas", amount: salesVat, hint: included ? "Incluido en las ventas" : "16% de las ventas" },
     { label: "Comisión", amount: fee },
     { label: "Ganado", amount: apple ? earned : base - fee },
-    { label: "IVA/ajuste de la plataforma", amount: platformVat },
-    { label: "IVA a pagar", amount: apple ? report.totals.other || 0 : salesVat - platformVat, hint: "IVA de ventas − IVA de la comisión", kind: "due" },
+    { label: "IVA/ajustes de plataforma", amount: platformVat },
+    { label: "IVA a pagar", amount: vatDue(report), hint: "IVA de ventas − IVA de la comisión", kind: "due" },
     { label: "Depositado", amount: depositOf(report), kind: "deposit" },
   ];
   return <>
     <dl className={styles.breakdown}>
-      {rows.filter(row => row.amount !== 0 || row.kind === "deposit").map(row => <div key={row.label} className={row.kind === "deposit" ? styles.deposit : row.kind === "due" ? styles.due : undefined}><dt>{row.label}{row.hint && <small>{row.hint}</small>}</dt><dd>{money(row.amount)}</dd></div>)}
+      {(mercado ? rows : rows.filter(row => row.amount !== 0 || row.kind === "deposit")).map(row => <div key={row.label} className={row.kind === "deposit" ? styles.deposit : row.kind === "due" ? styles.due : undefined}><dt>{row.label}{row.hint && <small>{row.hint}</small>}</dt><dd>{money(row.amount)}</dd></div>)}
     </dl>
     {report.difference !== 0 && <div className={styles.error} role="alert"><AlertCircle/>Diferencia de {money(report.difference)}</div>}
-    <button type="button" className={styles.csv} onClick={() => onDownload(report)}><Download/>CSV</button>
+    <button type="button" className={styles.csv} onClick={() => onDownload(report)}><Download/>{mercado ? "PDF" : "CSV"}</button>
   </>;
 }
 
@@ -63,12 +81,14 @@ export default function AccountingPortal({ role, local = false }: { role: "owner
   const [month, setMonth] = useState(new Date().toLocaleDateString("en-CA").slice(0, 7));
   const [play, setPlay] = useState<{ reports: Report[]; version: string }>({ reports: [], version: "" });
   const [apple, setApple] = useState<{ reports: Report[]; version: string }>({ reports: [], version: "" });
+  const [stripe, setStripe] = useState<{ reports: Report[]; version: string }>({ reports: [], version: "" });
+  const [mercado, setMercado] = useState<{ reports: Report[]; version: string }>({ reports: [], version: "" });
   const [loading, setLoading] = useState(true);
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const input = useRef<HTMLInputElement>(null);
-  const deposited = [...play.reports, ...apple.reports].filter(report => report.receipt?.month === month).map(depositOf);
+  const paid = [...play.reports, ...apple.reports, ...stripe.reports, ...mercado.reports].filter(report => report.receipt?.month === month);
 
   useEffect(() => {
     const selected = new URLSearchParams(location.search).get("mes");
@@ -77,9 +97,9 @@ export default function AccountingPortal({ role, local = false }: { role: "owner
   useEffect(() => {
     let cancelled = false;
     setLoading(true); setError("");
-    Promise.all([request("play"), request("apple")]).then(([playData, appleData]) => {
+    Promise.all([request("play"), request("apple"), request("stripe"), request("mercado")]).then(([playData, appleData, stripeData, mercadoData]) => {
       if (cancelled) return;
-      setPlay(playData); setApple(appleData); setReady(true);
+      setPlay(playData); setApple(appleData); setStripe(stripeData); setMercado(mercadoData); setReady(true);
     }).catch(e => { if (!cancelled) setError(e.message); }).finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, []);
@@ -97,6 +117,17 @@ export default function AccountingPortal({ role, local = false }: { role: "owner
     setBusy(true); setError("");
     try {
       if (file.size > 2_000_000) throw new Error("El archivo debe pesar menos de 2 MB.");
+      if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        let binary = "";
+        bytes.forEach(byte => { binary += String.fromCharCode(byte); });
+        const data = await request("mercado", { action: "upload-report", report: { name: file.name, pdf: btoa(binary) }, version: mercado.version });
+        const saved = data.reports.find(report => report.period === data.period);
+        if (!saved) throw new Error("No se pudo guardar el archivo.");
+        const paid = await request("mercado", { action: "record-receipt", period: saved.period, version: data.version, receipt: { month, amount: depositOf(saved) } });
+        setMercado(paid);
+        return;
+      }
       const text = await file.text();
       if (text.includes("Customer Price")) {
         const sales = appleSales(text, file.name);
@@ -105,20 +136,21 @@ export default function AccountingPortal({ role, local = false }: { role: "owner
         return;
       }
       const parsed = parseReport(text, file.name);
-      const platform = parsed.kind === "apple" ? "apple" : "play";
-      const current = platform === "apple" ? apple : play;
+      const platform = parsed.kind === "apple" ? "apple" : parsed.kind === "stripe" ? "stripe" : "play";
+      const current = platform === "apple" ? apple : platform === "stripe" ? stripe : play;
       const existing = current.reports.find(r => r.period === parsed.period);
       if (existing && existing.text !== parsed.text && !confirm(`¿Reemplazar ${file.name}?`)) return;
       const data = await request(platform, { action: "upload-report", report: { name: file.name, text: parsed.text }, version: current.version });
       const saved = data.reports.find(report => report.period === parsed.period);
       if (!saved) throw new Error("No se pudo guardar el archivo.");
       const paid = await request(platform, { action: "record-receipt", period: saved.period, version: data.version, receipt: { month, amount: depositOf(saved) } });
-      if (platform === "apple") setApple(paid); else setPlay(paid);
+      if (platform === "apple") setApple(paid); else if (platform === "stripe") setStripe(paid); else setPlay(paid);
     } catch (e) { setError(e instanceof Error ? e.message : "No se pudo cargar el archivo."); }
     finally { setBusy(false); if (input.current) input.current.value = ""; }
   }
   function download(report: Report) {
-    const url = URL.createObjectURL(new Blob([report.text], { type: "text/csv;charset=utf-8" }));
+    const bytes = report.file ? Uint8Array.from(atob(report.file), char => char.charCodeAt(0)) : null;
+    const url = URL.createObjectURL(bytes ? new Blob([bytes], { type: "application/pdf" }) : new Blob([report.text], { type: "text/csv;charset=utf-8" }));
     const a = document.createElement("a");
     a.href = url;
     a.download = report.name;
@@ -133,7 +165,7 @@ export default function AccountingPortal({ role, local = false }: { role: "owner
       <a href="/contadores" className={styles.brand}>Órale AI<span>Contabilidad</span></a>
       <div className={styles.tools}>
         <input aria-label="Mes" type="month" value={month} disabled={busy} onChange={e => { if (e.target.value) openMonth(e.target.value); }}/>
-        {role === "owner" && <button className={styles.primary} disabled={busy || loading} onClick={() => input.current?.click()}><Upload/>{busy ? "Subiendo…" : "Subir CSV"}</button>}
+        {role === "owner" && <button className={styles.primary} disabled={busy || loading} onClick={() => input.current?.click()}><Upload/>{busy ? "Subiendo…" : "Subir archivo"}</button>}
         <button aria-label="Imprimir" onClick={() => window.print()}><Printer/></button>
       </div>
     </header>
@@ -143,10 +175,13 @@ export default function AccountingPortal({ role, local = false }: { role: "owner
     {loading ? <div role="status" className={styles.empty}>Cargando</div> : ready && <>
       <Platform title="Google Play" reports={play.reports} month={month} onDownload={download}/>
       <Platform title="App Store" reports={apple.reports} month={month} onDownload={download}/>
-      <Platform title="Stripe" reports={[]} month={month} onDownload={download}/>
-      <Platform title="Mercado Libre" reports={[]} month={month} onDownload={download}/>
-      {deposited.length > 0 && <div className={styles.total}><span>Total depositado</span><strong>{money(deposited.reduce((sum, amount) => sum + amount, 0))}</strong></div>}
+      <Platform title="Stripe" reports={stripe.reports} month={month} onDownload={download}/>
+      <Platform title="Mercado Libre Afiliados" reports={mercado.reports} month={month} onDownload={download}/>
+      {paid.length > 0 && <div className={styles.totals}>
+        <div><span>Total depositado</span><strong>{money(paid.reduce((sum, report) => sum + depositOf(report), 0))}</strong></div>
+        <div><span>Total IVA a pagar</span><strong>{money(paid.reduce((sum, report) => sum + vatDue(report), 0))}</strong></div>
+      </div>}
     </>}
-    <input ref={input} hidden type="file" accept=".csv,.txt,text/csv,text/plain" onChange={e => upload(e.target.files?.[0])}/>
+    <input ref={input} hidden type="file" accept=".csv,.txt,.pdf,text/csv,text/plain,application/pdf" onChange={e => upload(e.target.files?.[0])}/>
   </main></div>;
 }

@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sessionRole, sessionCookie } from "@/lib/accounting/access";
 import { emptyWorkspace, latest, storeVersion, validateWorkspace, monthSnapshot } from "@/lib/accounting/store";
+import { extractPdfText } from "@/lib/accounting/pdf.mjs";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 const json = (body: unknown, status = 200) => NextResponse.json(body, { status, headers: { "Cache-Control": "private, no-store", "X-Robots-Tag": "noindex, nofollow" } });
 const validMonth = (month: string) => /^\d{4}-(0[1-9]|1[0-2])$/.test(month);
+const collectionOf = (platform: string | null) => platform === "apple" ? "apple-reports" : platform === "stripe" ? "stripe-reports" : platform === "mercado" ? "mercado-reports" : "simple-reports";
+const platformOf = (kind?: string) => kind === "apple" || kind === "stripe" || kind === "mercado" ? kind : "play";
 export async function GET(req: NextRequest) {
   const role = await sessionRole(req.cookies.get(sessionCookie)?.value, req.headers.get("host"));
   if (!role) return json({ error: "Acceso restringido." }, 401);
@@ -15,7 +18,7 @@ export async function GET(req: NextRequest) {
       return json({ play: play?.state.reports ?? [], apple: apple?.state.reports ?? [] });
     }
     if (req.nextUrl.searchParams.get("view") === "report") {
-      const record = await latest(req.nextUrl.searchParams.get("platform") === "apple" ? "apple-reports" : "simple-reports");
+      const record = await latest(collectionOf(req.nextUrl.searchParams.get("platform")));
       return json({ reports: record?.state.reports ?? [], version: record?.key ?? "" });
     }
     const month = req.nextUrl.searchParams.get("month") || new Date().toISOString().slice(0, 7);
@@ -50,7 +53,7 @@ export async function POST(req: NextRequest) {
       return json({ reports: state.reports, version });
     }
     if (body.action === 'record-receipt') {
-      const collection = req.nextUrl.searchParams.get('platform') === 'apple' ? 'apple-reports' : 'simple-reports';
+      const collection = collectionOf(req.nextUrl.searchParams.get('platform'));
       const current = await latest(collection);
       if (body.version !== (current?.key ?? '')) return json({ error: 'Hay información más reciente. Recarga antes de guardar.' }, 409);
       if (!current?.state.reports.some(r => r.period === body.period)) return json({ error: 'No se encontró el reporte.' }, 400);
@@ -59,8 +62,13 @@ export async function POST(req: NextRequest) {
       return json({ reports: state.reports, version });
     }
     if (body.action === "upload-report") {
-      const apple = req.nextUrl.searchParams.get("platform") === "apple";
-      const collection = apple ? "apple-reports" : "simple-reports";
+      if (typeof body.report?.pdf === "string") {
+        const bytes = Buffer.from(body.report.pdf, "base64");
+        if (!bytes.length || bytes.length > 2_000_000) return json({ error: "El PDF debe pesar menos de 2 MB." }, 400);
+        body.report = { name: String(body.report.name || "mercado.pdf"), text: extractPdfText(bytes), file: body.report.pdf };
+      }
+      const platform = req.nextUrl.searchParams.get("platform");
+      const collection = collectionOf(platform);
       const current = await latest(collection);
       if (body.version !== (current?.key ?? "")) return json({ error: "Hay información más reciente. Recarga antes de subir el archivo." }, 409);
       const uploaded = validateWorkspace({ ...emptyWorkspace(), reports: [body.report] }).reports[0];
@@ -69,7 +77,7 @@ export async function POST(req: NextRequest) {
       if (existing?.sales) uploaded.sales = existing.sales;
       if (existing?.salesBase) uploaded.salesBase = existing.salesBase;
       if (existing?.salesFee != null) uploaded.salesFee = existing.salesFee;
-      if ((uploaded.kind === "apple") !== apple) return json({ error: "El archivo no corresponde a la plataforma seleccionada." }, 400);
+      if (platformOf(uploaded.kind) !== (platform === "apple" || platform === "stripe" || platform === "mercado" ? platform : "play")) return json({ error: "El archivo no corresponde a la plataforma seleccionada." }, 400);
       const state = validateWorkspace({
         ...emptyWorkspace(),
         reports: [...(current?.state.reports ?? []).filter(r => r.period !== uploaded.period), uploaded]
