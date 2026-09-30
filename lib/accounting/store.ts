@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { adminClient } from "@/lib/supabase";
-import { parseReport, payoutRows, validateReceipt, type Workspace } from "./ledger.mjs";
+import { parseReport, payoutRows, validateReceipt, reportKey, attachPlayEarnings, attachAppleSales, attachAppleCommission, type Workspace } from "./ledger.mjs";
 
 const bucketName = "accounting-private";
 function localDirectory() {
@@ -56,16 +56,22 @@ export function validateWorkspace(raw: unknown): Workspace {
   if (!body || !Array.isArray(body.reports) || body.reports.length > 120) throw new Error("Máximo 120 reportes por espacio.");
   const reports = body.reports.map(r => {
     if (typeof r.text !== "string" || r.text.length > 2_000_000 || typeof r.name !== "string") throw new Error("Archivo inválido o demasiado grande.");
-    const report = parseReport(r.text, r.name);
+    let report = parseReport(r.text, r.name);
     if (r.receipt) report.receipt = validateReceipt(r.receipt);
     const sales = r.sales, salesBase = r.salesBase, salesFee = r.salesFee;
-    if (report.kind === "apple" && typeof sales === "number" && Number.isSafeInteger(sales) && sales > 0) report.sales = sales;
-    if (report.kind === "apple" && typeof salesBase === "number" && Number.isSafeInteger(salesBase) && salesBase > 0) report.salesBase = salesBase;
+    if (report.kind === "apple" && typeof sales === "number" && Number.isSafeInteger(sales) && sales >= 0) report.sales = sales;
+    if (report.kind === "apple" && typeof salesBase === "number" && Number.isSafeInteger(salesBase) && salesBase >= 0) report.salesBase = salesBase;
     if (report.kind === "apple" && typeof salesFee === "number" && Number.isSafeInteger(salesFee)) report.salesFee = salesFee;
-    if ((report.kind === "mercado" || report.kind === "cursor" || report.kind === "chatgpt") && typeof r.file === "string" && r.file.length < 3_000_000 && /^[A-Za-z0-9+/=]+$/.test(r.file)) report.file = r.file;
+    if ((report.kind === "mercado" || report.kind === "cursor" || report.kind === "chatgpt" || report.kind === "supabase") && typeof r.file === "string" && r.file.length < 3_000_000 && /^[A-Za-z0-9+/=]+$/.test(r.file)) report.file = r.file;
+    if (r.salesSource) report = attachAppleSales(report, r.salesSource);
+    if (r.commissionSource) {
+      if (typeof r.commissionSource.text !== "string" || r.commissionSource.text.length > 2_000_000 || typeof r.commissionSource.name !== "string") throw new Error("Factura de comisión inválida.");
+      report = attachAppleCommission(report, r.commissionSource);
+    }
+    if (r.earningsSource) report = attachPlayEarnings(report, r.earningsSource);
     return report;
   });
-  if (new Set(reports.map(r => r.period)).size !== reports.length) throw new Error("Periodos duplicados.");
+  if (new Set(reports.map(reportKey)).size !== reports.length) throw new Error("Documentos duplicados.");
   const links: Record<string, string> = {}, notes: Record<string, string> = {}, bank: Record<string, string> = {};
   const ids = new Set(reports.flatMap(r => payoutRows([r], r.period).map(p => p.id)));
   for (const [key, value] of Object.entries(body.links ?? {})) {

@@ -3,6 +3,8 @@ import test from 'node:test';
 import { parseReport } from '../lib/accounting/ledger.mjs';
 
 const file = `Receipt
+Invoice number
+TEST-0039
 Date paid
 September 9, 2026
 OpenAI OpCo, LLC

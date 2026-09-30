@@ -42,6 +42,7 @@
 .breakdown small{display:block;margin:0;font-size:12px;line-height:1.2;font-weight:400;color:#98A2B3}
 .breakdown .csv{margin:0;height:28px;min-height:28px;padding:0 8px;font-size:12px;flex-shrink:0}
 .breakdown dd{margin:0;font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap;font-size:14px}
+.taxNote{margin:6px 12px 0;font-size:12px;color:#667085}
 .due dt,.due dd{color:#1F2933;font-weight:700}
 .deposit{border-top:1px solid #E8EBF0}
 .deposit dt,.deposit dd{color:#1F2933;font-weight:700}

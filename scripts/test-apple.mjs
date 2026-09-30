@@ -28,7 +28,7 @@ test('Apple detail totals the subscription price, including refunds', () => {
     '07/01/2026\t07/01/2026\t1\tmonthly\tMonth\t\tIAY\tMX\t2\t72.54\t145.08\tMXN\t99.000\tMXN\tS',
     '07/02/2026\t07/02/2026\t1\tmonthly\tMonth\t\tIAY\tMX\t-1\t72.54\t-72.54\tMXN\t-99.000\tMXN\tR',
   ].join('\n');
-  assert.deepEqual(appleSales(detail, 'FD_94105360_0726.txt'), { period: '2026-07', customer: 9900, base: 8535, fee: 1281 });
+  assert.deepEqual(appleSales(detail, 'FD_94105360_0726.txt'), { period: '2026-07', customer: 9900, base: 8535, fee: 1281, earned: 7254 });
 });
 test('Apple rejects unsupported currencies and malformed amounts and periods', () => {
   assert.throws(() => parseReport(csv('USD'), 'financial_report.csv'), /MXN/);

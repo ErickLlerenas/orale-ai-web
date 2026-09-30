@@ -4,7 +4,9 @@ import { deflateSync } from 'node:zlib';
 import { parseReport } from '../lib/accounting/ledger.mjs';
 import { extractPdfText } from '../lib/accounting/pdf.mjs';
 
-const file = `Fecha de Emisión
+const file = `Folio Fiscal
+12345678-1234-1234-1234-123456789012
+Fecha de Emisión
 2026-09-04T15:34:48
 80141600 - Programas de Marketing de Afiliado
 $  1,260.54

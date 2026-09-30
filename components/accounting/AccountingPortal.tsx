@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { Upload, Download, AlertCircle, LogOut, CreditCard } from "lucide-react";
-import { money, parseReport, appleSales, type Report } from "@/lib/accounting/ledger.mjs";
+import { money, parseReport, appleSales, reportKey, paymentAmount, incomeFigures, type Report } from "@/lib/accounting/ledger.mjs";
 import styles from "./accounting.module.css";
 
 const periodName = (value: string) => {
@@ -13,55 +13,40 @@ async function request(platform: string, body?: object) {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
   } : { cache: "no-store" });
   const data = await response.json();
-  if (!response.ok) throw new Error(data.error || "No se pudo abrir el informe.");
+  if (!response.ok) throw Object.assign(new Error(data.error || "No se pudo abrir el informe."), { replaceRequired: data.replaceRequired });
   return data as { reports: Report[]; version: string; period?: string; platform?: string };
 }
 const usd = (cents: number) => `${new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100)} USD`;
 const invoiceDate = (period: string) => new Date(`${period}T12:00:00`).toLocaleDateString("es-MX", { day: "numeric", month: "short", year: "numeric" }).replace(".", "");
 
 function depositOf(report: Report) {
-  return report.totals.closing;
+  return paymentAmount(report) ?? report.totals.closing;
 }
 function vatDue(report: Report) {
-  if (report.kind === "mercado") return (report.totals.tax || 0) - (report.totals.other || 0);
-  const apple = report.kind === "apple";
-  const included = apple || report.kind === "stripe";
-  const sales = apple ? report.sales || 0 : report.totals.credit || 0;
-  const base = included ? report.salesBase || (sales ? Math.round(sales / 1.16) : 0) : sales;
-  const salesVat = included ? sales - base : Math.round(sales * 0.16);
-  const platformVat = apple ? salesVat - (report.totals.other || 0) : Math.abs(report.totals.tax || 0);
-  return apple ? report.totals.other || 0 : salesVat - platformVat;
+  return incomeFigures(report).preliminaryVat;
 }
 
 function Figures({ report, onDownload }: { report: Report; onDownload: (report: Report) => void }) {
   const mercado = report.kind === "mercado";
-  const apple = report.kind === "apple";
-  const included = apple || report.kind === "stripe";
-  const sales = apple ? report.sales || 0 : report.totals.credit || 0;
-  const base = included ? report.salesBase || (sales ? Math.round(sales / 1.16) : 0) : sales;
-  const salesVat = included ? sales - base : Math.round(sales * 0.16);
-  const earned = apple ? report.totals.credit || 0 : 0;
-  const fee = apple ? (report.salesFee ?? base - earned) : Math.abs(report.totals.debit || 0);
-  const platformVat = apple ? salesVat - (report.totals.other || 0) : Math.abs(report.totals.tax || 0);
-  const rows: { label: string; amount: number; hint?: string; kind?: "due" | "deposit" }[] = mercado ? [
+  const figures = incomeFigures(report);
+  const deposit = depositOf(report);
+  const rows: { label: string; amount: number | null; hint?: string; kind?: "due" | "deposit" }[] = mercado ? [
     { label: "Ingreso antes de impuestos", amount: report.totals.credit },
     { label: "IVA trasladado", amount: report.totals.tax },
     { label: "IVA retenido", amount: report.totals.other },
     { label: "ISR retenido", amount: report.totals.debit },
-    { label: "Depositado", amount: depositOf(report), kind: "deposit" },
+    { label: "Depositado en tu cuenta", amount: deposit, kind: "deposit" },
   ] : [
-    { label: "Ventas", amount: sales },
-    { label: "Sin IVA", amount: base },
-    { label: "IVA de ventas", amount: salesVat, hint: included ? "Incluido en las ventas" : "16% de las ventas" },
-    { label: "Comisión", amount: fee },
-    { label: "Ganado", amount: apple ? earned : base - fee },
-    { label: "IVA/ajustes de plataforma", amount: platformVat },
-    { label: "IVA a pagar", amount: vatDue(report), hint: "IVA de ventas − IVA/ajustes de plataforma", kind: "due" },
-    { label: "Depositado", amount: depositOf(report), kind: "deposit" },
+    { label: "Ventas", amount: figures.sales },
+    { label: "IVA de las ventas", amount: figures.salesVat },
+    { label: "Comisión", amount: figures.fee },
+    { label: "IVA de la comisión", amount: figures.feeVat },
+    { label: "IVA estimado", amount: figures.preliminaryVat, hint: figures.preliminaryVat == null ? "Falta el detalle de ventas" : undefined, kind: "due" },
+    { label: "Depositado en tu cuenta", amount: deposit, kind: "deposit" },
   ];
   return <>
     <dl className={styles.breakdown}>
-      {(mercado ? rows : rows.filter(row => row.amount !== 0 || row.kind === "deposit")).map(row => <div key={row.label} className={row.kind === "deposit" ? styles.deposit : row.kind === "due" ? styles.due : undefined}><dt><span>{row.label}{row.hint && <small>{row.hint}</small>}</span></dt><dd>{money(row.amount)}</dd></div>)}
+      {rows.map(row => <div key={row.label} className={row.kind === "deposit" ? styles.deposit : row.kind === "due" ? styles.due : undefined}><dt><span>{row.label}{row.hint && <small>{row.hint}</small>}</span></dt><dd>{row.amount == null ? "Pendiente" : money(row.amount)}</dd></div>)}
     </dl>
     {report.difference !== 0 && <div className={styles.error} role="alert"><AlertCircle/>Diferencia de {money(report.difference)}</div>}
     <button type="button" className={styles.csv} onClick={() => onDownload(report)}><Download/>{mercado ? "PDF" : "CSV"}</button>
@@ -81,7 +66,21 @@ function CursorExpenses({ reports, month, onDownload }: { reports: Report[]; mon
   return <section className={styles.entry}>
     <div className={styles.row}><h2>Cursor AI</h2>{paid.length === 0 && <span className={styles.missing}>Sin archivo</span>}</div>
     {paid.length > 0 && <dl className={styles.breakdown}>
-      {paid.map(report => <div key={report.period}><dt><span>{invoiceDate(report.period)}</span><CardTag card="personal"/><button type="button" className={styles.csv} onClick={() => onDownload(report)}><Download/>PDF</button></dt><dd>{usd(report.totals.closing)}</dd></div>)}
+      {paid.map(report => <div key={reportKey(report)}><dt><span>{invoiceDate(report.documentDate || report.period.slice(0, 10))}</span><CardTag card="negocio"/><button type="button" className={styles.csv} onClick={() => onDownload(report)}><Download/>PDF</button></dt><dd>{report.receipt?.mxnAmount != null ? money(report.receipt.mxnAmount) + " MXN" : usd(report.totals.closing)}</dd></div>)}
+      <div className={styles.deposit}><dt><span>Total</span></dt><dd>{paid.every(report => report.receipt?.mxnAmount != null) ? money(paid.reduce((sum, report) => sum + (report.receipt?.mxnAmount || 0), 0)) + " MXN" : usd(paid.reduce((sum, report) => sum + report.totals.closing, 0))}</dd></div>
+    </dl>}
+  </section>;
+}
+
+function SupabaseExpenses({ reports, month, onDownload }: { reports: Report[]; month: string; onDownload: (report: Report) => void }) {
+  const paid = reports.filter(report => report.receipt?.month === month).sort((a, b) => a.period.localeCompare(b.period));
+  return <section className={styles.entry}>
+    <div className={styles.row}><h2>Supabase</h2>{paid.length === 0 && <span className={styles.missing}>Sin archivo</span>}</div>
+    {paid.length > 0 && <dl className={styles.breakdown}>
+      {paid.map(report => {
+        const card = report.receipt?.cardLast4 || report.cardLast4;
+        return <div key={reportKey(report)}><dt><span>{invoiceDate(report.documentDate || report.period)}{!card && <small>El recibo no indica la tarjeta</small>}</span>{card === "0698" || card === "6271" ? <CardTag card={card === "0698" ? "personal" : "negocio"}/> : card ? <span>Tarjeta ···· {card}</span> : null}<button type="button" className={styles.csv} onClick={() => onDownload(report)}><Download/>PDF</button></dt><dd>{usd(report.totals.closing)}</dd></div>;
+      })}
       <div className={styles.deposit}><dt><span>Total</span></dt><dd>{usd(paid.reduce((sum, report) => sum + report.totals.closing, 0))}</dd></div>
     </dl>}
   </section>;
@@ -92,7 +91,7 @@ function ChatgptExpenses({ reports, month, onDownload }: { reports: Report[]; mo
   return <section className={styles.entry}>
     <div className={styles.row}><h2>ChatGPT</h2>{paid.length === 0 && <span className={styles.missing}>Sin archivo</span>}</div>
     {paid.length > 0 && <dl className={styles.breakdown}>
-      {paid.map(report => <div key={report.period}><dt><span>{invoiceDate(report.period)}</span><CardTag card="personal"/><button type="button" className={styles.csv} onClick={() => onDownload(report)}><Download/>PDF</button></dt><dd>{money(report.totals.closing)} MXN</dd></div>)}
+      {paid.map(report => <div key={reportKey(report)}><dt><span>{invoiceDate(report.documentDate || report.period.slice(0, 10))}</span><CardTag card="personal"/><button type="button" className={styles.csv} onClick={() => onDownload(report)}><Download/>PDF</button></dt><dd>{money(report.totals.closing)} MXN</dd></div>)}
       <div className={styles.deposit}><dt><span>Total</span></dt><dd>{money(paid.reduce((sum, report) => sum + report.totals.closing, 0))} MXN</dd></div>
     </dl>}
   </section>;
@@ -102,12 +101,12 @@ function FacebookExpenses({ reports, month, onDownload }: { reports: Report[]; m
   const paid = reports.filter(report => report.receipt?.month === month).sort((a, b) => a.period.localeCompare(b.period));
   return <section className={styles.entry}>
     <div className={styles.row}><h2>Facebook Ads</h2>{paid.length === 0 && <span className={styles.missing}>Sin archivo</span>}</div>
-    {paid.map(report => <div key={report.period}>
+    {paid.map(report => <div key={reportKey(report)}>
       <dl className={styles.breakdown}>
         {report.rows.map(row => <div key={row.line}><dt><span>{invoiceDate(row.iso || row.date)}</span><CardTag card="negocio"/></dt><dd>{money(row.amount)} MXN</dd></div>)}
-        <div><dt><span>IVA<small>En la factura</small></span></dt><dd>{money(report.totals.tax || 0)} MXN</dd></div>
-        <div className={styles.deposit}><dt><span>Gasto</span></dt><dd>{money(report.totals.closing)} MXN</dd></div>
+        <div className={styles.deposit}><dt><span>Total pagado</span></dt><dd>{money(report.totals.closing)} MXN</dd></div>
       </dl>
+      <p className={styles.taxNote}>Este total incluye {money(report.totals.tax || 0)} MXN de IVA.</p>
       <button type="button" className={styles.csv} onClick={() => onDownload(report)}><Download/>CSV</button>
     </div>)}
   </section>;
@@ -117,11 +116,19 @@ function GoogleExpenses({ reports, month, onDownload }: { reports: Report[]; mon
   const paid = reports.filter(report => report.receipt?.month === month).sort((a, b) => a.period.localeCompare(b.period));
   return <section className={styles.entry}>
     <div className={styles.row}><h2>Google Ads</h2>{paid.length === 0 && <span className={styles.missing}>Sin archivo</span>}</div>
-    {paid.length > 0 && <dl className={styles.breakdown}>
-      {paid.map(report => <div key={report.period}><dt><span>{invoiceDate(report.period.slice(0, 10))}</span><CardTag card="personal"/><button type="button" className={styles.csv} onClick={() => onDownload(report)}><Download/>XML</button></dt><dd>{money(report.totals.closing)} MXN</dd></div>)}
-      <div><dt><span>IVA<small>16% en la factura</small></span></dt><dd>{money(paid.reduce((sum, report) => sum + (report.totals.tax || 0), 0))} MXN</dd></div>
-      <div className={styles.deposit}><dt><span>Gasto</span></dt><dd>{money(paid.reduce((sum, report) => sum + report.totals.closing, 0))} MXN</dd></div>
-    </dl>}
+    {paid.length > 0 && <>
+    <dl className={styles.breakdown}>
+      {paid.map(report => <div key={reportKey(report)}><dt><span>{invoiceDate(report.period.slice(0, 10))}</span><CardTag card="personal"/><button type="button" className={styles.csv} onClick={() => onDownload(report)}><Download/>XML</button></dt><dd>{money(report.totals.closing)} MXN</dd></div>)}
+      <div className={styles.deposit}><dt><span>Total pagado</span></dt><dd>{money(paid.reduce((sum, report) => sum + report.totals.closing, 0))} MXN</dd></div>
+    </dl>
+    <p className={styles.taxNote}>Este total incluye {money(paid.reduce((sum, report) => sum + (report.totals.tax || 0), 0))} MXN de IVA.</p>
+    </>}
+  </section>;
+}
+
+function PendingExpense({ title }: { title: string }) {
+  return <section className={styles.entry}>
+    <div className={styles.row}><h2>{title}</h2><span className={styles.missing}>Sin archivo</span></div>
   </section>;
 }
 
@@ -132,7 +139,7 @@ function Platform({ title, reports, month, onDownload, card }: { title: string; 
       <div className={styles.name}><h2>{title}</h2>{card && <CardTag card={card}/>}</div>
       {paid.length === 0 && <span className={styles.missing}>Sin archivo</span>}
     </div>
-    {paid.map(report => <Figures key={report.period} report={report} onDownload={onDownload}/>)}
+    {paid.map(report => <Figures key={reportKey(report)} report={report} onDownload={onDownload}/>)}
   </section>;
 }
 
@@ -145,6 +152,7 @@ export default function AccountingPortal({ role, local = false }: { role: "owner
   const [cursor, setCursor] = useState<{ reports: Report[]; version: string }>({ reports: [], version: "" });
   const [chatgpt, setChatgpt] = useState<{ reports: Report[]; version: string }>({ reports: [], version: "" });
   const [google, setGoogle] = useState<{ reports: Report[]; version: string }>({ reports: [], version: "" });
+  const [supabase, setSupabase] = useState<{ reports: Report[]; version: string }>({ reports: [], version: "" });
   const [facebook, setFacebook] = useState<{ reports: Report[]; version: string }>({ reports: [], version: "" });
   const [loading, setLoading] = useState(true);
   const [ready, setReady] = useState(false);
@@ -161,9 +169,9 @@ export default function AccountingPortal({ role, local = false }: { role: "owner
   useEffect(() => {
     let cancelled = false;
     setLoading(true); setError("");
-    Promise.all([request("play"), request("apple"), request("stripe"), request("mercado"), request("cursor"), request("facebook"), request("chatgpt"), request("google")]).then(([playData, appleData, stripeData, mercadoData, cursorData, facebookData, chatgptData, googleData]) => {
+    Promise.all([request("play"), request("apple"), request("stripe"), request("mercado"), request("cursor"), request("facebook"), request("chatgpt"), request("google"), request("supabase")]).then(([playData, appleData, stripeData, mercadoData, cursorData, facebookData, chatgptData, googleData, supabaseData]) => {
       if (cancelled) return;
-      setPlay(playData); setApple(appleData); setStripe(stripeData); setMercado(mercadoData); setCursor(cursorData); setFacebook(facebookData); setChatgpt(chatgptData); setGoogle(googleData); setReady(true);
+      setPlay(playData); setApple(appleData); setStripe(stripeData); setMercado(mercadoData); setCursor(cursorData); setFacebook(facebookData); setChatgpt(chatgptData); setGoogle(googleData); setSupabase(supabaseData); setReady(true);
     }).catch(e => { if (!cancelled) setError(e.message); }).finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, []);
@@ -177,47 +185,39 @@ export default function AccountingPortal({ role, local = false }: { role: "owner
     history.replaceState(null, "", url);
   }
   async function upload(files?: FileList | null) {
-    const list = files ? [...files] : [];
+    const list = files ? [...files].sort((a, b) => Number(/PlayApps_|MexicoCommissionInvoice|\.txt$/i.test(a.name)) - Number(/PlayApps_|MexicoCommissionInvoice|\.txt$/i.test(b.name))) : [];
     if (!list.length || busy) return;
     setBusy(true); setError("");
-    const versions: Record<string, string> = { play: play.version, apple: apple.version, stripe: stripe.version, mercado: mercado.version, cursor: cursor.version, facebook: facebook.version, chatgpt: chatgpt.version, google: google.version };
+    const versions: Record<string, string> = { play: play.version, apple: apple.version, stripe: stripe.version, mercado: mercado.version, cursor: cursor.version, facebook: facebook.version, chatgpt: chatgpt.version, google: google.version, supabase: supabase.version };
     try {
       for (const file of list) {
-      if (file.size > 2_000_000) throw new Error("El archivo debe pesar menos de 2 MB.");
-      if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
-        const bytes = new Uint8Array(await file.arrayBuffer());
-        let binary = "";
-        bytes.forEach(byte => { binary += String.fromCharCode(byte); });
-        const data = await request("pdf", { action: "upload-report", report: { name: file.name, pdf: btoa(binary) }, versions });
-        const platform = data.platform === "cursor" || data.platform === "chatgpt" ? data.platform : "mercado";
-        const saved = data.reports.find(report => report.period === data.period);
-        if (!saved) throw new Error("No se pudo guardar el archivo.");
-        const paid = await request(platform, { action: "record-receipt", period: saved.period, version: data.version, receipt: { month, amount: depositOf(saved) } });
-        versions[platform] = paid.version;
-        if (platform === "cursor") setCursor(paid);
-        else if (platform === "chatgpt") setChatgpt(paid);
-        else setMercado(paid);
-        if (platform === "cursor" || platform === "chatgpt") setTab("gastos");
-        continue;
-      }
-      const text = await file.text();
-      if (text.includes("Customer Price")) {
-        const sales = appleSales(text, file.name);
-        const paid = await request("apple", { action: "attach-sales", period: sales.period, sales: sales.customer, base: sales.base, fee: sales.fee, version: apple.version });
-        setApple(paid);
-        return;
-      }
-      const parsed = parseReport(text, file.name);
-      const platform = parsed.kind === "apple" ? "apple" : parsed.kind === "stripe" ? "stripe" : parsed.kind === "facebook" ? "facebook" : parsed.kind === "google" ? "google" : "play";
-      const current = platform === "apple" ? apple : platform === "stripe" ? stripe : platform === "facebook" ? facebook : platform === "google" ? google : play;
-      const existing = current.reports.find(r => r.period === parsed.period);
-      if (existing && existing.text !== parsed.text && !confirm(`¿Reemplazar ${file.name}?`)) continue;
-      const data = await request(platform, { action: "upload-report", report: { name: file.name, text: parsed.text }, version: versions[platform] });
-      const saved = data.reports.find(report => report.period === parsed.period);
-      if (!saved) throw new Error("No se pudo guardar el archivo.");
-      const paid = await request(platform, { action: "record-receipt", period: saved.period, version: data.version, receipt: { month, amount: depositOf(saved) } });
-      versions[platform] = paid.version;
-      if (platform === "apple") setApple(paid); else if (platform === "stripe") setStripe(paid); else if (platform === "facebook") { setFacebook(paid); setTab("gastos"); } else if (platform === "google") { setGoogle(paid); setTab("gastos"); } else setPlay(paid);
+        if (file.size > 2_000_000) throw new Error("El archivo debe pesar menos de 2 MB.");
+        let platform: string, body: Record<string, unknown>;
+        if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
+          const bytes = new Uint8Array(await file.arrayBuffer()); let binary = ""; bytes.forEach(byte => { binary += String.fromCharCode(byte); });
+          platform = "pdf"; body = { action: "upload-report", month, report: { name: file.name, pdf: btoa(binary) }, versions };
+        } else {
+          const text = await file.text(), source = { name: file.name, text };
+          if (text.includes("Customer Price") && text.includes("\tQuantity")) {
+            const sales = appleSales(text, file.name); platform = "apple";
+            body = { action: "attach-sales", period: sales.period, source, version: versions.apple };
+          } else {
+            const parsed = parseReport(text, file.name);
+            platform = parsed.kind === "earnings" || !parsed.kind ? "play" : parsed.kind;
+            body = parsed.kind === "earnings" ? { action: "attach-earnings", period: parsed.period, source, version: versions.play } : { action: "upload-report", month, report: source, version: versions[platform] };
+          }
+        }
+        let data;
+        try { data = await request(platform, body); }
+        catch (e) {
+          if (!(e instanceof Error && "replaceRequired" in e && e.replaceRequired && confirm(`¿Reemplazar ${file.name}?`))) throw e;
+          data = await request(platform, { ...body, replace: true });
+        }
+        platform = data.platform || platform; versions[platform] = data.version;
+        if (platform === "apple") setApple(data); else if (platform === "stripe") setStripe(data); else if (platform === "mercado") setMercado(data);
+        else if (platform === "cursor") { setCursor(data); setTab("gastos"); } else if (platform === "chatgpt") { setChatgpt(data); setTab("gastos"); }
+        else if (platform === "supabase") { setSupabase(data); setTab("gastos"); }
+        else if (platform === "facebook") { setFacebook(data); setTab("gastos"); } else if (platform === "google") { setGoogle(data); setTab("gastos"); } else setPlay(data);
       }
     } catch (e) { setError(e instanceof Error ? e.message : "No se pudo cargar el archivo."); }
     finally { setBusy(false); if (input.current) input.current.value = ""; }
@@ -269,7 +269,7 @@ export default function AccountingPortal({ role, local = false }: { role: "owner
       <Platform title="Mercado Libre Afiliados" reports={mercado.reports} month={month} onDownload={download}/>
       {paid.length > 0 && <div className={styles.totals}>
         <div><span>Total depositado</span><strong>{money(paid.reduce((sum, report) => sum + depositOf(report), 0))}</strong></div>
-        <div><span>Total IVA a pagar</span><strong>{money(paid.reduce((sum, report) => sum + vatDue(report), 0))}</strong></div>
+        <div><span>IVA estimado</span><strong>{paid.some(report => vatDue(report) == null) ? "Pendiente" : money(paid.reduce((sum, report) => sum + (vatDue(report) || 0), 0))}</strong></div>
       </div>}
     </>}
     {ready && tab === "gastos" && <>
@@ -277,6 +277,8 @@ export default function AccountingPortal({ role, local = false }: { role: "owner
       <ChatgptExpenses reports={chatgpt.reports} month={month} onDownload={download}/>
       <FacebookExpenses reports={facebook.reports} month={month} onDownload={download}/>
       <GoogleExpenses reports={google.reports} month={month} onDownload={download}/>
+      <SupabaseExpenses reports={supabase.reports} month={month} onDownload={download}/>
+      <PendingExpense title="Google Cloud"/>
     </>}
     {ready && tab === "banco" && <Platform title="Estado de cuenta" reports={[]} month={month} onDownload={download}/>}
     <input ref={input} hidden type="file" multiple accept=".csv,.txt,.pdf,.xml,text/csv,text/plain,application/pdf,application/xml,text/xml" onChange={e => upload(e.target.files)}/>
