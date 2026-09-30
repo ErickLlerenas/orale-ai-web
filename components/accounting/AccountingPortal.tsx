@@ -1,6 +1,6 @@
 "use client";
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
-import { Upload, Download, AlertCircle, LogOut, CreditCard, Info } from "lucide-react";
+import { Upload, Download, AlertCircle, LogOut, CreditCard, Info, CalendarDays, ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
 import { money, parseReport, appleSales, reportKey, paymentAmount, incomeFigures, missingAppleFiles, type Report } from "@/lib/accounting/ledger.mjs";
 import styles from "./accounting.module.css";
 
@@ -102,6 +102,26 @@ const periodName = (value: string) => {
   const label = new Date(`${value}-15T12:00:00`).toLocaleDateString("es-MX", { month: "long", year: "numeric" });
   return label.charAt(0).toUpperCase() + label.slice(1);
 };
+const spanishMonths=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+function MonthPicker({month,disabled,onChange}:{month:string;disabled:boolean;onChange:(value:string)=>void}) {
+  const [open,setOpen]=useState(false),[year,setYear]=useState(Number(month.slice(0,4)));
+  const root=useRef<HTMLDivElement>(null),trigger=useRef<HTMLButtonElement>(null);
+  useEffect(()=>{
+    if(!open)return;
+    const outside=(event:PointerEvent)=>{if(!root.current?.contains(event.target as Node))setOpen(false);};
+    const escape=(event:KeyboardEvent)=>{if(event.key==="Escape"){setOpen(false);trigger.current?.focus();}};
+    document.addEventListener("pointerdown",outside);document.addEventListener("keydown",escape);
+    return ()=>{document.removeEventListener("pointerdown",outside);document.removeEventListener("keydown",escape);};
+  },[open]);
+  return <div ref={root} className={styles.monthPicker} lang="es">
+    <button ref={trigger} type="button" className={styles.monthTrigger} disabled={disabled} aria-label={`Elegir mes: ${periodName(month)}`} aria-haspopup="dialog" aria-expanded={open} aria-controls={open?"accounting-month-picker":undefined} onClick={()=>{setYear(Number(month.slice(0,4)));setOpen(!open);}}><CalendarDays/><span>{spanishMonths[Number(month.slice(5))-1]} {month.slice(0,4)}</span><ChevronDown/></button>
+    {open&&<div id="accounting-month-picker" role="dialog" aria-label="Elegir mes" className={styles.monthPopover}>
+      <div className={styles.monthYear}><button type="button" aria-label="Año anterior" disabled={year<=1900} onClick={()=>setYear(year-1)}><ChevronLeft/></button><strong>{year}</strong><button type="button" aria-label="Año siguiente" disabled={year>=9999} onClick={()=>setYear(year+1)}><ChevronRight/></button></div>
+      <div className={styles.monthGrid}>{spanishMonths.map((name,index)=>{const value=`${year}-${String(index+1).padStart(2,"0")}`;return <button type="button" key={name} aria-pressed={value===month} onClick={()=>{onChange(value);setOpen(false);trigger.current?.focus();}}>{name}</button>;})}</div>
+    </div>}
+  </div>;
+}
+
 async function request(platform: string, body?: object) {
   const response = await fetch(`/contadores/api?view=report&platform=${platform}`, body ? {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
@@ -450,7 +470,7 @@ export default function AccountingPortal({ role, local = false }: { role: "owner
     <header className={styles.header}>
       <a href="/contadores" className={styles.brand}>Órale AI<span>Contabilidad</span></a>
       <div className={styles.tools}>
-        <input aria-label="Mes" type="month" value={month} disabled={busy} onChange={e => { if (e.target.value) openMonth(e.target.value); }}/>
+        <MonthPicker month={month} disabled={busy} onChange={openMonth}/>
         <button type="button" onClick={logout}><LogOut/>Salir</button>
       </div>
     </header>

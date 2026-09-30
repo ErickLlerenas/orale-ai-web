@@ -156,3 +156,17 @@
 .breakdown dd small{color:#667085;margin-top:3px;font-size:11px}
 .noReceipt{color:#98A2B3}
 @media print{.expenseTableWrap{overflow:visible}.expenseTable{min-width:0}}
+
+.monthPicker{position:relative}
+.portal .monthTrigger{gap:9px;padding:9px 12px;min-width:218px;justify-content:flex-start;border-color:#D5DFEA;background:#F8FAFC;font-size:14px;font-weight:600;color:#334E68}
+.monthTrigger span{flex:1;text-align:left}
+.monthTrigger svg:first-child{color:#667085}
+.monthTrigger svg:last-child{width:15px;height:15px;color:#667085}
+.monthPopover{position:absolute;top:calc(100% + 8px);right:0;z-index:30;width:300px;padding:14px;background:#fff;border:1px solid #E0E4EA;border-radius:12px;box-shadow:0 8px 28px rgba(31,41,51,.13)}
+.monthYear{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;color:#334E68}
+.portal .monthYear button{width:32px;min-height:32px;padding:5px;border:0;background:#F4F6F8;border-radius:6px}
+.monthGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.portal .monthGrid button{padding:8px 3px;min-height:38px;font-size:12px;border:1px solid transparent;border-radius:6px;color:#475569}
+.portal .monthGrid button:hover{background:#F4F6F8;border-color:#D5DFEA}
+.portal .monthGrid button[aria-pressed="true"]{background:#EDF2F7;color:#334E68;border-color:#B8C9DB;font-weight:700}
+@media(max-width:560px){.monthPopover{left:0;right:auto;width:min(300px,calc(100vw - 32px))}}
