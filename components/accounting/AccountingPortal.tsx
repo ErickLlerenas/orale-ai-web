@@ -1,6 +1,6 @@
 "use client";
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
-import { Upload, Download, AlertCircle, LogOut, CreditCard, Info, CalendarDays, ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
+import { Upload, Download, AlertCircle, LogOut, CreditCard, Info, CircleCheck, CalendarDays, ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
 import { money, parseReport, appleSales, reportKey, paymentAmount, incomeFigures, missingAppleFiles, type Report } from "@/lib/accounting/ledger.mjs";
 import styles from "./accounting.module.css";
 
@@ -9,7 +9,7 @@ import type { NuReview } from "@/lib/accounting/nu-ledger.mjs";
 import { expensePesos } from "@/lib/accounting/expense-pesos.mjs";
 import { mergeBankDocuments, bankCategory } from "@/lib/accounting/bank-ledger.mjs";
 import { nuView } from "@/lib/accounting/nu-ledger.mjs";
-import type { BankDocument } from "@/lib/accounting/bank-ledger.mjs";
+import type { BankDocument, BankRow } from "@/lib/accounting/bank-ledger.mjs";
 
 const AdminView = createContext(false);
 const PlatformUpload = createContext<{choose:(title:string)=>void;loaded:Set<string>;busy:boolean}>({choose:()=>{},loaded:new Set(),busy:false});
@@ -192,6 +192,10 @@ function CardTag({ card }: { card: "personal" | "negocio" }) {
   </span>;
 }
 
+function IncludedVatNote({amount}:{amount:number}) {
+  return <div className={`${styles.foreignVatNote} ${styles.successVatNote}`} role="note"><CircleCheck aria-hidden="true"/><p>Este total incluye {money(amount)} MXN de IVA.</p></div>;
+}
+
 function ForeignVatNote({name}:{name:string}) {
   return <div className={styles.foreignVatNote} role="note"><Info aria-hidden="true"/><p>El comprobante de {name} no muestra IVA cobrado. Al ser un servicio del extranjero, tu contador debe revisar si corresponde declarar IVA por separado.</p></div>;
 }
@@ -258,7 +262,7 @@ function FacebookExpenses({ reports, month, onDownload }: { reports: Report[]; m
         {report.rows.map(row => <div key={row.line}><dt><span>{invoiceDate(row.iso || row.date)}</span><CardTag card="negocio"/><span className={styles.noReceipt}>—</span></dt><dd>{money(row.amount)} MXN</dd></div>)}
         <div className={styles.deposit}><dt><span>Total pagado</span></dt><dd>{money(report.totals.closing)} MXN</dd></div>
       </ExpenseTable>
-      {report.totals.tax>0&&<p className={styles.taxNote}>Este total incluye {money(report.totals.tax)} MXN de IVA.</p>}
+      {report.totals.tax>0&&<IncludedVatNote amount={report.totals.tax}/>}
       {report.totals.tax===0&&<ForeignVatNote name="Facebook Ads"/>}
       <div className={styles.downloadActions}><button type="button" className={styles.csv} onClick={() => onDownload(report)}><Download/>CSV</button><DownloadGuide title="Facebook Ads"/></div>
     </div>)}
@@ -274,7 +278,7 @@ function GoogleExpenses({ reports, month, onDownload }: { reports: Report[]; mon
       {paid.map(report => <div key={reportKey(report)}><dt><span>{invoiceDate(report.period.slice(0, 10))}</span><CardTag card="personal"/><button type="button" className={styles.csv} onClick={() => onDownload(report)}><Download/>XML</button></dt><dd>{money(report.totals.closing)} MXN</dd></div>)}
       <div className={styles.deposit}><dt><span>Total pagado</span></dt><dd>{money(paid.reduce((sum, report) => sum + report.totals.closing, 0))} MXN</dd></div>
     </ExpenseTable>
-    <p className={styles.taxNote}>Este total incluye {money(paid.reduce((sum, report) => sum + (report.totals.tax || 0), 0))} MXN de IVA.</p>
+    <IncludedVatNote amount={paid.reduce((sum, report) => sum + (report.totals.tax || 0), 0)}/>
     </>}
     <div className={styles.downloadActions}><DownloadGuide title="Google Ads"/></div>
   </section>;
@@ -296,9 +300,19 @@ function CloudExpenses({ reports, month, onDownload }: { reports: Report[]; mont
         })}
         <div className={styles.deposit}><dt><span>Total pagado</span></dt><dd>{money(paid.reduce((sum, r) => sum + r.totals.closing, 0))} MXN</dd></div>
       </ExpenseTable>
-      <p className={styles.taxNote}>Este total incluye {money(paid.reduce((sum, r) => sum + r.totals.tax, 0))} MXN de IVA.</p>
+      <IncludedVatNote amount={paid.reduce((sum, r) => sum + r.totals.tax, 0)}/>
     </>}
     <div className={styles.downloadActions}><DownloadGuide title="Google Cloud"/></div>
+  </section>;
+}
+
+function AccountantExpenses({rows,loading}:{rows:BankRow[];loading:boolean}) {
+  return <section className={styles.entry}>
+    <div className={styles.row}><h2>Contabilidad</h2>{!loading&&rows.length===0&&<span className={styles.missing}>Sin pago identificado</span>}</div>
+    {loading?<p className={styles.taxNote}>Cargando…</p>:rows.length>0&&<>
+      <ExpenseTable>{rows.map((row,index)=><div key={row.id||index}><dt><span>{invoiceDate(row.date)}</span><CardTag card="negocio"/><span className={styles.noReceipt}>Falta</span></dt><dd>{money(-row.amount)} MXN</dd></div>)}<div className={styles.deposit}><dt><span>Total pagado</span></dt><dd>{money(rows.reduce((sum,row)=>sum-row.amount,0))} MXN</dd></div></ExpenseTable>
+      <p className={styles.taxNote}>Pago identificado en Banamex. Falta el comprobante del contador.</p>
+    </>}
   </section>;
 }
 
@@ -342,9 +356,11 @@ export default function AccountingPortal({ role, local = false }: { role: "owner
   const paid = [...play.reports, ...apple.reports, ...stripe.reports, ...mercado.reports].filter(report => report.receipt?.month === month);
 
   const expenses=[...cursor.reports,...chatgpt.reports,...facebook.reports,...google.reports,...supabase.reports,...cloud.reports].filter(r=>r.receipt?.month===month&&!r.isAdjustment);
-  const pesoAmounts=expensePesos(expenses,[...mergeBankDocuments(bankFiles.documents,month).rows.map(r=>({...r,category:bankCategory(r)})),...nuView(nuFiles.rows,month).rows],month);
+  const bankRows=mergeBankDocuments(bankFiles.documents,month).rows.map(r=>({...r,category:bankCategory(r)}));
+  const accountantRows=bankRows.filter(r=>r.category==="accountant"&&r.amount<0);
+  const pesoAmounts=expensePesos(expenses,[...bankRows,...nuView(nuFiles.rows,month).rows],month);
   const missingPesos=expenses.some(r=>pesoAmounts[reportKey(r)]==null);
-  const expenseTotal=expenses.reduce((sum,r)=>sum+(pesoAmounts[reportKey(r)]||0),0);
+  const expenseTotal=expenses.reduce((sum,r)=>sum+(pesoAmounts[reportKey(r)]||0),0)+accountantRows.reduce((sum,row)=>sum-row.amount,0);
 
   useEffect(() => {
     const selected = new URLSearchParams(location.search).get("mes");
@@ -499,7 +515,8 @@ export default function AccountingPortal({ role, local = false }: { role: "owner
       <GoogleExpenses reports={google.reports} month={month} onDownload={download}/>
       <SupabaseExpenses reports={supabase.reports} month={month} onDownload={download}/>
       <CloudExpenses reports={cloud.reports} month={month} onDownload={download}/>
-      {expenses.length>0&&<div className={styles.totals}><div><span>Total de gastos{missingPesos&&<small>Faltan cargos en pesos</small>}</span><strong>{bankLoading?"Cargando…":`${money(expenseTotal)} MXN`}</strong></div></div>}
+      <AccountantExpenses rows={accountantRows} loading={bankLoading}/>
+      {(expenses.length>0||accountantRows.length>0)&&<div className={styles.totals}><div><span>Total de gastos{missingPesos&&<small>Faltan cargos en pesos</small>}</span><strong>{bankLoading?"Cargando…":`${money(expenseTotal)} MXN`}</strong></div></div>}
     </>}
     {role==="owner"&&tab==="banco"&&bankAccount==="negocio"&&<div className={styles.downloadActions}><UploadButton title="Banamex"/></div>}
     {ready && tab === "banco" && <BankStatement onAccountChange={setBankAccount} documents={bankFiles.documents} nu={nuFiles} reports={[...play.reports,...apple.reports,...stripe.reports,...mercado.reports,...cursor.reports,...facebook.reports,...chatgpt.reports,...google.reports,...cloud.reports,...supabase.reports]} month={month} loading={bankLoading}/>}

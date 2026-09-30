@@ -170,3 +170,6 @@
 .portal .monthGrid button:hover{background:#F4F6F8;border-color:#D5DFEA}
 .portal .monthGrid button[aria-pressed="true"]{background:#EDF2F7;color:#334E68;border-color:#B8C9DB;font-weight:700}
 @media(max-width:560px){.monthPopover{left:0;right:auto;width:min(300px,calc(100vw - 32px))}}
+
+.successVatNote{background:#EDF7ED;color:#1E4620}
+.successVatNote svg{color:#2E7D32}
