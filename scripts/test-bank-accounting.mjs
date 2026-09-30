@@ -89,3 +89,19 @@ test('chips and confirmations follow new monthly files, never a fixed deposit or
  assert.equal(bank.reconcileBank(view,[{...report,receipt:{...report.receipt,month:'2026-09'}}],'2026-10').checks.length,0);
  assert.equal(bank.reconcileBank(view,[{...report,receipt:{...report.receipt,amount:1600001}}],'2026-10').checks[0].status,'missing');
 });
+
+test('outflow totals separate Nu transfers from purchases, preserving the original withdrawal total',()=>{
+ const totals=bank.bankOutflowTotals([
+ {amount:-1950000,description:'PAGO INTERBANCARIO A NUBANK TRANSFERENCIA'},
+ {amount:-1290031,description:'FACEBOOK'},
+ {amount:300000,description:'PAGO RECIBIDO DE NUBANK TRANSFERENCIA'}
+ ]);
+ assert.deepEqual(totals,{withdrawals:3240031,transfers:1950000,otherPayments:1290031});
+ assert.deepEqual(bank.bankOutflowTotals([]),{withdrawals:0,transfers:0,otherPayments:0});
+});
+
+test('deposit totals distinguish platform income, Nu transfers and bank bonuses without losing cents',()=>{
+ const rows=[{amount:2576995,description:'STRIPE'},{amount:300000,description:'NUBANK TRANSFERENCIA'},{amount:35758,description:'BONIFICACION COMPRAS DIGITALES'},{amount:-1950000,description:'NUBANK TRANSFERENCIA'}];
+ assert.deepEqual(bank.bankDepositTotals(rows),{total:2912753,transfers:300000,platforms:2576995,bonuses:35758,other:0});
+ assert.equal(bank.bankDepositTotals([{amount:12345,description:'DEPOSITO AUT'}]).other,12345);
+});

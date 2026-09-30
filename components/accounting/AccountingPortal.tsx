@@ -5,6 +5,7 @@ import { money, parseReport, appleSales, reportKey, paymentAmount, incomeFigures
 import styles from "./accounting.module.css";
 
 import BankStatement from "./BankStatement";
+import type { NuReview } from "@/lib/accounting/nu-ledger.mjs";
 import type { BankDocument } from "@/lib/accounting/bank-ledger.mjs";
 
 const AdminView = createContext(false);
@@ -279,6 +280,8 @@ export default function AccountingPortal({ role, local = false }: { role: "owner
   const [supabase, setSupabase] = useState<{ reports: Report[]; version: string }>({ reports: [], version: "" });
   const [facebook, setFacebook] = useState<{ reports: Report[]; version: string }>({ reports: [], version: "" });
   const [bankFiles, setBankFiles] = useState<{documents:BankDocument[];version:string}>({documents:[],version:""});
+  const [nuFiles,setNuFiles]=useState<NuReview>({rows:[],sources:[],version:""});
+  const [bankAccount,setBankAccount]=useState<"negocio"|"personal">("negocio");
   const [bankLoading,setBankLoading] = useState(true);
   const [loading, setLoading] = useState(true);
   const [ready, setReady] = useState(false);
@@ -303,8 +306,8 @@ export default function AccountingPortal({ role, local = false }: { role: "owner
   }, []);
 
   useEffect(() => {
-    let cancelled=false;setBankLoading(true);setBankFiles({documents:[],version:""});
-    fetch(`/contadores/bank?month=${month}`).then(async response=>{const data=await response.json();if(!response.ok)throw new Error(data.error);return data;}).then(data=>{if(!cancelled)setBankFiles(data);}).catch(e=>{if(!cancelled)setError(e.message);}).finally(()=>{if(!cancelled)setBankLoading(false);});
+    let cancelled=false;setBankLoading(true);setBankFiles({documents:[],version:""});setNuFiles({rows:[],sources:[],version:""});
+    Promise.all([`/contadores/bank?month=${month}`,`/contadores/nu?month=${month}`].map(url=>fetch(url).then(async response=>{const data=await response.json();if(!response.ok)throw new Error(data.error);return data;}))).then(([bank,nu])=>{if(!cancelled){setBankFiles(bank);setNuFiles(nu);}}).catch(e=>{if(!cancelled)setError(e.message);}).finally(()=>{if(!cancelled)setBankLoading(false);});
     return ()=>{cancelled=true;};
   },[month]);
 
@@ -393,7 +396,7 @@ export default function AccountingPortal({ role, local = false }: { role: "owner
       <a href="/contadores" className={styles.brand}>Órale AI<span>Contabilidad</span></a>
       <div className={styles.tools}>
         <input aria-label="Mes" type="month" value={month} disabled={busy} onChange={e => { if (e.target.value) openMonth(e.target.value); }}/>
-        {role === "owner" && <button className={styles.primary} disabled={busy || loading} onClick={() => input.current?.click()}><Upload/>{busy ? "Subiendo…" : tab === "banco" ? "Subir Banamex" : "Subir archivo"}</button>}
+        {role === "owner" && (tab!=="banco"||bankAccount==="negocio") && <button className={styles.primary} disabled={busy || loading} onClick={() => input.current?.click()}><Upload/>{busy ? "Subiendo…" : tab === "banco" ? "Subir Banamex" : "Subir archivo"}</button>}
         <button type="button" onClick={logout}><LogOut/>Salir</button>
       </div>
     </header>
@@ -423,7 +426,7 @@ export default function AccountingPortal({ role, local = false }: { role: "owner
       <SupabaseExpenses reports={supabase.reports} month={month} onDownload={download}/>
       <CloudExpenses reports={cloud.reports} month={month} onDownload={download}/>
     </>}
-    {ready && tab === "banco" && <BankStatement documents={bankFiles.documents} reports={[...play.reports,...apple.reports,...stripe.reports,...mercado.reports,...cursor.reports,...facebook.reports]} month={month} loading={bankLoading}/>}
+    {ready && tab === "banco" && <BankStatement onAccountChange={setBankAccount} documents={bankFiles.documents} nu={nuFiles} reports={[...play.reports,...apple.reports,...stripe.reports,...mercado.reports,...cursor.reports,...facebook.reports,...chatgpt.reports,...google.reports,...cloud.reports,...supabase.reports]} month={month} loading={bankLoading}/>}
     <input ref={input} hidden type="file" multiple accept={tab === "banco" ? ".xlsx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" : ".zip,application/zip,.csv,.txt,.pdf,.xml,text/csv,text/plain,application/pdf,application/xml,text/xml"} onChange={e => upload(e.target.files)}/>
   </main></div></AdminView.Provider>;
 }

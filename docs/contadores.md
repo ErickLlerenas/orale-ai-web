@@ -75,6 +75,16 @@ Google Cloud acepta un ZIP sin descomprimir: toda la carga se valida antes de gu
 
 En Estado de cuenta → Negocio, Subir Banamex acepta el PDF Switch del corte y los dos Excel originales de movimientos. Los originales se conservan en almacenamiento privado, por mes, con el mismo control de acceso de contabilidad. El lector valida cada saldo del Excel y el detalle del PDF contra su resumen antes de guardar el lote. Las filas compartidas por los archivos no se duplican. El detalle del PDF queda disponible para identificar depósitos, conservando la descripción del Excel en pantalla.
 
-La tabla muestra Fecha, Descripción, Depósitos, Retiros y Saldo, de más reciente a más antiguo, filtrados por la fecha bancaria del mes abierto. Un cargo sin saldo informado conserva la celda vacía; se incluye en el total de retiros de la tabla, pero no se inventa un saldo posterior. Personal/Nu permanece sin cargar hasta su revisión. La presentación replica la exportación sin diagnósticos ni explicaciones visibles.
+La tabla muestra Fecha, Descripción, Depósitos, Retiros y Saldo, de más reciente a más antiguo, filtrados por la fecha bancaria del mes abierto. Un cargo sin saldo informado conserva la celda vacía; se incluye en el total de retiros de la tabla, pero no se inventa un saldo posterior. Personal/Nu muestra los movimientos revisados de sus capturas y estado de cuenta. La presentación replica la exportación sin diagnósticos ni explicaciones visibles.
 
 Lectores: read-excel-file y PDF.js 5.6.205 (compatible con Node 20.19). El lector bancario PDF se mantiene separado del lector previo de comprobantes para conservar los formatos ya validados.
+
+## Movimientos de Nu
+
+Nu usa una revisión manual de capturas con fecha, hora, importe en centavos, estado y referencias a sus originales. Se guarda mediante POST /contadores/nu, separado de Banamex y de los comprobantes de gastos. No hay OCR automático ni carga directa de imágenes en el portal. El administrador revisa y transcribe las capturas antes de guardar; la API valida filas y originales y conserva una versión por mes en almacenamiento privado. Los originales se descargan mediante la misma sesión contable; no se guardan en Git.
+
+La tabla personal muestra Abonos y Cargos. Los abonos son pagos a la tarjeta, no ventas. Pendientes y cancelados se muestran con chips y se excluyen del total confirmado; los pendientes tienen su propio total. Cuando el PDF confirma fecha de cargo, esa fecha se utiliza para el mes y la tabla, conservando la fecha visible en la app en el título de la celda. No se calcula un saldo sin respaldo.
+
+Los chips identifican comercios; no crean gastos ni asignan deducibilidad. Suno y CapCut siguen como personales y GitHub no se incorpora automáticamente al negocio. ChatGPT, Google Ads y Cloud se comparan con los totales de comprobantes en pesos del mes; Supabase en dólares queda identificado sin afirmar equivalencia exacta en pesos.
+
+Los totales de Banamex separan transferencias con Nu (entradas y salidas), ingresos de plataformas, bonificaciones, otros depósitos cuando existen y gastos u otros pagos. Las transferencias y los abonos a la tarjeta Nu se muestran en azul, los ingresos externos en verde y los cargos en rojo. Estos subtotales se calculan por mes desde las filas identificadas del banco, sin montos fijos.

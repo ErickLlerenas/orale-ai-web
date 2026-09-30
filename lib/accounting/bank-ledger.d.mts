@@ -11,3 +11,7 @@ export function mergeBankDocuments(documents:BankDocument[],month:string):BankVi
 export function bankCategory(row:BankRow):string;
 export const bankLabels:Record<string,string>;
 export function reconcileBank(view:BankView,reports:Report[],month:string):{checks:Check[];rows:(BankRow & {id:string;category:string;check:Check|null})[];unmatched:BankRow[]};
+
+export function bankOutflowTotals(rows:BankRow[]):{withdrawals:number;transfers:number;otherPayments:number};
+
+export function bankDepositTotals(rows:BankRow[]):{total:number;transfers:number;platforms:number;bonuses:number;other:number};
