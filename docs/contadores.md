@@ -6,7 +6,7 @@ La vista conserva el diseño de estado de cuenta. Google Play, App Store y Strip
 
 ## Archivos y cálculo
 
-- **Google Play:** `account_activities_AAAAMM.csv` conserva el saldo, movimientos e IVA. El saldo final de un reporte de operaciones es un importe sugerido para el depósito asignado. Un reporte que solo contiene un pago utiliza ese pago, no el saldo final. Para separar ventas, devoluciones, países y comisiones, adjuntar `PlayApps_AAAAMM.csv` del mismo periodo. Se comprueba que ambos reportes coincidan; el detalle no crea un segundo ingreso. El IVA de ventas de México se extrae del importe con IVA incluido (`total - redondear(total / 1.16)`). Sin detalle no se inventa el desglose fiscal. Cuando hay ventas extranjeras, no se aplica automáticamente el tratamiento de IVA mexicano a todos los impuestos/comisiones.
+- **Google Play:** subir únicamente `PlayApps_AAAAMM.csv` (Descargar informes → Financieros → Ingresos/Earnings; extraer el CSV del ZIP). La carga funciona sin reporte de actividades y se asigna al mes abierto, aunque el periodo del archivo sea anterior. Ventas, devoluciones, comisiones, IVA de comisión y neto provienen del detalle. El IVA de ventas mexicano se calcula con las operaciones individuales. El neto se muestra como «Neto del reporte» hasta que el pago tenga confirmación bancaria o del preparador; no se inventa fecha de depósito. Al sustituir un reporte antiguo de actividades, se exige coincidencia de importes y periodo, se conserva el pago y no se crea otro ingreso. Las versiones anteriores conservan el original antiguo.
 - **App Store:** el CSV financiero conserva Earned, Input Tax, Adjustments, Withholding Tax y Proceeds. Se validan los totales en MXN. Adjustments no se reclasifica automáticamente como IVA a pagar. El detalle de ventas es opcional, se valida contra Earned y se conserva como documento complementario; solo se suman precios y monedas compatibles. Con el detalle mexicano se calcula un IVA estimado: IVA incluido en ventas menos 16% de la comisión derivada. El depósito conserva el importe recibido; el cálculo de IVA se identifica como estimado. No se altera el depósito para hacerlo coincidir con ese cálculo ni se asume que el ajuste del reporte es un impuesto. La factura de comisión descargada de Apple permite usar la comisión y su IVA reales; véase el apartado final. El impuesto de la comisión queda sujeto a su comprobante; retenciones y otros conceptos requieren su desglose.
 - **Stripe:** CSV de movimientos en MXN. Admite cargos, devoluciones y Stripe Fee. Cada fila debe cumplir Amount - Fees = Net. Rechaza IDs duplicados y tipos desconocidos sin omitirlos. El IVA al 16% de ventas y comisiones es un desglose calculado para operaciones gravadas en México y debe contrastarse con sus comprobantes. No representa una declaración fiscal.
 - **Mercado Libre Afiliados:** PDF del CFDI; conserva el subtotal, IVA trasladado, IVA retenido e ISR retenido. El UUID identifica el documento.
@@ -14,7 +14,8 @@ La vista conserva el diseño de estado de cuenta. Google Play, App Store y Strip
 - **ChatGPT:** PDF de recibo; usa Amount paid, Date paid y número de factura. La tarjeta se obtiene del recibo cuando aparece.
 - **Facebook Ads:** CSV Resumen_Facturación; conserva los cargos y el IVA reportados.
 - **Google Ads:** XML del CFDI de prepago; conserva subtotal, IVA y total. UUID (o folio si no está presente) identifica la factura.
-- **Supabase y Google Cloud:** pendientes de comprobante e importador; no representan un gasto cero.
+- **Supabase:** Receipt en PDF; conserva USD y tarjeta cuando esté documentada.
+- **Google Cloud:** ZIP mensual de Facturas → Prepago: AI Studio, incluyendo Documentos relacionados. Se leen los CFDI XML en MXN de GOOGLE CLOUD MEXICO, se deduplican por UUID y se valida subtotal + IVA = total. Los PDF repetidos no se suman. Las notas relacionadas de tipo 02 y notas de crédito se conservan como ajustes fuera de los cargos; otras relaciones requieren revisión. La tarjeta se confirma aparte cuando no viene en el documento.
 
 ## Registro y conservación
 
@@ -65,3 +66,15 @@ Usar el PDF **Receipt**: incluye fecha de pago, total pagado y el mismo detalle 
 El recibo AZSTCI-00012 confirma $27 USD pagados el 20 de septiembre de 2026 ($25 de Pro Plan y $2 de consumo adicional). No muestra tarjeta ni desglosa IVA; no se inventan esos datos. Supabase confirma que emite sus facturas en USD: https://supabase.com/docs/guides/platform/billing-faq. El importe permanece en USD, igual que los demás comprobantes en dólares, sin convertirlo ni sumarlo como pesos. Si un recibo futuro incluye tarjeta, se muestra la terminación o Personal/Negocio cuando coincide con 0698/6271.
 
 Para este recibo, el usuario confirmó la tarjeta personal Nu terminación 0698. Se conserva en los datos del pago con origen user, sin atribuírsela al PDF ni guardar su vencimiento.
+
+## ZIP mensual
+
+Google Cloud acepta un ZIP sin descomprimir: toda la carga se valida antes de guardar, sin duplicar cobros al reimportar. Los importes permanecen en centavos enteros. El mes lo selecciona el usuario.
+
+## Estado de cuenta Banamex
+
+En Estado de cuenta → Negocio, Subir Banamex acepta el PDF Switch del corte y los dos Excel originales de movimientos. Los originales se conservan en almacenamiento privado, por mes, con el mismo control de acceso de contabilidad. El lector valida cada saldo del Excel y el detalle del PDF contra su resumen antes de guardar el lote. Las filas compartidas por los archivos no se duplican. El detalle del PDF queda disponible para identificar depósitos, conservando la descripción del Excel en pantalla.
+
+La tabla muestra Fecha, Descripción, Depósitos, Retiros y Saldo, de más reciente a más antiguo, filtrados por la fecha bancaria del mes abierto. Un cargo sin saldo informado conserva la celda vacía; se incluye en el total de retiros de la tabla, pero no se inventa un saldo posterior. Personal/Nu permanece sin cargar hasta su revisión. La presentación replica la exportación sin diagnósticos ni explicaciones visibles.
+
+Lectores: read-excel-file y PDF.js 5.6.205 (compatible con Node 20.19). El lector bancario PDF se mantiene separado del lector previo de comprobantes para conservar los formatos ya validados.

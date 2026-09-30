@@ -71,3 +71,43 @@
   .header{padding-bottom:12px}
   .entry{break-inside:avoid}
 }
+
+.downloadActions{display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap}
+.downloadActions .csv{margin-top:0}
+.downloadGuide{position:relative;display:inline-block;font-size:12px;color:#667085}
+.downloadGuide summary{list-style:none;cursor:pointer;border:1px solid #F4C9B8;border-radius:5px;background:#FFF5EF;color:#A83D18;padding:8px 12px;min-height:40px;display:flex;align-items:center;font-weight:600}
+.downloadGuide summary::-webkit-details-marker{display:none}
+.downloadGuide summary:hover{background:#FFE9DC}
+.downloadGuide summary:focus-visible{outline:2px solid #F15A29;outline-offset:3px}
+.downloadHelp{position:absolute;z-index:5;top:calc(100% + 8px);left:0;width:min(340px,calc(100vw - 150px));padding:16px;border:1px solid #E8EBF0;border-radius:8px;background:#fff;box-shadow:0 6px 24px #1f29331a;line-height:1.5;overflow-wrap:anywhere}
+.downloadHelp strong{color:#1F2933;font-size:14px}
+.downloadHelp p{margin:8px 0}
+.downloadHelp a{display:inline-block;margin-top:4px;color:#A83D18;text-underline-offset:3px}
+.downloadFile{color:#1F2933;font-weight:600}
+@media print{.downloadGuide{display:none!important}}
+
+.fileStatus{margin:10px 0 0;font-size:13px;color:#A83D18;line-height:1.5;overflow-wrap:anywhere}
+.fileStatus span{display:block;color:#667085}
+
+.bankChooser{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:22px}
+.bankChooser button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:12px 16px;font-weight:650;text-align:left;border:1px solid #E8EBF0}
+.bankChooser small{font-size:12px;font-weight:400;color:#667085}
+.bankChooser .bankBusinessTab[aria-selected=true]{background:#F4F6F8;border-color:#D4D8DF;color:#1F2933}
+.bankChooser .bankPersonalTab[aria-selected=true]{background:#F4F6F8;border-color:#D4D8DF;color:#1F2933}
+.bankTableWrap{overflow-x:auto;margin-top:20px}
+.bankTable{border-collapse:collapse;width:100%;font-size:12px;line-height:1.5}
+.bankTable th{font-weight:600;color:#475467;text-align:left;padding:12px 8px;background:#F4F6F8;border-bottom:1px solid #E8EBF0}
+.bankTable td{padding:12px 8px;vertical-align:top;font-variant-numeric:tabular-nums;border-bottom:1px solid #F0F1F3}
+.bankRawTable td:first-child{white-space:nowrap;width:105px;color:#667085}
+.bankRawTable td:nth-child(2){min-width:170px;overflow-wrap:anywhere}
+.bankRawTable th:nth-child(n+3),.bankRawTable td:nth-child(n+3){text-align:right;white-space:nowrap}
+.bankBusiness .bankTable tbody tr:nth-child(even){background:#F4F6F8}
+.bankTable tfoot td,.bankTable tfoot th{border-top:2px solid #E8EBF0;font-weight:650;background:#fff}
+.bankOriginals{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.bankOriginals .csv{font-size:11px}
+@media(max-width:560px){.bankRawTable{min-width:650px}.bankChooser button{padding:10px 12px}}
+
+.bankRawTable tfoot td{text-align:right;white-space:nowrap}
+
+.bankChip{display:inline-flex;align-items:center;gap:4px;margin-top:6px;padding:2px 7px;border:1px solid #D4D8DF;border-radius:999px;background:#fff;color:#475467;font-size:11px;font-weight:600;line-height:1.5}
+.bankChip svg{width:12px;height:12px;color:#237A4B}

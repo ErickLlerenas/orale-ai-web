@@ -2,13 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { sessionRole, sessionCookie } from "@/lib/accounting/access";
 import { emptyWorkspace, latest, storeVersion, validateWorkspace, monthSnapshot } from "@/lib/accounting/store";
 import { reportKey, upsertReport, attachPlayEarnings, attachAppleSales, appleCommissionInvoice, attachAppleCommission } from "@/lib/accounting/ledger.mjs";
+import { zipSources } from "@/lib/accounting/zip.mjs";
 import { extractPdfText } from "@/lib/accounting/pdf.mjs";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 const json = (body: unknown, status = 200) => NextResponse.json(body, { status, headers: { "Cache-Control": "private, no-store", "X-Robots-Tag": "noindex, nofollow" } });
 const validMonth = (month: string) => /^\d{4}-(0[1-9]|1[0-2])$/.test(month);
-const collectionOf = (platform: string | null) => platform === "apple" ? "apple-reports" : platform === "stripe" ? "stripe-reports" : platform === "mercado" ? "mercado-reports" : platform === "cursor" ? "cursor-reports" : platform === "facebook" ? "facebook-reports" : platform === "chatgpt" ? "chatgpt-reports" : platform === "supabase" ? "supabase-reports" : platform === "google" ? "google-reports" : "simple-reports";
-const platformOf = (kind?: string) => kind === "apple" || kind === "stripe" || kind === "mercado" || kind === "cursor" || kind === "facebook" || kind === "chatgpt" || kind === "google" || kind === "supabase" ? kind : "play";
+const collectionOf = (platform: string | null) => platform === "cloud" ? "cloud-reports" : platform === "apple" ? "apple-reports" : platform === "stripe" ? "stripe-reports" : platform === "mercado" ? "mercado-reports" : platform === "cursor" ? "cursor-reports" : platform === "facebook" ? "facebook-reports" : platform === "chatgpt" ? "chatgpt-reports" : platform === "supabase" ? "supabase-reports" : platform === "google" ? "google-reports" : "simple-reports";
+const platformOf = (kind?: string) => kind === "cloud" || kind === "apple" || kind === "stripe" || kind === "mercado" || kind === "cursor" || kind === "facebook" || kind === "chatgpt" || kind === "google" || kind === "supabase" ? kind : "play";
 export async function GET(req: NextRequest) {
   const role = await sessionRole(req.cookies.get(sessionCookie)?.value, req.headers.get("host"));
   if (!role) return json({ error: "Acceso restringido." }, 401);
@@ -67,6 +68,27 @@ export async function POST(req: NextRequest) {
       return json({ reports: state.reports, version });
     }
     if (body.action === "upload-report") {
+      if (typeof body.report?.zip === "string") {
+        if (!validMonth(body.month || "")) return json({ error: "Elige el mes del depósito o pago." }, 400);
+        const sources = zipSources(Buffer.from(body.report.zip, "base64"));
+        if (sources.some(source => !source.name.toLowerCase().endsWith(".xml"))) return json({ error: "Usa el ZIP de comprobantes de Google Cloud, incluyendo los documentos relacionados." }, 400);
+        const current = await latest("cloud-reports");
+        if (body.versions?.cloud !== (current?.key ?? "")) return json({ error: "Hay información más reciente. Recarga antes de guardar." }, 409);
+        const state = validateWorkspace(current?.state ?? emptyWorkspace());
+        const seen = new Map<string, string>();
+        for (const source of sources) {
+          const report = validateWorkspace({ ...emptyWorkspace(), reports: [source] }).reports[0];
+          if (report.kind !== "cloud") return json({ error: "El ZIP debe contener solo comprobantes de Google Cloud." }, 400);
+          const id = reportKey(report), previous = state.reports.find(r => reportKey(r) === id);
+          if (seen.has(id) && seen.get(id) !== report.text) return json({ error: "El ZIP contiene versiones distintas del mismo comprobante." }, 400);
+          seen.set(id, report.text);
+          if (previous && previous.text !== report.text && body.replace !== true) return json({ error: "Ya existe otra versión de un comprobante. Confirma su reemplazo.", replaceRequired: true }, 409);
+          state.reports = upsertReport(state.reports, report, body.month);
+        }
+        const validated = validateWorkspace(state);
+        const version = await storeVersion("cloud-reports", { state: validated });
+        return json({ reports: validated.reports, version, platform: "cloud" });
+      }
       if (typeof body.report?.pdf === "string") {
         const bytes = Buffer.from(body.report.pdf, "base64");
         if (!bytes.length || bytes.length > 2_000_000) return json({ error: "El PDF debe pesar menos de 2 MB." }, 400);
@@ -89,13 +111,13 @@ export async function POST(req: NextRequest) {
       }
       const requested = req.nextUrl.searchParams.get("platform");
       const detected = requested === "pdf" ? platformOf((validateWorkspace({ ...emptyWorkspace(), reports: [body.report] }).reports[0]).kind) : requested;
-      const platform = detected === "cursor" || detected === "mercado" || detected === "apple" || detected === "stripe" || detected === "facebook" || detected === "chatgpt" || detected === "google" || detected === "supabase" ? detected : "play";
+      const platform = detected === "cloud" || detected === "cursor" || detected === "mercado" || detected === "apple" || detected === "stripe" || detected === "facebook" || detected === "chatgpt" || detected === "google" || detected === "supabase" ? detected : "play";
       const collection = collectionOf(platform);
       const current = await latest(collection);
       const expected = requested === "pdf" ? body.versions?.[platform] ?? "" : body.version;
       if (expected !== (current?.key ?? "")) return json({ error: "Hay información más reciente. Recarga antes de subir el archivo." }, 409);
       const uploaded = validateWorkspace({ ...emptyWorkspace(), reports: [body.report] }).reports[0];
-      if (platformOf(uploaded.kind) !== platform || uploaded.kind === "earnings") return json({ error: "Sube el detalle PlayApps como complemento del reporte de actividades." }, 400);
+      if (platformOf(uploaded.kind) !== platform) return json({ error: "El archivo no corresponde a esta plataforma." }, 400);
       if (!validMonth(body.month || "")) return json({ error: "Elige el mes del depósito o pago." }, 400);
       const currentState = validateWorkspace(current?.state ?? emptyWorkspace());
       const existing = currentState.reports.find(r => reportKey(r) === reportKey(uploaded));

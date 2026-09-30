@@ -2,8 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
-import { deflateSync } from 'node:zlib';
+import { deflateSync, deflateRawSync } from 'node:zlib';
 import ts from 'typescript';
+import {zipSources} from '../lib/accounting/zip.mjs';
 import * as ledger from '../lib/accounting/ledger.mjs';
 import {extractPdfText} from '../lib/accounting/pdf.mjs';
 const {parseReport, incomeFigures, paymentAmount, upsertReport, attachPlayEarnings, validateReceipt} = ledger;
@@ -99,7 +100,7 @@ const memory=new Map();let version=0;
 const route=transpiled('../app/contadores/api/route.ts',{
  'next/server':{NextResponse:{json:(data,options)=>({status:options.status,data})}},
  '@/lib/accounting/access':{sessionCookie:'test',sessionRole:async value=>value},
- '@/lib/accounting/ledger.mjs':ledger,'@/lib/accounting/pdf.mjs':{extractPdfText},
+ '@/lib/accounting/zip.mjs':{zipSources}, '@/lib/accounting/ledger.mjs':ledger,'@/lib/accounting/pdf.mjs':{extractPdfText},
  '@/lib/accounting/store':{...validator,latest:async key=>memory.get(key)||null,storeVersion:async(key,value)=>{const id=String(++version);memory.set(key,{...value,key:id});return id;}}
 });
 const req=(body,token='owner')=>({cookies:{get:()=>({value:token})},headers:new Headers({host:'localhost',origin:'http://localhost','content-type':'application/json'}),nextUrl:new URL('http://localhost/contadores/api?view=report&platform=chatgpt'),text:async()=>JSON.stringify(body)});
@@ -166,4 +167,83 @@ test('API attaches Apple commission PDF text to the assigned month without addin
  assert.equal(incomeFigures(attached.data.reports[0]).feeVat,8471);
  const wrongMonth=await route.POST(appleReq({action:'upload-report',version:attached.data.version,month:'2026-10',report:{name:'invoice.pdf',text:appleCommissionText}}));
  assert.equal(wrongMonth.status,400);
+});
+
+const singlePlayCsv='Description,Transaction Date,Transaction Type,Buyer Country,Merchant Currency,Amount (Merchant Currency),Tax Type\na,"Aug 2, 2026",Charge,MX,MXN,116.00,\na,"Aug 2, 2026",Google fee,MX,MXN,-17.40,\na,"Aug 2, 2026",Tax,MX,MXN,-2.78,Mexico VAT';
+test('PlayApps uploads alone, keeps the selected cash month and reimports without duplicates', async()=>{
+ memory.delete('simple-reports');
+ const playReq=body=>({...req(body),nextUrl:new URL('http://localhost/contadores/api?view=report&platform=play')});
+ const body={action:'upload-report',version:'',month:'2026-09',report:{name:'PlayApps_202608.csv',text:singlePlayCsv}};
+ const first=await route.POST(playReq(body));assert.equal(first.status,200);
+ const report=first.data.reports[0];assert.equal(report.kind,'earnings');assert.equal(report.id,'play:2026-08');assert.equal(report.receipt.month,'2026-09');assert.equal(report.receipt.date,undefined);assert.equal(report.receipt.source,'document');assert.equal(report.receipt.amount,9582);assert.equal(incomeFigures(report).preliminaryVat,1322);
+ const again=await route.POST(playReq({...body,version:first.data.version}));assert.equal(again.status,200);assert.equal(again.data.reports.length,1);
+ const move=await route.POST(playReq({...body,version:again.data.version,month:'2026-10'}));assert.equal(move.status,400);
+ memory.delete('simple-reports');
+});
+test('migration to single PlayApps preserves bank confirmation and cannot double count the old statement',()=>{
+ const previous={...parseReport(activity,'account_activities_202608.csv'),receipt:{month:'2026-09',amount:9600,date:'2026-09-15',source:'bank'}};
+ const report=parseReport(singlePlayCsv,'PlayApps_202608.csv');
+ const migrated=validator.validateWorkspace({...validator.emptyWorkspace(),reports:upsertReport([previous],report,'2026-09')}).reports;
+ assert.equal(migrated.length,1);assert.equal(migrated[0].kind,'earnings');assert.equal(migrated[0].receipt.amount,9600);assert.equal(migrated[0].receipt.date,'2026-09-15');assert.equal(migrated[0].earningsSource,undefined);
+ assert.throws(()=>upsertReport(migrated,parseReport(activity,'account_activities_202608.csv'),'2026-09'),/PlayApps/);
+ assert.throws(()=>upsertReport([previous],parseReport(singlePlayCsv.replace('116.00','117.00'),'PlayApps_202608.csv'),'2026-09'),/no coincide/);
+});
+
+
+test('Apple names exactly the missing documents, independently of numeric fields',()=>{
+ assert.equal(ledger.missingAppleFiles().length,3);
+ const report=parseReport(apple,'financial_report.csv');
+ assert.deepEqual(ledger.missingAppleFiles(report),['detalle de ventas (FD_….txt)','factura de comisión (MexicoCommissionInvoice-….pdf)']);
+ assert.deepEqual(ledger.missingAppleFiles({...report,sales:409377,salesFee:52942}),ledger.missingAppleFiles(report));
+ assert.deepEqual(ledger.missingAppleFiles({...report,salesSource:{name:'detail.txt',text:'detail'}}),['factura de comisión (MexicoCommissionInvoice-….pdf)']);
+ assert.deepEqual(ledger.missingAppleFiles({...report,commissionSource:{name:'invoice.pdf',text:'invoice'}}),['detalle de ventas (FD_….txt)']);
+ assert.deepEqual(ledger.missingAppleFiles({...report,salesSource:{name:'detail.txt',text:'detail'},commissionSource:{name:'invoice.pdf',text:'invoice'}}),[]);
+});
+
+// Anonymous ZIP/CFDI fixtures: no account documents or personal identifiers.
+function testZip(files, method = 8) {
+ const locals=[], central=[]; let offset=0;
+ for (const [name,text] of files) {
+  const nameBytes=Buffer.from(name), plain=Buffer.from(text), data=method===8?deflateRawSync(plain):plain;
+  let crc=0xffffffff;for(const b of plain){crc^=b;for(let j=0;j<8;j++)crc=(crc>>>1)^((crc&1)?0xedb88320:0);}crc=(crc^0xffffffff)>>>0;
+  const local=Buffer.alloc(30); local.writeUInt32LE(0x04034b50);local.writeUInt16LE(method,8);local.writeUInt32LE(crc,14);local.writeUInt32LE(data.length,18);local.writeUInt32LE(plain.length,22);local.writeUInt16LE(nameBytes.length,26);
+  const c=Buffer.alloc(46);c.writeUInt32LE(0x02014b50);c.writeUInt16LE(method,10);c.writeUInt32LE(crc,16);c.writeUInt32LE(data.length,20);c.writeUInt32LE(plain.length,24);c.writeUInt16LE(nameBytes.length,28);c.writeUInt32LE(offset,42);
+  locals.push(local,nameBytes,data);central.push(c,nameBytes);offset+=30+nameBytes.length+data.length;
+ }
+ const directory=Buffer.concat(central), end=Buffer.alloc(22);end.writeUInt32LE(0x06054b50);end.writeUInt16LE(files.length,8);end.writeUInt16LE(files.length,10);end.writeUInt32LE(directory.length,12);end.writeUInt32LE(offset,16);
+ return Buffer.concat([...locals,directory,end]);
+}
+const cloudXml=(n,adjust=false)=>`<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" Fecha="2026-09-07T10:00:00" Folio="${n}" Moneda="MXN" MetodoPago="PUE" TipoDeComprobante="I" SubTotal="${adjust?'0.02':'172.41'}" Total="${adjust?'0.02':'200.00'}"><cfdi:Emisor Rfc="GCM221031837" Nombre="GOOGLE CLOUD MEXICO"/>${adjust?'<cfdi:CfdiRelacionados TipoRelacion="02"><cfdi:CfdiRelacionado UUID="FFFFFFFF-FFFF-FFFF-FFFF-FFFFFFFFFFFF"/></cfdi:CfdiRelacionados>':''}<cfdi:Concepto Descripcion="Prepago de servicios de Plataforma de Google Cloud (GCP)"><cfdi:Impuestos><cfdi:Traslado Impuesto="002" Importe="${adjust?'0.00':'27.59'}"/></cfdi:Impuestos></cfdi:Concepto><cfdi:Impuestos TotalImpuestosTrasladados="${adjust?'0.00':'27.59'}"><cfdi:Traslado Impuesto="002" Importe="${adjust?'0.00':'27.59'}"/></cfdi:Impuestos><cfdi:Complemento><tfd:TimbreFiscalDigital UUID="00000000-0000-0000-0000-${String(n).padStart(12,'0')}"/></cfdi:Complemento></cfdi:Comprobante>`;
+test('Cloud reads exact CFDI VAT once, identifies adjustment by relation and rejects contradictory totals',()=>{
+ const charge=parseReport(cloudXml(1),'charge.xml'), adjustment=parseReport(cloudXml(2,true),'adjust.xml');
+ assert.equal(charge.totals.closing,20000);assert.equal(charge.totals.tax,2759);assert.equal(charge.cardLast4,undefined);
+ assert.equal(paymentAmount(adjustment),0);assert.equal(adjustment.totals.closing,2);assert.equal(adjustment.id,'cloud:00000000-0000-0000-0000-000000000002');
+ assert.throws(()=>parseReport(cloudXml(1).replace('Total="200.00"','Total="201.00"'),'x.xml'),/no cuadran/);
+ assert.throws(()=>parseReport(cloudXml(1).replace('Moneda="MXN"','Moneda="USD"'),'x.xml'),/revisión/);
+ assert.throws(()=>parseReport(cloudXml(2,true).replace('TipoRelacion="02"','TipoRelacion="04"'),'x.xml'),/revisión/);
+});
+test('ZIP reader supports stored and deflated text, ignores PDF copies, rejects corrupt or oversized entries',()=>{
+ for(const method of [0,8]) assert.equal(zipSources(testZip([['nested/a.xml',cloudXml(1)],['a.pdf','ignored']],method)).length,1);
+ const corrupt=testZip([['a.xml',cloudXml(1)]],0);corrupt[35]^=1;assert.throws(()=>zipSources(corrupt));
+ assert.throws(()=>zipSources(testZip([['a.xml','x'.repeat(2000001)]])));
+ assert.throws(()=>zipSources(Buffer.from('not a zip')));
+ assert.throws(()=>zipSources(testZip([['a.pdf','no xml']])));
+});
+test('Cloud ZIP API imports atomically, deduplicates UUIDs and reimports without losing card confirmation',async()=>{
+ memory.delete('cloud-reports');
+ const files=[['1.xml',cloudXml(1)],['2.xml',cloudXml(2)],['3.xml',cloudXml(3,true)],['copy/1.xml',cloudXml(1)],['copy/1.pdf','ignore']];
+ const upload=(version,entries=files,month='2026-09')=>({...req({action:'upload-report',month,versions:{cloud:version},report:{name:'cloud.zip',zip:testZip(entries).toString('base64')}}),nextUrl:new URL('http://localhost/contadores/api?platform=zip')});
+ const first=await route.POST(upload(''));assert.equal(first.status,200);assert.equal(first.data.reports.length,3);
+ assert.equal(first.data.reports.reduce((sum,r)=>sum+paymentAmount(r),0),40000);assert.equal(first.data.reports.filter(r=>!r.isAdjustment).reduce((sum,r)=>sum+r.totals.tax,0),5518);
+ const edited=await route.POST({...req({action:'record-receipt',version:first.data.version,reportId:'cloud:00000000-0000-0000-0000-000000000001',receipt:{month:'2026-09',amount:20000,cardLast4:'0698',source:'user'}}),nextUrl:new URL('http://localhost/contadores/api?platform=cloud')});assert.equal(edited.status,200);
+ const second=await route.POST(upload(edited.data.version));assert.equal(second.status,200);assert.equal(second.data.reports.length,3);assert.equal(second.data.reports.find(r=>r.id.endsWith('000001')).receipt.cardLast4,'0698');
+ const bad=await route.POST(upload(second.data.version,[['new.xml',cloudXml(4)],['bad.xml','invalid']]));assert.equal(bad.status,400);assert.equal(memory.get('cloud-reports').key,second.data.version);
+ assert.equal((await route.POST(upload('',files))).status,409);
+ assert.equal((await route.POST(upload(second.data.version,files,'2026-10'))).status,400);
+});
+test('ZIP upload rejects Apple detail archives without changing accounting data',async()=>{
+ const zip=testZip([['Summary.csv','Region,All countries'],['FD_TEST_0726.txt','detail']]).toString('base64');
+ const before=memory.get('cloud-reports').key;
+ const result=await route.POST({...req({action:'upload-report',month:'2026-09',versions:{cloud:before},report:{name:'apple.zip',zip}}),nextUrl:new URL('http://localhost/contadores/api?platform=zip')});
+ assert.equal(result.status,400);assert.match(result.data.error,/Google Cloud/);assert.equal(memory.get('cloud-reports').key,before);
 });

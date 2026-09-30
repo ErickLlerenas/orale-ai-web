@@ -1,0 +1,13 @@
+import type { Report } from './ledger.mjs';
+export type BankRow = { id?:string; date:string; description:string; amount:number; balance:number|null; sourceRow:number; pdfDescription?:string; spreadsheetDescription?:string; sources?:string[] };
+export type BankDocument = { id:string; name:string; type:'xlsx'|'pdf'; month:string; bank:'banamex'; file:string; importedAt:string; from:string; to:string; rows:BankRow[]; opening:number|null; closing:number|null; cardLast4?:string; deposits?:number; withdrawals?:number };
+export type BankView = { openingAtMonthStart:boolean; documents:BankDocument[]; rows:(BankRow & {id:string})[]; opening:number|null; closing:number|null; gap:boolean; deposits:number; withdrawals:number; unposted:number; balanceDate:string|null; through:string|null; missing:string[] };
+export type Check = { id:string; kind:string; amount:number|null; currency:string; date:string|null; row?:BankRow & {id:string}; status:'matched'|'fx'|'missing'|'outside' };
+export function bankDate(value:unknown):string;
+export function bankMoney(value:unknown):number;
+export function parseBanamexRows(data:unknown[][]):Pick<BankDocument,'rows'|'from'|'to'|'opening'|'closing'>;
+export function parseBanamexPdf(text:string):Pick<BankDocument,'rows'|'from'|'to'|'opening'|'closing'|'cardLast4'|'deposits'|'withdrawals'>;
+export function mergeBankDocuments(documents:BankDocument[],month:string):BankView;
+export function bankCategory(row:BankRow):string;
+export const bankLabels:Record<string,string>;
+export function reconcileBank(view:BankView,reports:Report[],month:string):{checks:Check[];rows:(BankRow & {id:string;category:string;check:Check|null})[];unmatched:BankRow[]};

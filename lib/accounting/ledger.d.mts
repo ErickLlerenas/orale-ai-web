@@ -1,7 +1,7 @@
 export type Row = { line: number; date: string; iso: string | null; description: string; amount: number; type: string; transactionId?: string | null };
 export type Receipt = { month: string; amount: number; date?: string; mxnAmount?: number; cardLast4?: string; source?: 'bank' | 'document' | 'user' };
 export type Source = { name: string; text: string };
-export type Report = { id?: string; currency?: 'MXN' | 'USD'; documentDate?: string; cardLast4?: string; receipt?: Receipt; sales?: number; salesBase?: number; salesFee?: number; salesSource?: Source; commissionSource?: Source & { file?: string }; earningsSource?: Source; earnings?: Report; file?: string; kind?: 'earnings' | 'apple' | 'stripe' | 'mercado' | 'cursor' | 'facebook' | 'chatgpt' | 'google' | 'supabase'; countries?: { code: string; charges: number; gross: number; refunds: number; net: number }[]; name: string; period: string; text: string; rows: Row[]; totals: Record<string, number>; difference: number; importedAt: string; hasOperations: boolean };
+export type Report = { isAdjustment?: boolean; id?: string; currency?: 'MXN' | 'USD'; documentDate?: string; cardLast4?: string; receipt?: Receipt; sales?: number; salesBase?: number; salesFee?: number; salesSource?: Source; commissionSource?: Source & { file?: string }; earningsSource?: Source; earnings?: Report; file?: string; kind?: 'earnings' | 'apple' | 'stripe' | 'mercado' | 'cursor' | 'facebook' | 'chatgpt' | 'google' | 'supabase' | 'cloud'; countries?: { code: string; charges: number; gross: number; refunds: number; net: number }[]; name: string; period: string; text: string; rows: Row[]; totals: Record<string, number>; difference: number; importedAt: string; hasOperations: boolean };
 export type Workspace = { reports: Report[]; links: Record<string, string>; notes: Record<string, string>; bank: Record<string, string> };
 export type Payout = Row & { id: string; report: Report };
 export function money(cents: number): string;
@@ -26,3 +26,5 @@ export function incomeFigures(report: Report): { sales: number | null; base: num
 
 export function appleCommissionInvoice(text: string, name: string): { period: string; earned: number; fee: number; feeVat: number; invoiceTotal: number };
 export function attachAppleCommission(report: Report, source: Source & { file?: string }): Report;
+
+export function missingAppleFiles(report?: Report): string[];
