@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sessionRole, sessionCookie } from "@/lib/accounting/access";
 import { emptyWorkspace, latest, storeVersion, validateWorkspace, monthSnapshot } from "@/lib/accounting/store";
-import { reportKey, upsertReport, attachPlayEarnings, attachAppleSales, appleCommissionInvoice, attachAppleCommission } from "@/lib/accounting/ledger.mjs";
+import { parseReport, appleSales, reportKey, upsertReport, attachPlayEarnings, attachAppleSales, appleCommissionInvoice, attachAppleCommission } from "@/lib/accounting/ledger.mjs";
 import { zipSources } from "@/lib/accounting/zip.mjs";
 import { extractPdfText } from "@/lib/accounting/pdf.mjs";
 export const dynamic = "force-dynamic";
@@ -43,6 +43,27 @@ export async function POST(req: NextRequest) {
     const raw = await req.text();
     if (raw.length > 3_500_000) return json({ error: "El espacio supera 3.5 MB. Reduce el tamaño de los archivos." }, 413);
     const body = JSON.parse(raw);
+    if(body.action==="preview") {
+      if(!validMonth(body.month||""))return json({error:"Elige el mes."},400);
+      const source=body.report;
+      if(typeof source?.name!=="string")return json({error:"Archivo inválido."},400);
+      let text=source.text;
+      if(typeof source.zip==="string"){
+        const sources=zipSources(Buffer.from(source.zip,"base64"));
+        if(!sources.length||sources.some(s=>!s.name.toLowerCase().endsWith(".xml")||parseReport(s.text,s.name).kind!=="cloud"))return json({error:"Usa el ZIP de comprobantes de Google Cloud."},400);
+        return json({label:"Google Cloud"});
+      }
+      if(typeof source.pdf==="string"){
+        const bytes=Buffer.from(source.pdf,"base64");if(!bytes.length||bytes.length>2_000_000)return json({error:"El PDF debe pesar menos de 2 MB."},400);
+        text=extractPdfText(bytes);
+      }
+      if(typeof text!=="string"||text.length>2_000_000)return json({error:"Archivo inválido."},400);
+      if(text.includes("Mexico Commission Invoice")){appleCommissionInvoice(text,source.name);return json({label:"App Store · factura de comisión"});}
+      if(text.includes("Customer Price")&&text.includes("\tQuantity")){appleSales(text,source.name);return json({label:"App Store · detalle de ventas"});}
+      const report=parseReport(text,source.name);
+      const labels:Record<string,string>={play:"Google Play",apple:"App Store",stripe:"Stripe",mercado:"Mercado Libre Afiliados",cursor:"Cursor AI",facebook:"Facebook Ads",chatgpt:"ChatGPT",google:"Google Ads",supabase:"Supabase",cloud:"Google Cloud"};
+      return json({label:labels[platformOf(report.kind)]});
+    }
     if (body.action === "attach-sales" || body.action === "attach-earnings") {
       const collection = body.action === "attach-sales" ? "apple-reports" : "simple-reports";
       const current = await latest(collection);

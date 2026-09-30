@@ -247,3 +247,14 @@ test('ZIP upload rejects Apple detail archives without changing accounting data'
  const result=await route.POST({...req({action:'upload-report',month:'2026-09',versions:{cloud:before},report:{name:'apple.zip',zip}}),nextUrl:new URL('http://localhost/contadores/api?platform=zip')});
  assert.equal(result.status,400);assert.match(result.data.error,/Google Cloud/);assert.equal(memory.get('cloud-reports').key,before);
 });
+
+test('upload preview detects platforms without saving and only accepts the owner',async()=>{
+ const before=version;
+ const pdf=compressedReceiptPdf(supabaseReceipt).toString('base64');
+ const result=await route.POST(req({action:'preview',month:'2026-09',report:{name:'receipt.pdf',pdf}}));
+ assert.equal(result.status,200);assert.equal(result.data.label,'Supabase');
+ assert.equal((await route.POST(req({action:'preview',month:'2026-09',report:{name:'openai.pdf',text:invoice('PREVIEW')}}))).data.label,'ChatGPT');
+ assert.equal((await route.POST(req({action:'preview',month:'2026-09',report:{name:'bad.txt',text:'invalid'}}))).status,400);
+ assert.equal((await route.POST(req({action:'preview',month:'2026-09',report:{name:'receipt.pdf',pdf}},'reader'))).status,403);
+ assert.equal(version,before);
+});
