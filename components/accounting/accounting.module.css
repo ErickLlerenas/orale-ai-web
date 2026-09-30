@@ -35,8 +35,8 @@
 .row strong{font-size:20px}
 .missing{font-size:14px;color:#98A2B3}
 .breakdown{margin:10px 0 0}
-.breakdown>div{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:24px;align-items:center;height:48px;padding:0 12px;border-radius:6px;background:#fff}
-.breakdown>div:nth-child(even){background:#F4F6F8}
+.breakdown>div{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:24px;align-items:center;height:48px;padding:0 12px;border-radius:0;border-bottom:1px solid #E8EBF0;background:#fff}
+.breakdown>div:nth-last-child(odd){background:#F4F6F8}
 .breakdown dt{display:flex;align-items:center;gap:10px;min-width:0;font-size:14px;color:#667085}
 .breakdown dt>span:first-child{display:flex;flex-direction:column;justify-content:center;min-width:0}
 .breakdown small{display:block;margin:0;font-size:12px;line-height:1.2;font-weight:400;color:#98A2B3}
@@ -45,9 +45,11 @@
 .taxNote{margin:6px 12px 0;font-size:12px;color:#667085}
 .due dt,.due dd{color:#1F2933;font-weight:700}
 .deposit{border-top:1px solid #E8EBF0}
+.breakdown>div.deposit{background:#EDF2F7;margin-top:8px;border:1px solid #D5DFEA;border-radius:6px}
+.breakdown>div.deposit dt,.breakdown>div.deposit dd{color:#334E68}
 .deposit dt,.deposit dd{color:#1F2933;font-weight:700}
 .csv{margin-top:8px;font-size:13px}
-.totals{border-top:2px solid #F15A29;padding-top:14px}
+.totals{margin-top:24px;padding:16px;background:#EDF2F7;border:1px solid #D5DFEA;border-radius:8px;color:#334E68}
 .totals>div{font-weight:700;font-size:16px}
 .totals>div+div{margin-top:8px}
 .totals strong{font-size:20px}
@@ -133,7 +135,24 @@
 .uploadReview>div{display:flex;justify-content:flex-end;gap:8px}
 .totals small{display:block;font-size:12px;color:#667085}
 
-.foreignVatNote{margin:18px 0 0;padding:12px 14px;background:#F4F6F8;border-radius:6px;color:#667085;font-size:13px;line-height:1.6}
+.foreignVatNote{display:flex;align-items:flex-start;gap:12px;margin:16px 0 0;padding:12px 14px;background:#E5F6FD;border-radius:6px;color:#014361;font-size:13px;line-height:1.6}
+.foreignVatNote svg{width:20px;height:20px;color:#0288D1;margin-top:1px;flex-shrink:0}
+.foreignVatNote p{margin:0}
 .foreignVatNote strong{display:block;color:#1F2933;font-weight:650;margin-bottom:4px}
 
 @media(max-width:560px){.entry{padding:14px 10px;border-radius:10px}}
+
+.expenseTableWrap{overflow-x:auto}
+.expenseTable{min-width:600px}
+.expenseTable>div{grid-template-columns:minmax(0,1fr) 164px;gap:16px}
+.expenseTable dt{display:grid;grid-template-columns:96px 160px minmax(80px,1fr);gap:10px}
+.expenseTable dt>*{justify-self:start}
+.expenseTable dt .personal,.expenseTable dt .negocio{font-size:12px;font-weight:500;border:1px solid #E0E4EA;border-radius:5px;padding:2px 6px;background:#fff;gap:5px}
+.expenseTable dt .personal svg,.expenseTable dt .negocio svg{width:15px;height:15px}
+.expenseTable>div.expenseHead{height:32px;background:#fff;color:#667085;border-bottom:1px solid #D5DFEA}
+.expenseHead dt,.expenseHead dd{font-size:11px;font-weight:600;color:#667085}
+.expenseTable>div.deposit{background:#EDF2F7}
+.expenseTable .deposit dt{display:flex}
+.breakdown dd small{color:#667085;margin-top:3px;font-size:11px}
+.noReceipt{color:#98A2B3}
+@media print{.expenseTableWrap{overflow:visible}.expenseTable{min-width:0}}

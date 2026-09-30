@@ -1,6 +1,6 @@
 "use client";
-import { createContext, useContext, useEffect, useRef, useState } from "react";
-import { Upload, Download, AlertCircle, LogOut, CreditCard } from "lucide-react";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { Upload, Download, AlertCircle, LogOut, CreditCard, Info } from "lucide-react";
 import { money, parseReport, appleSales, reportKey, paymentAmount, incomeFigures, missingAppleFiles, type Report } from "@/lib/accounting/ledger.mjs";
 import styles from "./accounting.module.css";
 
@@ -173,7 +173,11 @@ function CardTag({ card }: { card: "personal" | "negocio" }) {
 }
 
 function ForeignVatNote({name}:{name:string}) {
-  return <p className={styles.foreignVatNote}>El comprobante de {name} no muestra IVA cobrado. Como es un servicio del extranjero, puede corresponder declarar IVA por separado. Tu contador debe revisar ese cálculo antes de descontarlo del IVA de tus ingresos.</p>;
+  return <div className={styles.foreignVatNote} role="note"><Info aria-hidden="true"/><p>El comprobante de {name} no muestra IVA cobrado. Al ser un servicio del extranjero, tu contador debe revisar si corresponde declarar IVA por separado.</p></div>;
+}
+
+function ExpenseTable({children}:{children:ReactNode}) {
+  return <div className={styles.expenseTableWrap}><dl className={`${styles.breakdown} ${styles.expenseTable}`}><div className={styles.expenseHead}><dt><span>Fecha</span><span>Tarjeta</span><span>Comprobante</span></dt><dd>Importe</dd></div>{children}</dl></div>;
 }
 
 function DollarAmount({reports,total=false}:{reports:Report[];total?:boolean}) {
@@ -186,10 +190,10 @@ function CursorExpenses({ reports, month, onDownload }: { reports: Report[]; mon
   const paid = reports.filter(report => report.receipt?.month === month).sort((a, b) => a.period.localeCompare(b.period));
   return <section className={styles.entry}>
     <div className={styles.row}><h2>Cursor AI</h2>{paid.length === 0 && <span className={styles.missing}>Sin archivo</span>}</div>
-    {paid.length > 0 && <dl className={styles.breakdown}>
+    {paid.length > 0 && <ExpenseTable>
       {paid.map(report => <div key={reportKey(report)}><dt><span>{invoiceDate(report.documentDate || report.period.slice(0, 10))}</span><CardTag card="negocio"/><button type="button" className={styles.csv} onClick={() => onDownload(report)}><Download/>PDF</button></dt><dd><DollarAmount reports={[report]}/></dd></div>)}
       <div className={styles.deposit}><dt><span>Total</span></dt><dd><DollarAmount reports={paid} total/></dd></div>
-    </dl>}
+    </ExpenseTable>}
     {paid.length>0&&paid.every(r=>!r.totals.tax)&&<ForeignVatNote name="Cursor"/>}
     <div className={styles.downloadActions}><DownloadGuide title="Cursor AI"/></div>
   </section>;
@@ -199,13 +203,13 @@ function SupabaseExpenses({ reports, month, onDownload }: { reports: Report[]; m
   const paid = reports.filter(report => report.receipt?.month === month).sort((a, b) => a.period.localeCompare(b.period));
   return <section className={styles.entry}>
     <div className={styles.row}><h2>Supabase</h2>{paid.length === 0 && <span className={styles.missing}>Sin archivo</span>}</div>
-    {paid.length > 0 && <dl className={styles.breakdown}>
+    {paid.length > 0 && <ExpenseTable>
       {paid.map(report => {
         const card = report.receipt?.cardLast4 || report.cardLast4;
-        return <div key={reportKey(report)}><dt><span>{invoiceDate(report.documentDate || report.period)}{!card && <small>El recibo no indica la tarjeta</small>}</span>{card === "0698" || card === "6271" ? <CardTag card={card === "0698" ? "personal" : "negocio"}/> : card ? <span>Tarjeta ···· {card}</span> : null}<button type="button" className={styles.csv} onClick={() => onDownload(report)}><Download/>PDF</button></dt><dd><DollarAmount reports={[report]}/></dd></div>;
+        return <div key={reportKey(report)}><dt><span>{invoiceDate(report.documentDate || report.period)}{!card && <small>El recibo no indica la tarjeta</small>}</span>{card === "0698" || card === "6271" ? <CardTag card={card === "0698" ? "personal" : "negocio"}/> : card ? <span>Tarjeta ···· {card}</span> : <span>Sin identificar</span>}<button type="button" className={styles.csv} onClick={() => onDownload(report)}><Download/>PDF</button></dt><dd><DollarAmount reports={[report]}/></dd></div>;
       })}
       <div className={styles.deposit}><dt><span>Total</span></dt><dd><DollarAmount reports={paid} total/></dd></div>
-    </dl>}
+    </ExpenseTable>}
     {paid.length>0&&paid.every(r=>!r.totals.tax)&&<ForeignVatNote name="Supabase"/>}
     <div className={styles.downloadActions}><DownloadGuide title="Supabase"/></div>
   </section>;
@@ -215,10 +219,10 @@ function ChatgptExpenses({ reports, month, onDownload }: { reports: Report[]; mo
   const paid = reports.filter(report => report.receipt?.month === month).sort((a, b) => a.period.localeCompare(b.period));
   return <section className={styles.entry}>
     <div className={styles.row}><h2>ChatGPT</h2>{paid.length === 0 && <span className={styles.missing}>Sin archivo</span>}</div>
-    {paid.length > 0 && <dl className={styles.breakdown}>
+    {paid.length > 0 && <ExpenseTable>
       {paid.map(report => <div key={reportKey(report)}><dt><span>{invoiceDate(report.documentDate || report.period.slice(0, 10))}</span><CardTag card="personal"/><button type="button" className={styles.csv} onClick={() => onDownload(report)}><Download/>PDF</button></dt><dd>{money(report.totals.closing)} MXN</dd></div>)}
       <div className={styles.deposit}><dt><span>Total</span></dt><dd>{money(paid.reduce((sum, report) => sum + report.totals.closing, 0))} MXN</dd></div>
-    </dl>}
+    </ExpenseTable>}
     {paid.length>0&&paid.every(r=>!r.totals.tax)&&<ForeignVatNote name="ChatGPT"/>}
     <div className={styles.downloadActions}><DownloadGuide title="ChatGPT"/></div>
   </section>;
@@ -230,10 +234,10 @@ function FacebookExpenses({ reports, month, onDownload }: { reports: Report[]; m
     <div className={styles.row}><h2>Facebook Ads</h2>{paid.length === 0 && <span className={styles.missing}>Sin archivo</span>}</div>
     {paid.length === 0 && <div className={styles.downloadActions}><DownloadGuide title="Facebook Ads"/></div>}
     {paid.map(report => <div key={reportKey(report)}>
-      <dl className={styles.breakdown}>
-        {report.rows.map(row => <div key={row.line}><dt><span>{invoiceDate(row.iso || row.date)}</span><CardTag card="negocio"/></dt><dd>{money(row.amount)} MXN</dd></div>)}
+      <ExpenseTable>
+        {report.rows.map(row => <div key={row.line}><dt><span>{invoiceDate(row.iso || row.date)}</span><CardTag card="negocio"/><span className={styles.noReceipt}>—</span></dt><dd>{money(row.amount)} MXN</dd></div>)}
         <div className={styles.deposit}><dt><span>Total pagado</span></dt><dd>{money(report.totals.closing)} MXN</dd></div>
-      </dl>
+      </ExpenseTable>
       {report.totals.tax>0&&<p className={styles.taxNote}>Este total incluye {money(report.totals.tax)} MXN de IVA.</p>}
       {report.totals.tax===0&&<ForeignVatNote name="Facebook Ads"/>}
       <div className={styles.downloadActions}><button type="button" className={styles.csv} onClick={() => onDownload(report)}><Download/>CSV</button><DownloadGuide title="Facebook Ads"/></div>
@@ -246,10 +250,10 @@ function GoogleExpenses({ reports, month, onDownload }: { reports: Report[]; mon
   return <section className={styles.entry}>
     <div className={styles.row}><h2>Google Ads</h2>{paid.length === 0 && <span className={styles.missing}>Sin archivo</span>}</div>
     {paid.length > 0 && <>
-    <dl className={styles.breakdown}>
+    <ExpenseTable>
       {paid.map(report => <div key={reportKey(report)}><dt><span>{invoiceDate(report.period.slice(0, 10))}</span><CardTag card="personal"/><button type="button" className={styles.csv} onClick={() => onDownload(report)}><Download/>XML</button></dt><dd>{money(report.totals.closing)} MXN</dd></div>)}
       <div className={styles.deposit}><dt><span>Total pagado</span></dt><dd>{money(paid.reduce((sum, report) => sum + report.totals.closing, 0))} MXN</dd></div>
-    </dl>
+    </ExpenseTable>
     <p className={styles.taxNote}>Este total incluye {money(paid.reduce((sum, report) => sum + (report.totals.tax || 0), 0))} MXN de IVA.</p>
     </>}
     <div className={styles.downloadActions}><DownloadGuide title="Google Ads"/></div>
@@ -262,7 +266,7 @@ function CloudExpenses({ reports, month, onDownload }: { reports: Report[]; mont
   return <section className={styles.entry}>
     <div className={styles.row}><h2>Google Cloud</h2>{documents.length === 0 && <span className={styles.missing}>Sin archivo</span>}</div>
     {paid.length > 0 && <>
-      <dl className={styles.breakdown}>
+      <ExpenseTable>
         {paid.map(report => {
           const card = report.receipt?.cardLast4 || report.cardLast4;
           return <div key={reportKey(report)}><dt><span>{invoiceDate(report.receipt?.date || report.documentDate || report.period.slice(0, 10))}</span>
@@ -271,7 +275,7 @@ function CloudExpenses({ reports, month, onDownload }: { reports: Report[]; mont
           </dt><dd>{money(report.totals.closing)} MXN</dd></div>;
         })}
         <div className={styles.deposit}><dt><span>Total pagado</span></dt><dd>{money(paid.reduce((sum, r) => sum + r.totals.closing, 0))} MXN</dd></div>
-      </dl>
+      </ExpenseTable>
       <p className={styles.taxNote}>Este total incluye {money(paid.reduce((sum, r) => sum + r.totals.tax, 0))} MXN de IVA.</p>
     </>}
     <div className={styles.downloadActions}><DownloadGuide title="Google Cloud"/></div>
@@ -475,7 +479,7 @@ export default function AccountingPortal({ role, local = false }: { role: "owner
       <GoogleExpenses reports={google.reports} month={month} onDownload={download}/>
       <SupabaseExpenses reports={supabase.reports} month={month} onDownload={download}/>
       <CloudExpenses reports={cloud.reports} month={month} onDownload={download}/>
-      {expenses.length>0&&<div className={styles.totals}><div><span>Total de gastos de la app{missingPesos&&<small>Faltan cargos en pesos</small>}</span><strong>{bankLoading?"Cargando…":`${money(expenseTotal)} MXN`}</strong></div><p className={styles.taxNote}>{missingPesos?"Total parcial · ":""}Según los comprobantes cargados.</p></div>}
+      {expenses.length>0&&<div className={styles.totals}><div><span>Total de gastos{missingPesos&&<small>Faltan cargos en pesos</small>}</span><strong>{bankLoading?"Cargando…":`${money(expenseTotal)} MXN`}</strong></div></div>}
     </>}
     {role==="owner"&&tab==="banco"&&bankAccount==="negocio"&&<div className={styles.downloadActions}><UploadButton title="Banamex"/></div>}
     {ready && tab === "banco" && <BankStatement onAccountChange={setBankAccount} documents={bankFiles.documents} nu={nuFiles} reports={[...play.reports,...apple.reports,...stripe.reports,...mercado.reports,...cursor.reports,...facebook.reports,...chatgpt.reports,...google.reports,...cloud.reports,...supabase.reports]} month={month} loading={bankLoading}/>}
