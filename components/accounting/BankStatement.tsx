@@ -33,11 +33,11 @@ export default function BankStatement({documents,reports,month,loading}:{documen
                 {row.check?.status==='matched' && <Check aria-label="Importe confirmado con el archivo del mes"/>}
               </span>}
             </td>
-            <td>{row.amount>0?money(row.amount):'—'}</td>
-            <td>{row.amount<0?money(-row.amount):'—'}</td>
+            <td>{row.amount>0?<span className={styles.bankIn}>+{money(row.amount)}</span>:'—'}</td>
+            <td>{row.amount<0?<span className={styles.bankOut}>−{money(-row.amount)}</span>:'—'}</td>
             <td>{row.balance===null?'—':money(row.balance)}</td>
           </tr>)}</tbody>
-          <tfoot><tr><th colSpan={2}>Total</th><td>{money(deposits)}</td><td>{money(withdrawals)}</td><td>—</td></tr></tfoot>
+          <tfoot><tr><th colSpan={2}>Total</th><td><span className={styles.bankIn}>{money(deposits)}</span></td><td><span className={styles.bankOut}>{money(withdrawals)}</span></td><td>—</td></tr></tfoot>
         </table>
       </div>
       <div className={styles.bankOriginals}>{documents.map(document=><button type="button" className={styles.csv} key={document.id} onClick={()=>sourceDownload(document)}><Download/>{document.name}</button>)}</div>

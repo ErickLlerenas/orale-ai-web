@@ -111,3 +111,6 @@
 
 .bankChip{display:inline-flex;align-items:center;gap:4px;margin-top:6px;padding:2px 7px;border:1px solid #D4D8DF;border-radius:999px;background:#fff;color:#475467;font-size:11px;font-weight:600;line-height:1.5}
 .bankChip svg{width:12px;height:12px;color:#237A4B}
+
+.bankIn{color:#237A4B;font-weight:650}
+.bankOut{color:#B54747;font-weight:650}
