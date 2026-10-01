@@ -155,6 +155,15 @@
 .expenseTable .deposit dt{display:flex}
 .breakdown dd small{color:#667085;margin-top:3px;font-size:11px}
 .noReceipt{color:#98A2B3}
+@media(max-width:720px){
+  .expenseTable{min-width:0}
+  .expenseTable>div{grid-template-columns:minmax(0,1fr) minmax(0,160px);gap:12px;height:auto;min-height:48px;padding:12px}
+  .expenseTable dt{display:flex;flex-direction:column;align-items:flex-start;gap:6px}
+  .expenseTable dt>*{max-width:100%}
+  .expenseTable dd{white-space:normal;overflow-wrap:anywhere}
+  .expenseTable>div.expenseHead{height:auto;min-height:32px;padding:6px 12px}
+  .expenseHead dt>span:not(:first-child){display:none}
+}
 @media print{.expenseTableWrap{overflow:visible}.expenseTable{min-width:0}}
 
 .monthPicker{position:relative}
