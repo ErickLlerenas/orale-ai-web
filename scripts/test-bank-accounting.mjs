@@ -105,3 +105,16 @@ test('deposit totals distinguish platform income, Nu transfers and bank bonuses 
  assert.deepEqual(bank.bankDepositTotals(rows),{total:2912753,transfers:300000,platforms:2576995,bonuses:35758,other:0});
  assert.equal(bank.bankDepositTotals([{amount:12345,description:'DEPOSITO AUT'}]).other,12345);
 });
+
+test('monthly Excel import ignores incomplete adjacent months and preserves original row numbers', () => {
+ const data=[header,['01 Oct 2026','AUTHORIZATION',null,null,null],['30 Sep 2026','FACEBOOK',null,'1000.00',null],['29 Sep 2026','FACEBOOK',null,'18.05',null],['25 Sep 2026','FACEBOOK',null,'1000.00','1517.93'],['25 Sep 2026','TAX',null,'66.00','2517.93']];
+ const original=JSON.stringify(data);
+ const parsed=bank.parseBanamexMonthRows(data,'2026-09');
+ assert.equal(parsed.rows.length,4);
+ assert.equal(parsed.rows.find(row=>row.amount===-1805).sourceRow,4);
+ assert.equal(parsed.rows.at(-1).sourceRow,3);
+ assert.equal(JSON.stringify(data),original);
+ assert.throws(()=>bank.parseBanamexMonthRows(data,'2026-10'),/inválido/);
+ assert.throws(()=>bank.parseBanamexMonthRows(data,'2026-08'),/no contiene/);
+ assert.throws(()=>bank.parseBanamexMonthRows([header,['29 Sep 2026','FACEBOOK',null,null,null]],'2026-09'),/inválido/);
+});

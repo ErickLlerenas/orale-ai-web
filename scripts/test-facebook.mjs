@@ -22,3 +22,15 @@ test('facebook billing summary keeps the charged total and the invoice VAT', () 
   assert.equal(report.difference, 0);
   assert.equal(report.rows.some(row => row.description.includes('1-2')), false);
 });
+
+test('Meta next-month boundary replaces the same monthly report and preserves the original', () => {
+  const text = file.replace('30/9/2026', '1/10/2026');
+  const report = parseReport(text, 'meta.csv');
+  assert.equal(report.period, '2026-09');
+  assert.equal(report.text, text);
+});
+
+test('Meta report containing an October payment retains its October period', () => {
+  const text = file.replace('30/9/2026', '1/10/2026').replace('24/9/2026', '1/10/2026');
+  assert.equal(parseReport(text, 'meta.csv').period, '2026-10');
+});
