@@ -16,7 +16,7 @@ export const previewBundle: OwnerMetricsBundle = parseOwnerMetrics({
   locations: [
     {
       businessId: "centro",
-      bizName: "Taquería Centro",
+      bizName: "Cocina Centro",
       days: [
         {
           day,
@@ -26,7 +26,7 @@ export const previewBundle: OwnerMetricsBundle = parseOwnerMetrics({
           cardCents: 195000,
           transferCents: 80000,
           avgTicketCents: 26944,
-          bizName: "Taquería Centro",
+          bizName: "Cocina Centro",
           updatedAt,
         },
         {
@@ -37,7 +37,7 @@ export const previewBundle: OwnerMetricsBundle = parseOwnerMetrics({
           cardCents: 250000,
           transferCents: 80000,
           avgTicketCents: 27727,
-          bizName: "Taquería Centro",
+          bizName: "Cocina Centro",
           updatedAt,
         },
       ],

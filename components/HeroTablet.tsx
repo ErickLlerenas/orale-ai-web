@@ -13,13 +13,13 @@ export default function HeroTablet() {
       <TabletFrame>
         <header className="pos-top">
           <img src="/logo.png" alt="" className="pos-logo" />
-          <div><strong>Taquería El Güero</strong><span>Tu negocio, listo para vender</span></div>
+          <div><strong>Cocina El Güero</strong><span>Tu negocio, listo para vender</span></div>
         </header>
         <div className="menu-demo">
           <div className="demo-stage demo-photo">
             <span className="demo-label">1 · Fotografía tu menú</span>
             <div className="demo-paper">
-              <small>TAQUERÍA EL GÜERO</small><h3>Menú</h3>
+              <small>COCINA EL GÜERO</small><h3>Menú</h3>
               {products.map((p) => <div key={p.name}><span>{p.name}</span><b>{p.price}</b></div>)}
               <span className="demo-scan" />
             </div>

@@ -10,9 +10,9 @@ export const siteUrl =
 export const brandName = "Órale AI";
 export const brandNamePlain = "Orale AI";
 
-export const siteTitle = "Orale AI · Punto de venta para taquerías en México";
+export const siteTitle = "Orale AI · Punto de venta para negocios de comida en México";
 export const siteDescription =
-  "Orale AI (Órale AI) es el punto de venta con IA para taquerías, fondas y food trucks en México. Arma el menú con una foto. App Store, Google Play y Windows.";
+  "Orale AI (Órale AI) es el punto de venta con IA para restaurantes, cafeterías y puestos de comida en México. Arma el menú con una foto. App Store, Google Play y Windows.";
 
 export const stores = {
   apple: "https://apps.apple.com/app/id6776390828",
