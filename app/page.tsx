@@ -1,4 +1,15 @@
+import {
+  Camera,
+  ChartColumn,
+  Info,
+  KeyRound,
+  Package,
+  ReceiptText,
+  Wallet,
+  WifiOff,
+} from "lucide-react";
 import Footer from "@/components/Footer";
+import LandingNav from "@/components/LandingNav";
 import HeroTablet from "@/components/HeroTablet";
 import ProSyncVisual from "@/components/ProSyncVisual";
 import OnlineStoreVisual from "@/components/OnlineStoreVisual";
@@ -47,19 +58,29 @@ function PlanPrice({ now, next }: { now: PlanAmounts; next?: PlanAmounts }) {
 const pillars = [
   {
     num: "01",
+    icon: Camera,
     title: "Agrega lo que vendes",
     text: "Toma una foto de tu menú y la IA te ayuda a agregar tus productos y precios. También puedes escribirlos tú.",
   },
   {
     num: "02",
+    icon: ReceiptText,
     title: "Toma pedidos y lleva la cuenta",
     text: "Anota qué pidió cada mesa o cliente, imprime el pedido para la cocina y calcula cuánto cobrar.",
   },
   {
     num: "03",
+    icon: WifiOff,
     title: "Sigue vendiendo sin internet",
     text: "Si se va el internet, puedes seguir registrando pedidos y cobros en tu celular o tablet. La IA sí necesita conexión.",
   },
+];
+
+const extras = [
+  { icon: ChartColumn, label: "Cuánto vendiste" },
+  { icon: Wallet, label: "Dinero de caja" },
+  { icon: Package, label: "Inventario" },
+  { icon: KeyRound, label: "Código por empleado" },
 ];
 
 const proFeatures = [
@@ -107,6 +128,7 @@ export default function Home() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareJsonLd()) }}
       />
+      <LandingNav />
       <main>
         <section className="hero">
           <div className="hero-atmosphere" aria-hidden="true">
@@ -117,9 +139,6 @@ export default function Home() {
 
           <div className="hero-content">
             <div className="hero-copy">
-              <p className="hero-name">
-                Órale<span> AI</span>
-              </p>
               <p className="hero-eyebrow">
                 Punto de venta para negocios de comida
               </p>
@@ -162,19 +181,26 @@ export default function Home() {
             <ol className="pillars-list">
               {pillars.map((p) => (
                 <li key={p.num} className="pillar">
+                  <span className="pillar-icon" aria-hidden="true">
+                    <p.icon size={22} strokeWidth={2.2} />
+                  </span>
                   <span className="pillar-num">{p.num}</span>
-                  <div>
-                    <h3>{p.title}</h3>
-                    <p>{p.text}</p>
-                  </div>
+                  <h3>{p.title}</h3>
+                  <p>{p.text}</p>
                 </li>
               ))}
             </ol>
-            <p className="pillars-also">
-              También puedes consultar cuánto vendiste, revisar el dinero de
-              caja, controlar tu inventario y dar a cada empleado su propio
-              código de acceso.
-            </p>
+            <div className="pillars-also">
+              <p>También puedes consultar:</p>
+              <ul>
+                {extras.map((e) => (
+                  <li key={e.label}>
+                    <e.icon size={16} strokeWidth={2.2} aria-hidden="true" />
+                    {e.label}
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
         </section>
 
@@ -209,7 +235,8 @@ export default function Home() {
               ))}
             </ol>
             <p className="pro-note">
-              Para meseros e impresión necesitas WiFi del local e impresora de red.
+              <Info size={16} aria-hidden="true" />
+              <span>Para meseros e impresión necesitas WiFi del local e impresora de red.</span>
             </p>
             <div id="menu-en-linea" className="pro-online-benefit">
               <div>
@@ -221,8 +248,11 @@ export default function Home() {
               <OnlineStoreVisual />
             </div>
             <p className="pro-note">
-              El menú en línea necesita internet y WhatsApp; no requiere impresora.
-              Estos pedidos se confirman por WhatsApp y no entran automáticamente a caja.
+              <Info size={16} aria-hidden="true" />
+              <span>
+                El menú en línea necesita internet y WhatsApp; no requiere impresora.
+                Estos pedidos se confirman por WhatsApp y no entran automáticamente a caja.
+              </span>
             </p>
           </div>
         </section>
