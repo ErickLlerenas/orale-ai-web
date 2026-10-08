@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { adminClient } from "@/lib/supabase";
 import { MenuError } from "./server";
 import { quoteCart, whatsappOrder } from "./cart";
+import { siteUrl } from "@/lib/seo";
 import type { Menu, CartLine, Checkout } from "./types";
 
 const hash = (s: string) => createHash("sha256").update(s).digest("hex");
@@ -40,8 +41,7 @@ export async function storeOrder(slug: string, menu: Menu, lines: CartLine[], ch
     if (Date.parse(existing.data.expires_at) <= Date.now()) throw new MenuError("El pedido venció. Actualiza la página para preparar uno nuevo.", 410);
   }
   // Never take the production origin from a user-controlled Host header.
-  const base = process.env.ONLINE_ORDER_WEB_URL ?? "https://oraleai.vercel.app";
-  const url = new URL(`/pedido/${store.id}/${requestKey}`, base);
+  const url = new URL(`/pedido/${store.id}/${requestKey}`, siteUrl);
   if (process.env.ONLINE_ORDER_DEVELOPMENT === "true") url.searchParams.set("entorno", "prueba");
   return whatsappOrder(menu.catalog, lines, checkout, now, url.toString());
 }

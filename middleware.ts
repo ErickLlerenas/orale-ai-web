@@ -1,9 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sessionRole, sessionCookie } from "@/lib/accounting/access";
+import { siteUrl } from "@/lib/seo";
 
-// Protege /admin con Basic Auth (un solo dueño). Credenciales por env.
+// Dominio original. Sus links (menús, pedidos por WhatsApp, QR impresos) deben
+// seguir funcionando para siempre: se redirigen con la misma ruta al dominio
+// de NEXT_PUBLIC_SITE_URL. Mientras esa variable siga apuntando aquí, no hace nada.
+const legacyHost = "oraleai.vercel.app";
+const canonical = new URL(siteUrl);
+
 export async function middleware(req: NextRequest) {
-  if (req.nextUrl.pathname.startsWith("/contadores")) {
+  const { pathname, search } = req.nextUrl;
+  // /api se queda en el host que la llamó: un menú viejo abierto en el
+  // navegador puede enviar su pedido sin perderlo en una redirección.
+  if (req.headers.get("host") === legacyHost && canonical.host !== legacyHost && !pathname.startsWith("/api/")) {
+    return NextResponse.redirect(new URL(pathname + search, canonical), 308);
+  }
+  if (pathname.startsWith("/contadores")) {
     const publicRoute = ["/contadores/login", "/contadores/session"].includes(req.nextUrl.pathname);
     if (!publicRoute && !await sessionRole(req.cookies.get(sessionCookie)?.value, req.headers.get("host"))) {
       if (req.nextUrl.pathname.startsWith("/contadores/api")) return NextResponse.json({ error: "Inicia sesión para continuar." }, { status: 401, headers: { "Cache-Control": "no-store" } });
@@ -20,6 +32,9 @@ export async function middleware(req: NextRequest) {
     response.headers.set("X-Frame-Options", "DENY");
     return response;
   }
+  if (!pathname.startsWith("/admin")) return NextResponse.next();
+
+  // Protege /admin con Basic Auth (un solo dueño). Credenciales por env.
   const auth = req.headers.get("authorization");
   const user = process.env.ADMIN_USER ?? "admin";
   const pass = process.env.ADMIN_PASSWORD ?? "";
@@ -41,4 +56,4 @@ export async function middleware(req: NextRequest) {
   });
 }
 
-export const config = { matcher: ["/admin/:path*", "/contadores/:path*"] };
+export const config = { matcher: ["/((?!_next/static|_next/image).*)"] };
