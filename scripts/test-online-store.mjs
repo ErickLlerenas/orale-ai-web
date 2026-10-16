@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, writeFileSync, mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createRequire } from "node:module";
@@ -20,7 +20,14 @@ writeFileSync(
     },
   ).outputText,
 );
-const { quoteCart, whatsappOrder, demoPhoneNumber } = createRequire(
+const {
+  quoteCart,
+  whatsappOrder,
+  demoPhoneNumber,
+  promotionActive,
+  promotionLabel,
+  promotionConditions,
+} = createRequire(
   import.meta.url,
 )(file);
 rmSync(dir, { recursive: true, force: true });
@@ -80,21 +87,25 @@ test("reject unavailable, unknown variant and missing or duplicated required cho
   const c = catalog();
   c.products[0].available = false;
   assert.throws(() => quoteCart(c, [line()]));
-  for (const bad of [
-    line({ variantId: "unknown" }),
-    line({ choiceIds: [] }),
-    line({ choiceIds: ["s", "s"] }),
-    line({ choiceIds: ["s", "r"] }),
-    line({ choiceIds: ["foreign"] }),
-  ])
+  for (
+    const bad of [
+      line({ variantId: "unknown" }),
+      line({ choiceIds: [] }),
+      line({ choiceIds: ["s", "s"] }),
+      line({ choiceIds: ["s", "r"] }),
+      line({ choiceIds: ["foreign"] }),
+    ]
+  ) {
     assert.throws(() => quoteCart(catalog(), [bad]));
+  }
 });
 test("stock checked across separate cart rows and quantities are bounded", () => {
   assert.throws(() =>
-    quoteCart(catalog(), [line({ quantity: 6 }), line({ quantity: 6 })]),
+    quoteCart(catalog(), [line({ quantity: 6 }), line({ quantity: 6 })])
   );
-  for (const q of [-1, 0, 1.5, 100, NaN])
+  for (const q of [-1, 0, 1.5, 100, NaN]) {
     assert.throws(() => quoteCart(catalog(), [line({ quantity: q })]));
+  }
 });
 test("NxM matches POS, most valuable single promotion wins", () => {
   const c = catalog();
@@ -177,7 +188,7 @@ test("delivery requires address and never claims shipping is included or order a
     whatsappOrder(catalog(), [line()], {
       ...checkout,
       fulfillment: "delivery",
-    }),
+    })
   );
   const result = whatsappOrder(catalog(), [line()], {
     ...checkout,
@@ -190,22 +201,25 @@ test("reject oversized input and empty orders", () => {
   assert.throws(() => quoteCart(catalog(), []));
   assert.throws(() => quoteCart(catalog(), [line({ notes: "x".repeat(501) })]));
   assert.throws(() =>
-    whatsappOrder(catalog(), [line()], { ...checkout, name: "" }),
+    whatsappOrder(catalog(), [line()], { ...checkout, name: "" })
   );
 });
 
 test("demo destination accepts a country code and rejects malformed numbers", () => {
   assert.equal(demoPhoneNumber("+52 (55) 1234-5678"), "525512345678");
   assert.equal(demoPhoneNumber("+1 202 555 0123"), "12025550123");
-  for (const value of [
-    "",
-    "+52",
-    "abc525512345678",
-    "001234567890",
-    "1234567890123456",
-    "525512345678?text=oops",
-  ])
+  for (
+    const value of [
+      "",
+      "+52",
+      "abc525512345678",
+      "001234567890",
+      "1234567890123456",
+      "525512345678?text=oops",
+    ]
+  ) {
     assert.throws(() => demoPhoneNumber(value));
+  }
   const result = whatsappOrder(
     { ...catalog(), phone: demoPhoneNumber("+52 (55) 1234-5678") },
     [line()],
@@ -251,7 +265,9 @@ test("formatted order separates items, extras, delivery and totals", () => {
 });
 
 test("direct WhatsApp link preserves emoji, accents and multiline notes", () => {
-  const result = whatsappOrder(catalog(), [line({ notes: "🌮 Sin cebolla\nSalsa & limón" })], checkout);
+  const result = whatsappOrder(catalog(), [
+    line({ notes: "🌮 Sin cebolla\nSalsa & limón" }),
+  ], checkout);
   const url = new URL(result.url);
   assert.equal(url.origin, "https://api.whatsapp.com");
   assert.equal(url.pathname, "/send");
@@ -259,4 +275,119 @@ test("direct WhatsApp link preserves emoji, accents and multiline notes", () => 
   assert.equal(url.searchParams.get("text"), result.message);
   assert.ok(result.message.includes("🌮 Sin cebolla\nSalsa & limón"));
   assert.ok(!result.message.includes("�"));
+});
+
+const offer = (extra = {}) => ({
+  id: "promo",
+  name: "La Posada",
+  daysMask: 0,
+  buy: 2,
+  pay: 2,
+  fixedPriceCents: 4000,
+  productIds: ["p"],
+  choiceIds: [],
+  ...extra,
+});
+test("fixed price applies complete groups, preserves leftovers and charges extras separately", () => {
+  const c = catalog();
+  c.promotions = [offer()];
+  const q = quoteCart(c, [line({ quantity: 5, choiceIds: ["r"] })]);
+  assert.equal(q.subtotal, 15000);
+  assert.equal(q.discount, 2000);
+  assert.equal(q.total, 13000);
+  assert.equal(c.products[0].variants[0].price, 2500);
+  c.promotions = [offer({ fixedPriceCents: 6000 })];
+  assert.equal(quoteCart(c, [line({ quantity: 2 })]).discount, 0);
+});
+test("mixed products use highest complete groups and best single offer without stacking", () => {
+  const c = catalog();
+  c.products.push({
+    ...c.products[0],
+    id: "b",
+    name: "Sope",
+    variants: [{ id: "bv", name: "Normal", price: 3000 }],
+  });
+  c.promotions = [offer({ productIds: ["p", "b"] })];
+  const rows = [
+    line({ quantity: 2 }),
+    line({ productId: "b", variantId: "bv" }),
+  ];
+  assert.equal(quoteCart(c, rows).discount, 1500);
+  c.promotions.push(
+    offer({
+      id: "old",
+      fixedPriceCents: undefined,
+      pay: 1,
+      productIds: ["p", "b"],
+    }),
+  );
+  assert.equal(quoteCart(c, rows).discount, 2500);
+});
+test("combo needs one of every selected product and repeats only complete sets", () => {
+  const c = catalog();
+  c.products.push({
+    ...c.products[0],
+    id: "b",
+    name: "Birriamen",
+    variants: [{ id: "bv", name: "Normal", price: 3000 }],
+  });
+  c.promotions = [offer({ requireEachProduct: true, productIds: ["p", "b"] })];
+  assert.equal(quoteCart(c, [line({ quantity: 3 })]).discount, 0);
+  const q = quoteCart(c, [
+    line({ quantity: 3, choiceIds: ["r"] }),
+    line({ productId: "b", variantId: "bv", quantity: 2 }),
+  ]);
+  assert.equal(q.discount, 3000);
+  assert.equal(q.total, 12000);
+});
+test("hours use business time, inclusive start and exclusive end, including NxM", () => {
+  const c = catalog();
+  const p = offer({ daysMask: 1, startsAtMinute: 600, endsAtMinute: 780 });
+  c.promotions = [p];
+  for (
+    const [iso, expected] of [
+      ["2026-10-12T15:59:00Z", false],
+      ["2026-10-12T16:00:00Z", true],
+      ["2026-10-12T18:59:59Z", true],
+      ["2026-10-12T19:00:00Z", false],
+      ["2026-10-13T16:00:00Z", false],
+    ]
+  ) {
+    const now = new Date(iso);
+    assert.equal(promotionActive(c, p, now), expected);
+    assert.equal(
+      quoteCart(c, [line({ quantity: 2 })], now).discount,
+      expected ? 1000 : 0,
+    );
+  }
+  c.promotions = [{ ...p, fixedPriceCents: undefined, pay: 1 }];
+  assert.equal(
+    quoteCart(c, [line({ quantity: 2 })], new Date("2026-10-12T19:00:00Z"))
+      .discount,
+    0,
+  );
+});
+test("offer labels explain bundles, selected products, extras and schedule before purchase", () => {
+  const c = catalog();
+  const p = offer({
+    startsAtMinute: 600,
+    endsAtMinute: 780,
+    requireEachProduct: true,
+    choiceIds: ["r"],
+  });
+  assert.match(promotionLabel(p), /Combo/);
+  const text = promotionConditions(c, p);
+  for (
+    const part of [
+      "10:00–13:00",
+      "Uno de cada producto: Taco",
+      "Roja",
+      "Extras por separado",
+      "grupos completos",
+    ]
+  ) assert.ok(text.includes(part));
+  assert.equal(
+    promotionLabel({ ...p, fixedPriceCents: undefined, pay: 1 }),
+    "2x1",
+  );
 });
