@@ -9,6 +9,7 @@ import {
   promotionActive,
   promotionLabel,
   promotionConditions,
+  promotionSchedule,
 } from "@/lib/online/cart";
 import styles from "./storefront.module.css";
 
@@ -125,27 +126,13 @@ function ProductPromotions({ catalog, productId, now, detail = false }: {
     <div className={styles.offers}>
       {offers.map((p) => {
         const active = now ? promotionActive(catalog, p, now) : null;
-        const days = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].filter((
-          _,
-          i,
-        ) => !p.daysMask || (p.daysMask & (1 << i))).join(", ");
-        const clock = (m: number) =>
-          `${String(Math.floor(m / 60)).padStart(2, "0")}:${
-            String(m % 60).padStart(2, "0")
-          }`;
         return (
-          <span className={styles.offer} key={p.id}>
+          <span className={`${styles.offer}${active === false ? ` ${styles.offerScheduled}` : ""}`} key={p.id}>
             <span className={styles.offerTitle}>
               {promotionLabel(p)} · {p.name}
             </span>
             <span className={styles.offerTerms}>
-              {detail
-                ? promotionConditions(catalog, p)
-                : `${days}${
-                  p.startsAtMinute != null && p.endsAtMinute != null
-                    ? ` · ${clock(p.startsAtMinute)}–${clock(p.endsAtMinute)}`
-                    : ""
-                }`}
+              {detail ? promotionConditions(catalog, p) : promotionSchedule(p)}
             </span>
             <span className={styles.offerStatus}>
               {active === null

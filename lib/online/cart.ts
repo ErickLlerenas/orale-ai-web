@@ -41,16 +41,21 @@ export function promotionLabel(p: Promotion): string {
     }`
     : `${p.buy}x${p.pay}`;
 }
-export function promotionConditions(catalog: Catalog, p: Promotion): string {
-  const days = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
-    .filter((_, i) => !p.daysMask || (p.daysMask & (1 << i))).join(", ");
+export function promotionSchedule(p: Promotion): string {
+  const days = !p.daysMask || p.daysMask === 127
+    ? "Todos los días"
+    : ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
+      .filter((_, i) => p.daysMask & (1 << i)).join(", ");
   const clock = (m: number) =>
     `${String(Math.floor(m / 60)).padStart(2, "0")}:${
       String(m % 60).padStart(2, "0")
     }`;
-  const hours = p.startsAtMinute != null && p.endsAtMinute != null
-    ? ` · ${clock(p.startsAtMinute)}–${clock(p.endsAtMinute)}`
-    : "";
+  return days +
+    (p.startsAtMinute != null && p.endsAtMinute != null
+      ? ` · ${clock(p.startsAtMinute)}–${clock(p.endsAtMinute)}`
+      : "");
+}
+export function promotionConditions(catalog: Catalog, p: Promotion): string {
   const names = catalog.products.filter((x) => p.productIds.includes(x.id)).map(
     (x) => x.name,
   ).join(", ");
@@ -60,7 +65,7 @@ export function promotionConditions(catalog: Catalog, p: Promotion): string {
     .filter((x) => p.choiceIds.includes(x.id));
   const selected = [...new Map(choices.map((x) => [x.id, x.name])).values()]
     .join(", ");
-  return `${days}${hours}. ${
+  return `${promotionSchedule(p)}. ${
     p.requireEachProduct ? "Uno de cada producto: " : "Participan: "
   }${names}.${
     selected ? ` Requiere alguno de estos extras: ${selected}.` : ""
