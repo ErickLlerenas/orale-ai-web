@@ -1,11 +1,15 @@
 "use client";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import type { CartLine, Checkout, Menu, Product } from "@/lib/online/types";
+import type { CartLine, Checkout, Menu, Product, Catalog } from "@/lib/online/types";
 import {
   money,
   quoteCart,
   whatsappOrder,
   demoPhoneNumber,
+  promotionActive,
+  promotionLabel,
+  promotionConditions,
+  promotionSchedule,
 } from "@/lib/online/cart";
 import styles from "./storefront.module.css";
 
@@ -108,11 +112,51 @@ function QuantityStepper({
   );
 }
 
+function ProductPromotions({ catalog, productId, now, detail = false }: {
+  catalog: Catalog;
+  productId: string;
+  now: Date | null;
+  detail?: boolean;
+}) {
+  const offers = catalog.promotions.filter((p) =>
+    p.productIds.includes(productId)
+  );
+  if (!offers.length) return null;
+  return (
+    <div className={styles.offers}>
+      {offers.map((p) => {
+        const active = now ? promotionActive(catalog, p, now) : null;
+        return (
+          <span className={`${styles.offer}${active === false ? ` ${styles.offerScheduled}` : ""}`} key={p.id}>
+            <span className={styles.offerTitle}>
+              {promotionLabel(p)} · {p.name}
+            </span>
+            <span className={styles.offerTerms}>
+              {detail ? promotionConditions(catalog, p) : promotionSchedule(p)}
+            </span>
+            <span className={styles.offerStatus}>
+              {active === null
+                ? "Consulta los días y horario"
+                : active
+                ? "Disponible ahora"
+                : "Fuera de días u horario de promoción"}
+            </span>
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
 function ProductForm({
+  catalog,
+  now,
   product,
   add,
   close,
 }: {
+  catalog: Catalog;
+  now: Date | null;
   product: Product;
   add: (line: CartLine) => void;
   close: () => void;
@@ -156,6 +200,7 @@ function ProductForm({
         {product.description && (
           <p className={styles.description}>{product.description}</p>
         )}
+        <ProductPromotions catalog={catalog} productId={product.id} now={now} detail />
         {product.variants.length > 1 && (
           <fieldset>
             <legend>Presentación</legend>
@@ -286,13 +331,21 @@ export default function Storefront({
   const [previewMessage, setPreviewMessage] = useState<string | null>(null);
   const [whatsapp, setWhatsapp] = useState<string | null>(null);
   const catalog = menu.catalog;
+  const [now, setNow] = useState<Date | null>(null);
+  useEffect(() => {
+    const refresh = () => setNow(new Date());
+    refresh();
+    const timer = window.setInterval(refresh, 30000);
+    document.addEventListener("visibilitychange", refresh);
+    return () => { window.clearInterval(timer); document.removeEventListener("visibilitychange", refresh); };
+  }, []);
   // A menu without photos reads better as a dense list than as a column of
   // empty frames. Decided for the whole menu so rows keep one rhythm.
   const anyPhoto = catalog.products.some((p) => p.image);
   let quote: ReturnType<typeof quoteCart> | null = null;
   let cartError = "";
   try {
-    if (lines.length) quote = quoteCart(catalog, lines);
+    if (lines.length) quote = quoteCart(catalog, lines, now ?? new Date());
   } catch (e) {
     cartError = e instanceof Error ? e.message : "Revisa tu carrito.";
   }
@@ -441,6 +494,8 @@ export default function Storefront({
                         ? `${p.variants.length > 1 ? "Desde " : ""}${money(Math.min(...p.variants.map((v) => v.price)))}`
                         : "Agotado"}
                     </strong>
+                    {catalog.promotions.some(offer => offer.productIds.includes(p.id)) && <span className={styles.individualPrice}>Precio individual</span>}
+                    <ProductPromotions catalog={catalog} productId={p.id} now={now} />
                   </div>
                   {anyPhoto ? (
                     <span className={styles.productVisual}>
@@ -494,6 +549,8 @@ export default function Storefront({
       )}
       {selected && (
         <ProductForm
+          catalog={catalog}
+          now={now}
           product={selected}
           close={() => setSelected(null)}
           add={(line) => {

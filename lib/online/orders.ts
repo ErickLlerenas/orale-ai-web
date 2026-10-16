@@ -33,7 +33,7 @@ export async function storeOrder(slug: string, menu: Menu, lines: CartLine[], ch
   if (storeError || !store) throw new MenuError("No pudimos preparar el pedido.");
   if (!store.enabled || Date.parse(store.paid_until) <= Date.now()) throw new MenuError("El menú ya no está disponible.", 409);
   if (store.catalog_hash !== menu.revision) throw new MenuError("El menú cambió. Actualiza la página antes de continuar.", 409);
-  const {error} = await db.from("online_order_requests").insert({store_id: store.id, token_hash: tokenHash, fingerprint, payload});
+  const {error} = await db.from("online_order_requests").insert({store_id: store.id, token_hash: tokenHash, fingerprint, payload: {...payload, createdAt: now.toISOString()}});
   if (error && error.code !== "23505") throw new MenuError("No pudimos guardar el pedido. Intenta de nuevo.");
   if (error) {
     const existing = await db.from("online_order_requests").select("fingerprint,expires_at").eq("store_id", store.id).eq("token_hash", tokenHash).single();

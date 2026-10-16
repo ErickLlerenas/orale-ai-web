@@ -33,6 +33,10 @@ export type Catalog = {
     pay: number;
     productIds: string[];
     choiceIds: string[];
+    fixedPriceCents?: number;
+    requireEachProduct?: boolean;
+    startsAtMinute?: number;
+    endsAtMinute?: number;
   }[];
 };
 export type Menu = { catalog: Catalog; revision: string; updatedAt: string };
