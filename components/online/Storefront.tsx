@@ -129,7 +129,7 @@ function ProductPromotions({ catalog, productId, now, detail = false }: {
         return (
           <span className={`${styles.offer}${active === false ? ` ${styles.offerScheduled}` : ""}`} key={p.id}>
             <span className={styles.offerTitle}>
-              {promotionLabel(p)} · {p.name}
+              {promotionLabel(p, catalog.currency)} · {p.name}
             </span>
             <span className={styles.offerTerms}>
               {detail ? promotionConditions(catalog, p) : promotionSchedule(p)}
@@ -215,7 +215,7 @@ function ProductForm({
                   />
                   {v.name}
                 </span>
-                <b>{money(v.price)}</b>
+                <b>{money(v.price, catalog.currency)}</b>
               </label>
             ))}
           </fieldset>
@@ -270,7 +270,7 @@ function ProductForm({
                     />
                     {c.name}
                   </span>
-                  <span>{c.price ? `+${money(c.price)}` : "Sin costo"}</span>
+                  <span>{c.price ? `+${money(c.price, catalog.currency)}` : "Sin costo"}</span>
                 </label>
               ))}
             </fieldset>
@@ -299,7 +299,7 @@ function ProductForm({
           </p>
         )}
         <button className={styles.primary} type="submit">
-          Agregar al carrito · {money(unit * quantity)}
+          Agregar al carrito · {money(unit * quantity, catalog.currency)}
         </button>
       </form>
     </Dialog>
@@ -491,7 +491,7 @@ export default function Storefront({
                     {p.description && <p>{p.description}</p>}
                     <strong>
                       {p.available
-                        ? `${p.variants.length > 1 ? "Desde " : ""}${money(Math.min(...p.variants.map((v) => v.price)))}`
+                        ? `${p.variants.length > 1 ? "Desde " : ""}${money(Math.min(...p.variants.map((v) => v.price)), catalog.currency)}`
                         : "Agotado"}
                     </strong>
                     {catalog.promotions.some(offer => offer.productIds.includes(p.id)) && <span className={styles.individualPrice}>Precio individual</span>}
@@ -543,7 +543,7 @@ export default function Storefront({
             <span>
               {count} {count === 1 ? "producto" : "productos"} · Ver carrito
             </span>
-            <span>{quote ? money(quote.total) : "Revisar"}</span>
+            <span>{quote ? money(quote.total, catalog.currency) : "Revisar"}</span>
           </button>
         </div>
       )}
@@ -615,17 +615,17 @@ export default function Storefront({
               <div className={styles.totals}>
                 <p>
                   <span>Productos</span>
-                  <span>{money(quote.subtotal)}</span>
+                  <span>{money(quote.subtotal, catalog.currency)}</span>
                 </p>
                 {quote.discount > 0 && (
                   <p>
                     <span>{quote.promotion}</span>
-                    <span>−{money(quote.discount)}</span>
+                    <span>−{money(quote.discount, catalog.currency)}</span>
                   </p>
                 )}
                 <p>
                   <strong>Total de productos</strong>
-                  <strong>{money(quote.total)}</strong>
+                  <strong>{money(quote.total, catalog.currency)}</strong>
                 </p>
                 {checkout.fulfillment === "delivery" && (
                   <small>El negocio te confirmará el costo de envío.</small>

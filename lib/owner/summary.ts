@@ -95,10 +95,10 @@ export function summarizeOwnerDashboard(
   };
 }
 
-export function vsYesterdayLabel(diffCents: number): string {
+export function vsYesterdayLabel(diffCents: number, country: "MX" | "CL" = "MX"): string {
   if (diffCents === 0) return "Igual que ayer";
   const sign = diffCents > 0 ? "+" : "−";
-  return `${sign}${pesos(Math.abs(diffCents))} vs ayer`;
+  return `${sign}${pesos(Math.abs(diffCents), country)} vs ayer`;
 }
 
 export function waiterSalesFromOrders(
@@ -124,16 +124,17 @@ export function waiterSalesFromOrders(
 export function arqueoBadge(
   expectedCash: number,
   countedCash?: number,
+  country: "MX" | "CL" = "MX",
 ): ArqueoBadge {
   if (countedCash == null) {
-    return { label: "Sin arqueo", cashNote: pesos(expectedCash), tone: "muted" };
+    return { label: "Sin arqueo", cashNote: pesos(expectedCash, country), tone: "muted" };
   }
   const diff = countedCash - expectedCash;
   if (diff === 0) {
-    return { label: "Cuadró", cashNote: pesos(countedCash), tone: "ok" };
+    return { label: "Cuadró", cashNote: pesos(countedCash, country), tone: "ok" };
   }
   if (diff > 0) {
-    return { label: `Sobró ${pesos(diff)}`, tone: "warn" };
+    return { label: `Sobró ${pesos(diff, country)}`, tone: "warn" };
   }
-  return { label: `Faltó ${pesos(Math.abs(diff))}`, tone: "danger" };
+  return { label: `Faltó ${pesos(Math.abs(diff), country)}`, tone: "danger" };
 }

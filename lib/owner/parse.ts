@@ -169,6 +169,7 @@ function parseLocation(raw: Record<string, unknown>): OwnerLocation | null {
   const bizName = asText(raw.bizName) || days[0]?.bizName;
   return {
     businessId,
+    country: raw.country === "CL" ? "CL" : "MX",
     bizName,
     days,
     orders: parseOrders(raw.orders),
@@ -265,10 +266,12 @@ export function viewFor(
   businessId: string | null,
 ): OwnerMetricsBundle {
   if (!businessId || bundle.locations.length <= 1) {
-    if (bundle.locations.length <= 1) return bundle;
+    if (bundle.locations.length <= 1) return { ...bundle, country: bundle.locations[0]?.country ?? "MX" };
+    if (hasMixedCurrencies(bundle)) return { ...bundle, days: [], orders: [], caja: null };
     const orders = bundle.locations.flatMap((location) => location.orders);
     orders.sort((a, b) => b.closedAt.getTime() - a.closedAt.getTime());
     return {
+      country: bundle.locations[0]?.country ?? "MX",
       days: mergeOwnerDays(bundle.locations.flatMap((location) => location.days)),
       orders,
       caja: null,
@@ -278,9 +281,14 @@ export function viewFor(
   const location = bundle.locations.find((item) => item.businessId === businessId);
   if (!location) return bundle;
   return {
+    country: location.country ?? "MX",
     days: location.days,
     orders: location.orders,
     caja: location.caja,
     locations: bundle.locations,
   };
+}
+
+export function hasMixedCurrencies(bundle: OwnerMetricsBundle): boolean {
+  return new Set(bundle.locations.map(l => l.country ?? "MX")).size > 1;
 }

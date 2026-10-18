@@ -1,6 +1,6 @@
 import Footer from "@/components/Footer";
 import Nav from "@/components/Nav";
-import { mxn, pricingNow } from "@/lib/pricing";
+import { mxn, clp, pricingNow, pricingForCountry } from "@/lib/pricing";
 
 export const metadata = {
   title: "Términos y condiciones · Órale AI",
@@ -11,6 +11,7 @@ export const revalidate = 600;
 
 export default function Terms() {
   const { prices, promoEndsLabel } = pricingNow();
+  const chile = pricingForCountry("CL").prices;
 
   return (
     <>
@@ -20,11 +21,11 @@ export default function Terms() {
 
       <main className="prose">
         <h1>Términos y condiciones</h1>
-        <p className="muted">Última actualización: julio 2026</p>
+        <p className="muted">Última actualización: octubre 2026</p>
 
         <p>
           Estos términos regulan el uso de <strong>Órale AI</strong>, un punto
-          de venta para negocios de comida en México. Al descargar o usar la
+          de venta para negocios de comida en México y Chile. Al descargar o usar la
           app aceptas estos términos. Si no estás de acuerdo, no uses la app.
         </p>
 
@@ -111,9 +112,10 @@ export default function Terms() {
           )}
         </p>
         <p>
-          Ningún plan incluye <strong>prueba gratis</strong>. Pro está
-          disponible solo en <strong>México</strong> y también puedes
-          contratarlo o activarlo desde la app (Ajustes → Equipo y accesos →
+          Las tiendas pueden ofrecer una <strong>prueba gratis</strong> a cuentas
+          elegibles. La duración, las condiciones y el precio de renovación se
+          muestran antes de confirmar la compra. Puedes contratar Pro o activarlo
+          desde la app (Ajustes → Equipo y accesos →
           Varios meseros, o Ajustes → Negocio → Negocio en línea).
         </p>
         <p>
@@ -148,8 +150,13 @@ export default function Terms() {
           a través de Stripe.
         </p>
         <p>
-          Órale AI y sus planes están disponibles solo en{" "}
-          <strong>México</strong>, con precios en MXN.
+          En <strong>México</strong>, los precios publicados arriba están en MXN.
+          En <strong>Chile</strong>, Órale AI cuesta {clp(chile.base.monthly)} CLP
+          al mes o {clp(chile.base.yearly)} CLP al año; Pro cuesta {clp(chile.pro.monthly)} CLP
+          al mes o {clp(chile.pro.yearly)} CLP al año. Verifica la disponibilidad y
+          el precio final en App Store o Google Play antes de confirmar la compra.
+          Los cobros directos por Stripe para Windows se ofrecen en México;
+          todavía no se habilitan para Chile.
         </p>
 
         <h2>4. Funciones con IA</h2>

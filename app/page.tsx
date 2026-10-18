@@ -14,7 +14,7 @@ import HeroTablet from "@/components/HeroTablet";
 import ProSyncVisual from "@/components/ProSyncVisual";
 import OnlineStoreVisual from "@/components/OnlineStoreVisual";
 import StoreBadges from "@/components/StoreBadges";
-import { discountPct, mxn, pricingNow, type PlanAmounts } from "@/lib/pricing";
+import { discountPct, mxn, clp, pricingForCountry, type PlanAmounts } from "@/lib/pricing";
 import { softwareJsonLd } from "@/lib/seo";
 
 /// Cada cuánto se regenera el HTML estático. Es lo que hace que los precios
@@ -27,15 +27,17 @@ export const revalidate = 600;
 /// El tachado es el precio FUTURO, no uno que se haya cobrado antes. Por eso el
 /// aviso de arriba lleva la fecha: sin ese contexto, el tachado se leería como
 /// un precio viejo inventado, que es publicidad engañosa.
-function PlanPrice({ now, next }: { now: PlanAmounts; next?: PlanAmounts }) {
+function PlanPrice({ now, next, country }: { now: PlanAmounts; next?: PlanAmounts; country: "MX" | "CL" }) {
+  const format = country === "CL" ? clp : mxn;
+  const currency = country === "CL" ? "CLP" : "MXN";
   return (
     <>
       <div className="plan-price">
-        <span className="amount">{mxn(now.monthly)}</span>
-        <span className="period">MXN / mes</span>
+        <span className="amount">{format(now.monthly)}</span>
+        <span className="period">{currency} / mes</span>
         {next && (
           <>
-            <s className="amount-next">{mxn(next.monthly)}</s>
+            <s className="amount-next">{format(next.monthly)}</s>
             <span className="plan-discount">
               −{discountPct(now.monthly, next.monthly)}%
             </span>
@@ -46,10 +48,10 @@ function PlanPrice({ now, next }: { now: PlanAmounts; next?: PlanAmounts }) {
         o{" "}
         {next && (
           <>
-            <s>{mxn(next.yearly)}</s>{" "}
+            <s>{format(next.yearly)}</s>{" "}
           </>
         )}
-        {mxn(now.yearly)} MXN / año
+        {format(now.yearly)} {currency} / año
       </p>
     </>
   );
@@ -119,16 +121,21 @@ const steps = [
   },
 ];
 
-export default function Home() {
-  const { prices, next, promoEndsLabel, increaseOnLabel } = pricingNow();
+export default function Home({ searchParams }: { searchParams?: { pais?: string } }) {
+  const country = searchParams?.pais === "CL" ? "CL" : "MX";
+  const { prices, next, promoEndsLabel, increaseOnLabel } = pricingForCountry(country);
 
   return (
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareJsonLd()) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareJsonLd(country)) }}
       />
       <LandingNav />
+      <nav aria-label="País" className="container country-selector">
+        <a href="/?pais=MX" aria-current={country === "MX" ? "page" : undefined}>México · MXN</a>
+        <a href="/?pais=CL" aria-current={country === "CL" ? "page" : undefined}>Chile · CLP</a>
+      </nav>
       <main>
         <section className="hero">
           <div className="hero-atmosphere" aria-hidden="true">
@@ -162,12 +169,12 @@ export default function Home() {
                 <span className="hero-rating-stars" aria-hidden="true">★★★★★</span>
                 <span>
                   <strong>4.9 estrellas</strong> en{" "}
-                  <a href="https://apps.apple.com/mx/app/id6776390828" target="_blank" rel="noopener noreferrer">App Store</a>
+                  <a href={`https://apps.apple.com/${country === "CL" ? "cl" : "mx"}/app/id6776390828`} target="_blank" rel="noopener noreferrer">App Store</a>
                   {" y "}
                   <a href="https://play.google.com/store/apps/details?id=com.oraleai.orale_ai" target="_blank" rel="noopener noreferrer">Play Store</a>
                 </span>
               </div>
-              <StoreBadges />
+              <StoreBadges country={country} />
             </div>
           </div>
         </section>
@@ -262,7 +269,7 @@ export default function Home() {
           <p className="section-sub">
             Elige Pro para conectar a tu equipo y recibir pedidos por WhatsApp.
           </p>
-          {promoEndsLabel && next && increaseOnLabel && (
+          {country === "MX" && promoEndsLabel && next && increaseOnLabel && (
             <p className="promo-note">
               <strong>Precio de lanzamiento hasta el {promoEndsLabel}.</strong>{" "}
               El {increaseOnLabel} el plan Órale AI pasa a{" "}
@@ -276,7 +283,7 @@ export default function Home() {
               <span className="plan-ribbon">Recomendado</span>
               <h3 className="plan-name">Órale AI</h3>
               <p className="plan-tagline">Una caja, vende sin internet.</p>
-              <PlanPrice now={prices.base} next={next?.base} />
+              <PlanPrice country={country} now={prices.base} next={next?.base} />
               <ul className="plan-list">
                 <li>Órdenes sin límite</li>
                 <li>Menú y reportes con IA</li>
@@ -292,7 +299,7 @@ export default function Home() {
             <div className="plan-card featured">
               <h3 className="plan-name">Órale AI Pro</h3>
               <p className="plan-tagline">Meseros y tienda en línea.</p>
-              <PlanPrice now={prices.pro} next={next?.pro} />
+              <PlanPrice country={country} now={prices.pro} next={next?.pro} />
               <ul className="plan-list">
                 <li>Incluye todo Órale AI</li>
                 <li>Cada mesero pide desde su celular</li>
@@ -341,7 +348,7 @@ export default function Home() {
                   <img src="/logo.png" alt="" width="56" height="56" />
                   <h3>Descarga Órale AI</h3>
                   <p>Empieza con tu propio menú.</p>
-                  <StoreBadges />
+                  <StoreBadges country={country} />
                 </div>
               </div>
               <div id="negocio" className="cta-owner">

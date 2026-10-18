@@ -1,9 +1,3 @@
-const pesosFmt = new Intl.NumberFormat("es-MX", {
-  style: "currency",
-  currency: "MXN",
-  minimumFractionDigits: 2,
-});
-
 const dayFmt = new Intl.DateTimeFormat("es-MX", {
   day: "2-digit",
   month: "2-digit",
@@ -16,8 +10,12 @@ const longDayFmt = new Intl.DateTimeFormat("es-MX", {
   month: "long",
 });
 
-export function pesos(cents: number): string {
-  return pesosFmt.format(cents / 100);
+export function pesos(cents: number, country: "MX" | "CL" = "MX"): string {
+  return new Intl.NumberFormat(country === "CL" ? "es-CL" : "es-MX", {
+    style: "currency", currency: country === "CL" ? "CLP" : "MXN",
+    minimumFractionDigits: country === "CL" ? 0 : 2,
+    maximumFractionDigits: country === "CL" ? 0 : 2,
+  }).format(cents / 100);
 }
 
 function two(n: number): string {

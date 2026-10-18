@@ -17,6 +17,8 @@ export type Product = {
   }[];
 };
 export type Catalog = {
+  currency?: "MXN" | "CLP";
+  locale?: "es-MX" | "es-CL";
   acceptsDelivery?: boolean;
   version: number;
   utcOffsetMinutes: number;
