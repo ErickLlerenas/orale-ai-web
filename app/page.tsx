@@ -131,11 +131,7 @@ export default function Home({ searchParams }: { searchParams?: { pais?: string 
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareJsonLd(country)) }}
       />
-      <LandingNav />
-      <nav aria-label="País" className="container country-selector">
-        <a href="/?pais=MX" aria-current={country === "MX" ? "page" : undefined}>México · MXN</a>
-        <a href="/?pais=CL" aria-current={country === "CL" ? "page" : undefined}>Chile · CLP</a>
-      </nav>
+      <LandingNav country={country} />
       <main>
         <section className="hero">
           <div className="hero-atmosphere" aria-hidden="true">
