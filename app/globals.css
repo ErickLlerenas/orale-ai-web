@@ -3342,3 +3342,9 @@ table.data tbody tr:last-child td {
 .pro-online-benefit ol { margin: 0; padding-left: 24px; align-self: center; }
 .pro-online-benefit li + li { margin-top: 14px; }
 @media (max-width: 720px) { .pro-online-benefit { grid-template-columns: 1fr; padding: 22px; gap: 20px; } }
+
+.country-selector { position:absolute; top:80px; left:0; right:0; z-index:5; display:flex; gap:8px; justify-content:flex-end; }
+.country-selector + main > .hero { padding-top:160px; }
+.country-selector a { padding:8px 14px; border:1px solid rgba(255,255,255,.4); border-radius:999px; color:#fff; background:rgba(255,255,255,.12); font-size:13px; font-weight:700; text-decoration:none; }
+.country-selector a[aria-current="page"] { color:var(--primary-dark); background:#fff; border-color:var(--primary); }
+.country-selector a:focus-visible { outline:2px solid var(--primary); outline-offset:3px; }

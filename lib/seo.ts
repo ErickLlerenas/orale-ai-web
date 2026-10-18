@@ -1,3 +1,5 @@
+import { pricingForCountry } from "./pricing";
+
 /// Marca y URLs para metadatos. Una sola fuente: título, sitemap y JSON-LD.
 ///
 /// La gente busca "orale ai" sin acento. El título visible de la marca sigue
@@ -10,9 +12,9 @@ export const siteUrl =
 export const brandName = "Órale AI";
 export const brandNamePlain = "Orale AI";
 
-export const siteTitle = "Orale AI · Punto de venta para negocios de comida en México";
+export const siteTitle = "Orale AI · Punto de venta para negocios de comida en México y Chile";
 export const siteDescription =
-  "Orale AI (Órale AI) es el punto de venta con IA para restaurantes, cafeterías y puestos de comida en México. Arma el menú con una foto. App Store, Google Play y Windows.";
+  "Orale AI (Órale AI) es el punto de venta con IA para restaurantes, cafeterías y puestos de comida en México y Chile. Arma el menú con una foto. App Store, Google Play y Windows.";
 
 export const stores = {
   apple: "https://apps.apple.com/app/id6776390828",
@@ -22,7 +24,7 @@ export const stores = {
     "https://apps.microsoft.com/detail/9mwh3bdnf0xt?hl=es-MX&gl=MX",
 } as const;
 
-export function softwareJsonLd() {
+export function softwareJsonLd(country: "MX" | "CL" = "MX") {
   return {
     "@context": "https://schema.org",
     "@graph": [
@@ -32,22 +34,23 @@ export function softwareJsonLd() {
         alternateName: [brandNamePlain, "OraleAI", "orale ai"],
         url: siteUrl,
         logo: `${siteUrl}/og-icon.png`,
-        areaServed: "MX",
+        areaServed: ["MX", "CL"],
       },
       {
         "@type": "SoftwareApplication",
         name: brandName,
         alternateName: [brandNamePlain, "OraleAI"],
         applicationCategory: "BusinessApplication",
-        operatingSystem: "iOS, Android, Windows, macOS",
+        operatingSystem: country === "CL" ? "iOS, Android, macOS" : "iOS, Android, Windows, macOS",
         url: siteUrl,
         description: siteDescription,
         offers: {
           "@type": "Offer",
-          priceCurrency: "MXN",
+          priceCurrency: country === "CL" ? "CLP" : "MXN",
+          price: pricingForCountry(country).prices.base.monthly,
           availability: "https://schema.org/InStock",
         },
-        downloadUrl: [stores.apple, stores.google, stores.microsoft],
+        downloadUrl: country === "CL" ? [`https://apps.apple.com/cl/app/id${stores.appleId}`, stores.google] : [stores.apple, stores.google, stores.microsoft],
       },
     ],
   };

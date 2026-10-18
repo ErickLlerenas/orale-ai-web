@@ -63,6 +63,7 @@ export type OwnerCajaSnapshot = {
 };
 
 export type OwnerLocation = {
+  country?: "MX" | "CL";
   businessId: string;
   bizName?: string;
   days: OwnerDayMetrics[];
@@ -71,6 +72,7 @@ export type OwnerLocation = {
 };
 
 export type OwnerMetricsBundle = {
+  country?: "MX" | "CL";
   days: OwnerDayMetrics[];
   orders: OwnerOrderSummary[];
   caja: OwnerCajaSnapshot | null;
