@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     "OraleAI",
     "punto de venta",
     "punto de venta restaurantes",
-    "POS México",
+    "POS",
     "cafeterías",
     "puestos de comida",
   ],

@@ -231,7 +231,7 @@ export function parseOwnerMetrics(json: unknown): OwnerMetricsBundle {
   const root = json && typeof json === "object" ? (json as Record<string, unknown>) : {};
   const sources = [root, ...(Array.isArray(root.locations) ? root.locations : [])];
   if (sources.some((v) => v && typeof v === "object" && "country" in v && v.country != null && v.country !== "MX"))
-    throw new Error("Solo se admiten negocios de México.");
+    throw new Error("El reporte usa un formato de importes incompatible.");
   const locations: OwnerLocation[] = [];
   if (Array.isArray(root.locations)) {
     for (const item of root.locations) {

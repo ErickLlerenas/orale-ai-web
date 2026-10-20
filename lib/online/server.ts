@@ -24,7 +24,7 @@ export async function loadMenu(slug: string): Promise<Menu> {
     if (!response.ok)
       throw new MenuError(data.error ?? "Menú no disponible.", response.status);
     if (data.catalog?.currency != null && data.catalog.currency !== "MXN")
-      throw new MenuError("Solo se admiten negocios de México.", 410);
+      throw new MenuError("El menú usa un formato de importes incompatible.", 410);
     return data as Menu;
   } catch (e) {
     if (e instanceof MenuError) throw e;

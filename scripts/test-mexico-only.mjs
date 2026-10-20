@@ -14,15 +14,15 @@ const { pesos } = require(join(dir, "format.js"));
 const { parseOwnerMetrics } = require(join(dir, "parse.js"));
 const { softwareJsonLd, siteTitle, siteDescription } = require(join(dir, "seo.js"));
 rmSync(dir, { recursive: true, force: true });
-test("Mexican money keeps cents and sharing metadata offers Mexico only", () => {
+test("Mexican money keeps cents and sharing metadata does not announce countries", () => {
   assert.equal(pesos(1250050), "$12,500.50");
   const graph = softwareJsonLd()["@graph"];
   assert.equal(graph[0].areaServed, "MX");
   assert.equal(graph[1].offers.priceCurrency, "MXN");
-  assert.ok(!siteTitle.includes("Chile") && !siteDescription.includes("Chile"));
+  assert.ok(!/México|Chile|Colombia/i.test(siteTitle + " " + siteDescription));
 });
 test("foreign metrics are rejected before being displayed as Mexican pesos", () => {
-  assert.throws(() => parseOwnerMetrics({ locations: [{ country: "CL" }] }), /México/);
-  assert.throws(() => parseOwnerMetrics({ country: "CL" }), /México/);
+  assert.throws(() => parseOwnerMetrics({ locations: [{ country: "CL" }] }), /incompatible/);
+  assert.throws(() => parseOwnerMetrics({ country: "CL" }), /incompatible/);
   assert.deepEqual(parseOwnerMetrics({ locations: [] }).locations, []);
 });
