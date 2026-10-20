@@ -1,6 +1,4 @@
 "use client";
-import { OwnerMoney, useOwnerMoney } from "./OwnerMoney";
-import { hasMixedCurrencies } from "@/lib/owner/parse";
 
 import { useState } from "react";
 import { viewFor } from "@/lib/owner/parse";
@@ -15,7 +13,6 @@ type Props = {
 
 export default function OwnerHistory({ bundle, selectedId }: Props) {
   const view = viewFor(bundle, selectedId);
-  if (selectedId == null && hasMixedCurrencies(bundle)) return <p>Selecciona una sucursal en el panel para ver sus ventas en su moneda.</p>;
   if (view.orders.length === 0) {
     return (
       <div className="owner-empty">
@@ -37,7 +34,7 @@ export default function OwnerHistory({ bundle, selectedId }: Props) {
   const dayKeys = [...byDay.keys()].sort((a, b) => b.localeCompare(a));
 
   return (
-    <OwnerMoney country={view.country}><div className="owner-page owner-history">
+    <div className="owner-page owner-history">
       {dayKeys.map((day) => {
         const orders = byDay.get(day)!;
         const total =
@@ -48,7 +45,7 @@ export default function OwnerHistory({ bundle, selectedId }: Props) {
             <header className="owner-day-head">
               <h2>{historyDayLabel(day)}</h2>
               <span>
-                {count} · {pesos(total, view.country)}
+                {count} · {pesos(total)}
               </span>
             </header>
             {orders.map((order) => (
@@ -60,12 +57,11 @@ export default function OwnerHistory({ bundle, selectedId }: Props) {
       <p className="owner-footnote">
         Solo lectura · últimos 7 días. Reimprimir o WhatsApp siguen en la caja.
       </p>
-    </div></OwnerMoney>
+    </div>
   );
 }
 
 function SaleTile({ order }: { order: OwnerOrderSummary }) {
-  const money = useOwnerMoney();
   const [open, setOpen] = useState(false);
   const canExpand = order.tipCents > 0 || order.paymentMethod === "split";
   const pay = paymentLabel(order.paymentMethod);
@@ -86,7 +82,7 @@ function SaleTile({ order }: { order: OwnerOrderSummary }) {
             {order.waiterName ? ` · ${order.waiterName}` : ""}
           </span>
         </span>
-        <strong className="owner-sale-amount">{money.format(order.salesCents)}</strong>
+        <strong className="owner-sale-amount">{pesos(order.salesCents)}</strong>
         {canExpand && (
           <span className={`owner-chevron${open ? " is-open" : ""}`}>
             <IconChevron />
@@ -95,17 +91,17 @@ function SaleTile({ order }: { order: OwnerOrderSummary }) {
       </button>
       {open && (
         <div className="owner-cut-body">
-          {order.tipCents > 0 && <Row label="Propina" value={money.format(order.tipCents)} />}
+          {order.tipCents > 0 && <Row label="Propina" value={pesos(order.tipCents)} />}
           {order.paymentMethod === "split" && (
             <>
-              {order.paidCash > 0 && <Row label="Efectivo" value={money.format(order.paidCash)} />}
-              {order.paidCard > 0 && <Row label="Tarjeta" value={money.format(order.paidCard)} />}
+              {order.paidCash > 0 && <Row label="Efectivo" value={pesos(order.paidCash)} />}
+              {order.paidCard > 0 && <Row label="Tarjeta" value={pesos(order.paidCard)} />}
               {order.paidTransfer > 0 && (
-                <Row label="Transferencia" value={money.format(order.paidTransfer)} />
+                <Row label="Transferencia" value={pesos(order.paidTransfer)} />
               )}
             </>
           )}
-          <Row label="Total venta" value={money.format(order.salesCents)} bold />
+          <Row label="Total venta" value={pesos(order.salesCents)} bold />
         </div>
       )}
     </article>

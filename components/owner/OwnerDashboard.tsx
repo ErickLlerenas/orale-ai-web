@@ -1,6 +1,4 @@
 "use client";
-import { OwnerMoney, useOwnerMoney } from "./OwnerMoney";
-import { hasMixedCurrencies } from "@/lib/owner/parse";
 
 import { useMemo, useState } from "react";
 import { locationLabel, viewFor } from "@/lib/owner/parse";
@@ -8,6 +6,7 @@ import {
   cutPeriodNote,
   dayTimeLabel,
   ownerDayKey,
+  pesos,
   relativeTimeEs,
   updatedAgoLabel,
 } from "@/lib/owner/format";
@@ -71,14 +70,10 @@ export default function OwnerDashboard({
     return [];
   }, [bundle.locations, selectedId, several, summary.caja]);
 
-  if (selectedId == null && hasMixedCurrencies(bundle)) return <div className="owner-page">
-    <p>Elige una sucursal para ver sus importes en su moneda.</p>
-    <div className="owner-chips">{bundle.locations.map(l => <button className="owner-chip" key={l.businessId} onClick={() => onSelect(l.businessId)}>{locationLabel(l)} · {l.country === "CL" ? "CLP" : "MXN"}</button>)}</div>
-  </div>;
   if (empty) return <EmptyBody />;
 
   return (
-    <OwnerMoney country={view.country}><div className="owner-page">
+    <div className="owner-page">
       {several && (
         <div className="owner-chips" role="tablist" aria-label="Sucursales">
           <button
@@ -138,7 +133,7 @@ export default function OwnerDashboard({
         {summary.syncedAt ? `${updatedAgoLabel(summary.syncedAt)}. ` : ""}
         Solo lectura.
       </p>
-    </div></OwnerMoney>
+    </div>
   );
 }
 
@@ -149,7 +144,6 @@ function PeriodSalesCard({
   summary: ReturnType<typeof summarizeOwnerDashboard>;
   historyHref: string;
 }) {
-  const money = useOwnerMoney();
   const caja = summary.caja;
   const periodLabel = !caja
     ? "Hoy"
@@ -173,7 +167,7 @@ function PeriodSalesCard({
     <section className="owner-card">
       <div className="owner-card-pad">
         <p className="owner-kicker">{periodLabel}</p>
-        <p className="owner-hero-money">{money.format(total)}</p>
+        <p className="owner-hero-money">{pesos(total)}</p>
         <p className="owner-hero-meta">
           {orders === 0
             ? "Sin ventas en este periodo"
@@ -184,7 +178,7 @@ function PeriodSalesCard({
             Última venta · {relativeTimeEs(summary.lastSale.closedAt)} ·{" "}
             {summary.lastSale.displayName}
             {summary.lastSale.waiterName ? ` · ${summary.lastSale.waiterName}` : ""}{" "}
-            · {money.format(summary.lastSale.salesCents)}
+            · {pesos(summary.lastSale.salesCents)}
           </p>
         )}
         {showSplit && (
@@ -217,22 +211,21 @@ function GlanceStrip({
 }: {
   summary: ReturnType<typeof summarizeOwnerDashboard>;
 }) {
-  const money = useOwnerMoney();
   const periodOrders = summary.caja?.orderCount ?? summary.today?.orderCount ?? 0;
   const vs = summary.vsYesterdayCents;
   const vsTone = vs == null ? null : vs > 0 ? "up" : vs < 0 ? "down" : "flat";
   const items: { label: string; value: string; tone?: string }[] = [];
 
   if (summary.avgTicketCents > 0 && periodOrders > 1) {
-    items.push({ label: "Ticket promedio", value: money.format(summary.avgTicketCents) });
+    items.push({ label: "Ticket promedio", value: pesos(summary.avgTicketCents) });
   }
   if (summary.tipCents > 0) {
-    items.push({ label: "Propinas", value: money.format(summary.tipCents) });
+    items.push({ label: "Propinas", value: pesos(summary.tipCents) });
   }
   if (summary.weekOrderCount > 0) {
     items.push({
       label: "Esta semana",
-      value: `${money.format(summary.weekTotalCents)} · ${summary.weekOrderCount} ${
+      value: `${pesos(summary.weekTotalCents)} · ${summary.weekOrderCount} ${
         summary.weekOrderCount === 1 ? "venta" : "ventas"
       }`,
     });
@@ -242,7 +235,7 @@ function GlanceStrip({
   if (vsTone && vs != null && vsMatchesHero && periodOrders > 1 && yesterdaySold) {
     items.push({
       label: "Hoy vs ayer",
-      value: vsYesterdayLabel(vs, money.country),
+      value: vsYesterdayLabel(vs),
       tone: vsTone,
     });
   }
@@ -269,18 +262,16 @@ function Breakdown({
   label: string;
   value: number;
 }) {
-  const money = useOwnerMoney();
   return (
     <div className="owner-row">
       <span className="owner-row-icon">{icon}</span>
       <span>{label}</span>
-      <strong>{money.format(value)}</strong>
+      <strong>{pesos(value)}</strong>
     </div>
   );
 }
 
 function WaitersCard({ waiters }: { waiters: OwnerWaiterSales[] }) {
-  const money = useOwnerMoney();
   return (
     <section className="owner-card owner-card-pad">
       <h3>Ventas por mesero</h3>
@@ -288,7 +279,7 @@ function WaitersCard({ waiters }: { waiters: OwnerWaiterSales[] }) {
         <div key={waiter.name} className="owner-row">
           <span className="owner-strong">{waiter.name}</span>
           <span className="owner-muted">
-            {waiter.orderCount} · {money.format(waiter.totalCents)}
+            {waiter.orderCount} · {pesos(waiter.totalCents)}
           </span>
         </div>
       ))}
@@ -297,7 +288,6 @@ function WaitersCard({ waiters }: { waiters: OwnerWaiterSales[] }) {
 }
 
 function CashCard({ caja, title }: { caja: OwnerCajaSnapshot; title?: string }) {
-  const money = useOwnerMoney();
   const expected = expectedCashCents(caja);
   const showOpening = caja.openingCashCents > 0;
   const showCashSales = caja.cashSalesCents > 0 && caja.cashSalesCents !== expected;
@@ -306,38 +296,38 @@ function CashCard({ caja, title }: { caja: OwnerCajaSnapshot; title?: string }) 
     <section className="owner-card owner-card-pad">
       <div className="owner-cash-head">
         <p className="owner-kicker">{title ?? "Efectivo en caja"}</p>
-        <p className="owner-cash-money">{money.format(expected)}</p>
+        <p className="owner-cash-money">{pesos(expected)}</p>
       </div>
       {showOpening && (
         <div className="owner-row owner-row-soft">
           <span className="owner-row-icon">
             <IconPiggy />
           </span>
-          <span>Fondo inicial: {money.format(caja.openingCashCents)}</span>
+          <span>Fondo inicial: {pesos(caja.openingCashCents)}</span>
         </div>
       )}
       {showCashSales && (
         <div className="owner-row owner-row-soft">
           <span>Ventas en efectivo</span>
-          <strong>{money.format(caja.cashSalesCents)}</strong>
+          <strong>{pesos(caja.cashSalesCents)}</strong>
         </div>
       )}
       {caja.cashTipsCents > 0 && (
         <div className="owner-row owner-row-soft">
           <span>Propinas en efectivo</span>
-          <strong>{money.format(caja.cashTipsCents)}</strong>
+          <strong>{pesos(caja.cashTipsCents)}</strong>
         </div>
       )}
       {(caja.incomeCents > 0 || caja.expenseCents > 0) && (
         <div className="owner-flow">
           {caja.incomeCents > 0 && (
             <span className="is-in">
-              <IconIn /> {money.format(caja.incomeCents)}
+              <IconIn /> {pesos(caja.incomeCents)}
             </span>
           )}
           {caja.expenseCents > 0 && (
             <span className="is-out">
-              <IconOut /> {money.format(caja.expenseCents)}
+              <IconOut /> {pesos(caja.expenseCents)}
             </span>
           )}
         </div>
@@ -355,7 +345,6 @@ function CashCard({ caja, title }: { caja: OwnerCajaSnapshot; title?: string }) 
 }
 
 function MovementRow({ movement }: { movement: OwnerCashMovement }) {
-  const money = useOwnerMoney();
   const income = movement.type === "income";
   return (
     <div className="owner-movement">
@@ -368,7 +357,7 @@ function MovementRow({ movement }: { movement: OwnerCashMovement }) {
       </div>
       <strong className={income ? "is-in" : "is-out"}>
         {income ? "+" : "−"}
-        {money.format(movement.amountCents)}
+        {pesos(movement.amountCents)}
       </strong>
     </div>
   );
@@ -381,9 +370,8 @@ function CutTile({
   cut: OwnerCutSummary;
   periodStart: Date | null;
 }) {
-  const money = useOwnerMoney();
   const [open, setOpen] = useState(false);
-  const badge = arqueoBadge(cut.expectedCashCents, cut.countedCashCents, money.country);
+  const badge = arqueoBadge(cut.expectedCashCents, cut.countedCashCents);
   const period = cutPeriodNote(cut.cutAt, periodStart);
 
   return (
@@ -402,7 +390,7 @@ function CutTile({
         </span>
         <span className="owner-cut-sales">
           <span className="owner-muted owner-small">Ventas</span>
-          <strong>{money.format(cut.salesTotalCents)}</strong>
+          <strong>{pesos(cut.salesTotalCents)}</strong>
         </span>
         <span className={`owner-chevron${open ? " is-open" : ""}`}>
           <IconChevron />
@@ -411,26 +399,26 @@ function CutTile({
       {open && (
         <div className="owner-cut-body">
           {cut.openingCashCents > 0 && (
-            <CutRow label="Fondo inicial" value={money.format(cut.openingCashCents)} />
+            <CutRow label="Fondo inicial" value={pesos(cut.openingCashCents)} />
           )}
-          <CutRow label="Ventas" value={money.format(cut.salesTotalCents)} />
+          <CutRow label="Ventas" value={pesos(cut.salesTotalCents)} />
           {cut.cashSalesCents > 0 && (
-            <CutRow label="Efectivo" value={money.format(cut.cashSalesCents)} sub />
+            <CutRow label="Efectivo" value={pesos(cut.cashSalesCents)} sub />
           )}
           {cut.cardSalesCents > 0 && (
-            <CutRow label="Tarjeta" value={money.format(cut.cardSalesCents)} sub />
+            <CutRow label="Tarjeta" value={pesos(cut.cardSalesCents)} sub />
           )}
           {cut.transferSalesCents > 0 && (
-            <CutRow label="Transferencia" value={money.format(cut.transferSalesCents)} sub />
+            <CutRow label="Transferencia" value={pesos(cut.transferSalesCents)} sub />
           )}
           {cut.cashTipsCents > 0 && (
-            <CutRow label="Propinas en efectivo" value={money.format(cut.cashTipsCents)} />
+            <CutRow label="Propinas en efectivo" value={pesos(cut.cashTipsCents)} />
           )}
-          {cut.incomeCents > 0 && <CutRow label="Entradas" value={money.format(cut.incomeCents)} />}
-          {cut.expenseCents > 0 && <CutRow label="Salidas" value={money.format(cut.expenseCents)} />}
-          <CutRow label="Efectivo esperado" value={money.format(cut.expectedCashCents)} />
+          {cut.incomeCents > 0 && <CutRow label="Entradas" value={pesos(cut.incomeCents)} />}
+          {cut.expenseCents > 0 && <CutRow label="Salidas" value={pesos(cut.expenseCents)} />}
+          <CutRow label="Efectivo esperado" value={pesos(cut.expectedCashCents)} />
           {cut.countedCashCents != null && (
-            <CutRow label="Contado" value={money.format(cut.countedCashCents)} />
+            <CutRow label="Contado" value={pesos(cut.countedCashCents)} />
           )}
         </div>
       )}

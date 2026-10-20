@@ -21,7 +21,6 @@ writeFileSync(
   ).outputText,
 );
 const {
-  money,
   quoteCart,
   whatsappOrder,
   demoPhoneNumber,
@@ -391,18 +390,4 @@ test("offer labels explain bundles, selected products, extras and schedule befor
     promotionLabel({ ...p, fixedPriceCents: undefined, pay: 1 }),
     "2x1",
   );
-});
-
-test('Chilean menu and WhatsApp quote preserve whole pesos and local grouping', () => {
-  const c = {...catalog(), currency:'CLP', locale:'es-CL', phone:'56912345678'};
-  c.products[0].variants[0].price = 1250000;
-  assert.equal(money(1250000, 'CLP'), '$12.500');
-  assert.equal(money(1250050), '$12,500.50');
-  const lines = [{productId:'p',variantId:'v',choiceIds:['s'],quantity:1,notes:''}];
-  const quote = quoteCart(c, lines);
-  assert.equal(quote.total, 1250000);
-  const url = new URL(whatsappOrder(c, lines, {name:'Cliente',fulfillment:'pickup',address:''}).url);
-  assert.match(url.searchParams.get('text'), /\$12\.500/);
-  assert.doesNotMatch(url.searchParams.get('text'), /12,500\.00/);
-  assert.match(promotionLabel({buy:2,pay:1,fixedPriceCents:2000000}, 'CLP'), /\$20\.000/);
 });

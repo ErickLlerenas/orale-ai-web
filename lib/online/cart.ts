@@ -1,9 +1,9 @@
 import type { CartLine, Catalog, Checkout } from "./types";
-export const money = (cents: number, currency: "MXN" | "CLP" = "MXN") =>
-  new Intl.NumberFormat(currency === "CLP" ? "es-CL" : "es-MX", {
-    style: "currency", currency,
-    minimumFractionDigits: currency === "CLP" ? 0 : 2,
-    maximumFractionDigits: currency === "CLP" ? 0 : 2,
+export const money = (cents: number) =>
+  new Intl.NumberFormat("es-MX", {
+    style: "currency",
+    currency: "MXN",
+    maximumFractionDigits: 2,
   }).format(cents / 100);
 
 // Only the public demo accepts a destination from the visitor. Real orders
@@ -34,10 +34,10 @@ export function promotionActive(
     promo.startsAtMinute < promo.endsAtMinute &&
     minute >= promo.startsAtMinute && minute < promo.endsAtMinute;
 }
-export function promotionLabel(p: Promotion, currency: "MXN" | "CLP" = "MXN"): string {
+export function promotionLabel(p: Promotion): string {
   return p.fixedPriceCents != null
     ? `${p.requireEachProduct ? "Combo" : `${p.buy} productos por`} ${
-      money(p.fixedPriceCents, currency)
+      money(p.fixedPriceCents)
     }`
     : `${p.buy}x${p.pay}`;
 }
@@ -223,7 +223,6 @@ export function whatsappOrder(
   if (checkout.fulfillment === "delivery" && catalog.acceptsDelivery !== true) {
     throw new Error("Este negocio solo acepta pedidos para recoger.");
   }
-  const formatMoney = (cents: number) => money(cents, catalog.currency);
   const q = quoteCart(catalog, lines, now);
   const parts = [
     "🛍️ *SOLICITUD DE PEDIDO*",
@@ -233,20 +232,20 @@ export function whatsappOrder(
       ...(index ? [""] : []),
       `*${p.line.quantity} × ${p.product.name}${
         p.product.variants.length > 1 ? ` (${p.variant.name})` : ""
-      }* — *${formatMoney(p.total)}*`,
+      }* — *${money(p.total)}*`,
       ...p.choices.map(
-        (c) => `  • ${c.name}${c.price ? ` (+${formatMoney(c.price)} c/u)` : ""}`,
+        (c) => `  • ${c.name}${c.price ? ` (+${money(c.price)} c/u)` : ""}`,
       ),
       ...(p.line.notes.trim() ? [`  Nota: ${p.line.notes.trim()}`] : []),
     ]),
     "",
     ...(q.discount
       ? [
-        `Subtotal: ${formatMoney(q.subtotal)}`,
-        `${q.promotion}: −${formatMoney(q.discount)}`,
+        `Subtotal: ${money(q.subtotal)}`,
+        `${q.promotion}: −${money(q.discount)}`,
       ]
       : []),
-    `*Total de productos: ${formatMoney(q.total)}*`,
+    `*Total de productos: ${money(q.total)}*`,
     "",
     `👤 *Cliente:* ${checkout.name.trim()}`,
     ...(checkout.fulfillment === "delivery"

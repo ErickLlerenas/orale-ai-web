@@ -169,7 +169,6 @@ function parseLocation(raw: Record<string, unknown>): OwnerLocation | null {
   const bizName = asText(raw.bizName) || days[0]?.bizName;
   return {
     businessId,
-    country: raw.country === "CL" ? "CL" : "MX",
     bizName,
     days,
     orders: parseOrders(raw.orders),
@@ -230,6 +229,9 @@ export function locationLabel(location: OwnerLocation): string {
 
 export function parseOwnerMetrics(json: unknown): OwnerMetricsBundle {
   const root = json && typeof json === "object" ? (json as Record<string, unknown>) : {};
+  const sources = [root, ...(Array.isArray(root.locations) ? root.locations : [])];
+  if (sources.some((v) => v && typeof v === "object" && "country" in v && v.country != null && v.country !== "MX"))
+    throw new Error("Solo se admiten negocios de México.");
   const locations: OwnerLocation[] = [];
   if (Array.isArray(root.locations)) {
     for (const item of root.locations) {
@@ -266,12 +268,10 @@ export function viewFor(
   businessId: string | null,
 ): OwnerMetricsBundle {
   if (!businessId || bundle.locations.length <= 1) {
-    if (bundle.locations.length <= 1) return { ...bundle, country: bundle.locations[0]?.country ?? "MX" };
-    if (hasMixedCurrencies(bundle)) return { ...bundle, days: [], orders: [], caja: null };
+    if (bundle.locations.length <= 1) return bundle;
     const orders = bundle.locations.flatMap((location) => location.orders);
     orders.sort((a, b) => b.closedAt.getTime() - a.closedAt.getTime());
     return {
-      country: bundle.locations[0]?.country ?? "MX",
       days: mergeOwnerDays(bundle.locations.flatMap((location) => location.days)),
       orders,
       caja: null,
@@ -281,14 +281,9 @@ export function viewFor(
   const location = bundle.locations.find((item) => item.businessId === businessId);
   if (!location) return bundle;
   return {
-    country: location.country ?? "MX",
     days: location.days,
     orders: location.orders,
     caja: location.caja,
     locations: bundle.locations,
   };
-}
-
-export function hasMixedCurrencies(bundle: OwnerMetricsBundle): boolean {
-  return new Set(bundle.locations.map(l => l.country ?? "MX")).size > 1;
 }

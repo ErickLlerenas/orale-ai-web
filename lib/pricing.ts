@@ -96,19 +96,3 @@ export function mxn(amount: number): string {
 export function discountPct(now: number, later: number): number {
   return Math.floor((1 - now / later) * 100);
 }
-
-/// Precios finales de Chile confirmados para las dos tiendas. No dependen
-/// del calendario de aumentos de México.
-const chile: PlanSet = {
-  base: { monthly: 5990, yearly: 49990 },
-  pro: { monthly: 9990, yearly: 79990 },
-};
-
-export function pricingForCountry(country: "MX" | "CL", now: Date = new Date()): Pricing {
-  if (country === "MX") return pricingNow(now);
-  return { prices: chile, next: null, promoEndsLabel: null, increaseOnLabel: null };
-}
-
-export function clp(amount: number): string {
-  return `$${new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 }).format(amount)}`;
-}

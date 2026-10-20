@@ -23,6 +23,8 @@ export async function loadMenu(slug: string): Promise<Menu> {
     const data = await response.json();
     if (!response.ok)
       throw new MenuError(data.error ?? "Menú no disponible.", response.status);
+    if (data.catalog?.currency != null && data.catalog.currency !== "MXN")
+      throw new MenuError("Solo se admiten negocios de México.", 410);
     return data as Menu;
   } catch (e) {
     if (e instanceof MenuError) throw e;

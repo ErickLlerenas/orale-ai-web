@@ -1,4 +1,4 @@
-import { pricingForCountry } from "./pricing";
+import { pricingNow } from "./pricing";
 
 /// Marca y URLs para metadatos. Una sola fuente: título, sitemap y JSON-LD.
 ///
@@ -24,7 +24,7 @@ export const stores = {
     "https://apps.microsoft.com/detail/9mwh3bdnf0xt?hl=es-MX&gl=MX",
 } as const;
 
-export function softwareJsonLd(country: "MX" | "CL" = "MX") {
+export function softwareJsonLd() {
   return {
     "@context": "https://schema.org",
     "@graph": [
@@ -34,23 +34,23 @@ export function softwareJsonLd(country: "MX" | "CL" = "MX") {
         alternateName: [brandNamePlain, "OraleAI", "orale ai"],
         url: siteUrl,
         logo: `${siteUrl}/og-icon.png`,
-        areaServed: ["MX", "CL"],
+        areaServed: "MX",
       },
       {
         "@type": "SoftwareApplication",
         name: brandName,
         alternateName: [brandNamePlain, "OraleAI"],
         applicationCategory: "BusinessApplication",
-        operatingSystem: country === "CL" ? "iOS, Android, macOS" : "iOS, Android, Windows, macOS",
+        operatingSystem: "iOS, Android, Windows, macOS",
         url: siteUrl,
         description: siteDescription,
         offers: {
           "@type": "Offer",
-          priceCurrency: country === "CL" ? "CLP" : "MXN",
-          price: pricingForCountry(country).prices.base.monthly,
+          priceCurrency: "MXN",
+          price: pricingNow().prices.base.monthly,
           availability: "https://schema.org/InStock",
         },
-        downloadUrl: country === "CL" ? [`https://apps.apple.com/cl/app/id${stores.appleId}`, stores.google] : [stores.apple, stores.google, stores.microsoft],
+        downloadUrl: [stores.apple, stores.google, stores.microsoft],
       },
     ],
   };

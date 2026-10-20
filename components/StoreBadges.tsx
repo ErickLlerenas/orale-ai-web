@@ -107,17 +107,15 @@ export function detectPlatform(): Platform {
 function StoreLink({
   platform,
   size,
-  country,
 }: {
   platform: Platform;
-  country: "MX" | "CL";
   size: "lg" | "sm";
 }) {
   const meta = META[platform];
   return (
     <a
       className={`badge ${meta.className}${size === "lg" ? " badge-lg" : " badge-sm"}`}
-      href={country === "CL" && (platform === "ios" || platform === "mac") ? meta.href.replace("/mx/", "/cl/") : meta.href}
+      href={meta.href}
       target="_blank"
       rel="noopener noreferrer"
     >
@@ -130,26 +128,25 @@ function StoreLink({
   );
 }
 
-export default function StoreBadges({ country = "MX" }: { country?: "MX" | "CL" }) {
+export default function StoreBadges() {
   const [platform, setPlatform] = useState<Platform>("ios");
 
   useEffect(() => {
     setPlatform(detectPlatform());
   }, []);
 
-  const selected = country === "CL" && platform === "windows" ? "android" : platform;
-  const others = ORDER.filter((p) => p !== selected && (country !== "CL" || p !== "windows"));
+  const others = ORDER.filter((p) => p !== platform);
 
   return (
     <div className="store-download">
-      <StoreLink country={country} platform={selected} size="lg" />
+      <StoreLink platform={platform} size="lg" />
       <p className="also-on-label">También en</p>
       <div className="also-links">
         {others.map((p) => (
           <a
             key={p}
             className="also-link"
-            href={country === "CL" && (p === "ios" || p === "mac") ? META[p].href.replace("/mx/", "/cl/") : META[p].href}
+            href={META[p].href}
             target="_blank"
             rel="noopener noreferrer"
           >
