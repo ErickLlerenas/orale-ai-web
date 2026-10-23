@@ -33,6 +33,11 @@ export async function middleware(req: NextRequest) {
     return response;
   }
   if (!pathname.startsWith("/admin")) return NextResponse.next();
+  // /admin2 en local (yarn dev) entra sin clave para probarlo. En Vercel sigue
+  // pidiendo la misma clave que /admin.
+  if (process.env.NODE_ENV === "development" && pathname.startsWith("/admin2")) {
+    return NextResponse.next();
+  }
 
   // Protege /admin con Basic Auth (un solo dueño). Credenciales por env.
   const auth = req.headers.get("authorization");
