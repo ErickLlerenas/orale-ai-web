@@ -421,7 +421,9 @@ export default async function Admin2({
 
           <div className={s.paths}>
             {paths
-              .filter((p) => p.label !== "Sin dato (no llegaron)")
+              // Sin dato no dice nada; un camino sin nadie (p. ej. el menú de
+              // ejemplo antes de que salga la 3.0.97) solo estorba.
+              .filter((p) => p.label !== "Sin dato (no llegaron)" && p.n > 0)
               .map((p) => (
                 <div className={s.path} key={p.label}>
                   <div className={s.pathTop}>

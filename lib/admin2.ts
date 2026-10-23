@@ -44,14 +44,20 @@ export type Install = {
   /** Llegó por cambio de aparato (ya era cliente). */
   inherited: boolean;
   stage: number | null;
-  menuPath: "skipped" | "photo_opened" | "ai_saved" | null;
+  menuPath: "skipped" | "photo_opened" | "sample" | "ai_saved" | null;
   products: number;
   orders: number;
   subscribed: boolean;
   version: string | null;
 };
 
-const MENU_RANK = { skipped: 1, photo_opened: 2, ai_saved: 3 } as const;
+/// Mismo orden que bump_onboarding_funnel: solo sube.
+const MENU_RANK = {
+  skipped: 1,
+  photo_opened: 2,
+  sample: 3,
+  ai_saved: 4,
+} as const;
 
 /// Un registro por aparato con lo más lejos que llegó.
 export function toInstalls(rows: PingRow[]): Install[] {
@@ -156,8 +162,12 @@ export function menuPaths(list: Install[]) {
   };
   return [
     row("Hicieron el menú con IA", (i) => i.menuPath === "ai_saved"),
+    row("Empezaron con el menú de ejemplo", (i) => i.menuPath === "sample"),
     row("Abrieron la IA y no guardaron", (i) => i.menuPath === "photo_opened"),
-    row("Se saltaron el menú", (i) => i.menuPath === "skipped"),
+    row(
+      "Se saltaron el menú (antes de 3.0.97)",
+      (i) => i.menuPath === "skipped",
+    ),
     row("Sin dato (no llegaron)", (i) => i.menuPath == null),
   ];
 }
