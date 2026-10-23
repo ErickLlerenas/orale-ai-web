@@ -1,0 +1,561 @@
+/* Panel 2: navy + naranja de marca (misma paleta que Pro, lib/brand.ts). */
+.page {
+  --bg: #0b1220;
+  --card: #121b2d;
+  --card-2: #172238;
+  --line: #24314a;
+  --ink: #f1f5f9;
+  --soft: #94a3b8;
+  --mute: #6b7a92;
+  --orange: #f15a29;
+  --orange-2: #ff8a5c;
+  --amber: #f5b942;
+  --green: #34d399;
+  --red: #f87171;
+  --android: #34d399;
+  --ios: #60a5fa;
+  --windows: #c084fc;
+  min-height: 100vh;
+  background:
+    radial-gradient(1200px 500px at 10% -10%, rgba(241, 90, 41, 0.18), transparent 60%),
+    radial-gradient(900px 400px at 100% 0%, rgba(245, 185, 66, 0.08), transparent 60%),
+    var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  padding: 28px 16px 64px;
+}
+.wrap {
+  max-width: 1180px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* --- encabezado --- */
+.top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.logo {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--orange), var(--amber));
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  color: #1a1408;
+  box-shadow: 0 8px 24px rgba(241, 90, 41, 0.35);
+}
+.title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+.subtitle {
+  margin: 0;
+  color: var(--soft);
+  font-size: 13px;
+}
+.topLinks {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--soft);
+}
+.topLinks a {
+  color: var(--soft);
+  text-decoration: none;
+  border: 1px solid var(--line);
+  padding: 6px 12px;
+  border-radius: 999px;
+}
+.topLinks a:hover {
+  color: var(--ink);
+  border-color: var(--soft);
+}
+
+/* --- tarjetas --- */
+.card {
+  background: linear-gradient(180deg, var(--card-2), var(--card));
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 22px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
+}
+.cardHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.eyebrow {
+  margin: 0 0 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--orange-2);
+}
+.h2 {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.note {
+  margin: 6px 0 0;
+  color: var(--mute);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+/* --- héroe: meta 1,000 --- */
+.hero {
+  display: grid;
+  grid-template-columns: minmax(260px, 340px) 1fr;
+  gap: 20px;
+}
+@media (max-width: 860px) {
+  .hero {
+    grid-template-columns: 1fr;
+  }
+}
+.goal {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+}
+.ring {
+  position: relative;
+  width: 210px;
+  height: 210px;
+}
+.ringCenter {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.ringValue {
+  font-size: 46px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+.ringLabel {
+  margin-top: 6px;
+  color: var(--soft);
+  font-size: 13px;
+}
+.goalLine {
+  font-size: 14px;
+  color: var(--soft);
+}
+.goalLine strong {
+  color: var(--ink);
+}
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+}
+.tile {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 16px;
+}
+.tileValue {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.tileLabel {
+  color: var(--soft);
+  font-size: 13px;
+  margin-top: 2px;
+}
+.badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  background: rgba(245, 185, 66, 0.15);
+  color: var(--amber);
+  vertical-align: middle;
+}
+.warn {
+  border: 1px dashed rgba(245, 185, 66, 0.45);
+  background: rgba(245, 185, 66, 0.06);
+  color: var(--amber);
+  border-radius: 14px;
+  padding: 12px 14px;
+  font-size: 13px;
+  margin-top: 12px;
+}
+
+/* --- filtros --- */
+.pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.pill {
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  color: var(--soft);
+  font-size: 13px;
+  text-decoration: none;
+}
+.pill:hover {
+  color: var(--ink);
+}
+.pillOn {
+  composes: pill;
+  background: rgba(241, 90, 41, 0.15);
+  border-color: rgba(241, 90, 41, 0.6);
+  color: #ffd2c2;
+  font-weight: 700;
+}
+.pillGap {
+  width: 10px;
+}
+
+/* --- cuello de botella --- */
+.callout {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  background: linear-gradient(90deg, rgba(248, 113, 113, 0.16), rgba(248, 113, 113, 0.03));
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  border-radius: 16px;
+  padding: 14px 16px;
+  margin-bottom: 18px;
+}
+.calloutBig {
+  font-size: 30px;
+  font-weight: 800;
+  color: var(--red);
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+.calloutText {
+  font-size: 14px;
+  color: var(--ink);
+}
+.calloutText span {
+  display: block;
+  color: var(--soft);
+  font-size: 12.5px;
+}
+
+/* --- embudos --- */
+.funnels {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 22px;
+}
+.funnelTitle {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--soft);
+  margin: 0 0 10px;
+}
+.steps {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.step {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 10px;
+}
+.track {
+  position: relative;
+  height: 38px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  overflow: hidden;
+}
+.fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 10px;
+  background: linear-gradient(90deg, rgba(241, 90, 41, 0.75), rgba(255, 138, 92, 0.45));
+}
+.fillWorst {
+  composes: fill;
+  background: linear-gradient(90deg, rgba(248, 113, 113, 0.85), rgba(248, 113, 113, 0.4));
+}
+.stepText {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+  font-size: 13.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.stepN {
+  font-weight: 800;
+  font-size: 15px;
+  min-width: 28px;
+}
+.stepHint {
+  color: var(--soft);
+  font-size: 12px;
+}
+.conv {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--soft);
+  min-width: 52px;
+  text-align: center;
+}
+.convBad {
+  composes: conv;
+  background: rgba(248, 113, 113, 0.15);
+  color: var(--red);
+}
+.convGood {
+  composes: conv;
+  background: rgba(52, 211, 153, 0.12);
+  color: var(--green);
+}
+
+/* --- caminos del menú --- */
+.paths {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 12px;
+  margin-top: 22px;
+}
+.path {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.025);
+}
+.pathTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  color: var(--soft);
+  font-size: 13px;
+}
+.pathN {
+  font-weight: 800;
+  color: var(--ink);
+  font-size: 18px;
+}
+.pathBig {
+  font-size: 34px;
+  font-weight: 800;
+  margin-top: 8px;
+  letter-spacing: -0.02em;
+}
+.pathSub {
+  color: var(--soft);
+  font-size: 12.5px;
+}
+
+/* --- semanas --- */
+.weeks {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 10px;
+  align-items: end;
+  height: 220px;
+  margin-top: 6px;
+}
+@media (max-width: 640px) {
+  .weeks {
+    gap: 4px;
+  }
+}
+.week {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+  justify-content: flex-end;
+  gap: 6px;
+}
+.weekSubs {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--amber);
+}
+.stack {
+  width: 100%;
+  max-width: 54px;
+  display: flex;
+  flex-direction: column-reverse;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.weekLabel {
+  font-size: 11px;
+  color: var(--mute);
+}
+.weekTotal {
+  font-size: 12px;
+  color: var(--soft);
+  font-weight: 700;
+}
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  font-size: 12px;
+  color: var(--soft);
+}
+.dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+/* --- dos columnas --- */
+.split {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 20px;
+}
+@media (max-width: 920px) {
+  .split {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* --- versiones --- */
+.bars {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.bar {
+  display: grid;
+  grid-template-columns: 92px 1fr 44px;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+.barTrack {
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  overflow: hidden;
+  display: flex;
+}
+.barName {
+  color: var(--soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.barN {
+  text-align: right;
+  font-weight: 700;
+}
+
+/* --- migración --- */
+.health {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+.check {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.025);
+}
+.light {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  margin-top: 6px;
+}
+.lightOk {
+  composes: light;
+  background: var(--green);
+  box-shadow: 0 0 12px rgba(52, 211, 153, 0.7);
+}
+.lightBad {
+  composes: light;
+  background: var(--red);
+  box-shadow: 0 0 12px rgba(248, 113, 113, 0.7);
+}
+.lightIdle {
+  composes: light;
+  background: var(--mute);
+}
+.checkValue {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.checkLabel {
+  color: var(--soft);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+.unverified {
+  margin-top: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.chip {
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--line);
+  color: var(--soft);
+}
+.error {
+  border: 1px solid rgba(248, 113, 113, 0.4);
+  background: rgba(248, 113, 113, 0.08);
+  color: var(--red);
+  border-radius: 14px;
+  padding: 12px 14px;
+  font-size: 13px;
+}

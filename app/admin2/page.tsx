@@ -5,6 +5,7 @@ import {
   PING_COLUMNS,
   PLATFORMS,
   activationFunnel,
+  avgWeeklySubs,
   menuPaths,
   mxDay,
   newOwners,
@@ -14,9 +15,12 @@ import {
   toInstalls,
   versions,
   weekly,
+  worstDrop,
   type PingRow,
   type Step,
+  type WeekRow,
 } from "@/lib/admin2";
+import s from "./admin2.module.css";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -29,6 +33,21 @@ const PLATFORM_LABEL: Record<string, string> = {
   ios: "iOS",
   windows: "Windows",
 };
+const PLATFORM_COLOR: Record<string, string> = {
+  android: "var(--android)",
+  ios: "var(--ios)",
+  windows: "var(--windows)",
+};
+/// Nombres en español de las métricas de RevenueCat que más importan.
+const RC_LABEL: Record<string, string> = {
+  active_subscriptions: "Suscripciones activas",
+  active_trials: "En prueba gratis",
+  mrr: "Ingreso mensual (MRR)",
+  revenue: "Ingresos últimos 28 días",
+  new_customers: "Clientes nuevos (28 días)",
+  active_users: "Usuarios activos (28 días)",
+};
+const RC_ORDER = Object.keys(RC_LABEL);
 
 export default async function Admin2({
   searchParams,
@@ -41,7 +60,7 @@ export default async function Admin2({
     ? (searchParams.platform as string)
     : "todas";
   const today = mxDay(0);
-  // Se excluye hoy: los aparatos de hoy todavía no tuvieron tiempo de avanzar.
+  // Hoy no cuenta: los aparatos de hoy todavía no tuvieron tiempo de avanzar.
   const from = mxDay(days);
   const to = mxDay(1);
 
@@ -69,252 +88,336 @@ export default async function Admin2({
   const paths = menuPaths(cohort);
   const weeks = weekly(installs, rows, 8, today);
   const vers = versions(rows, mxDay(7));
+  const worst = worstDrop(onboarding) ?? worstDrop(activation);
 
   const metric = (id: string) =>
-    rc.ok ? rc.metrics.find((m) => m.id === id)?.value : undefined;
-  const activeSubs = metric("active_subscriptions");
+    rc.ok ? rc.metrics.find((m) => m.id === id) : undefined;
+  // Sin RevenueCat: los que hoy tienen plan según la app (aproximado).
+  const appActive = new Set(
+    rows
+      .filter((r) => r.ping_date >= mxDay(7) && r.subscription_active)
+      .map((r) => r.account_key ?? r.install_id),
+  ).size;
+  const active = metric("active_subscriptions")?.value ?? appActive;
+  const perWeek = avgWeeklySubs(weeks);
+  const weeksLeft =
+    perWeek > 0 ? Math.ceil(Math.max(0, GOAL - active) / perWeek) : null;
 
-  const href = (q: Record<string, string>) => {
-    const p = new URLSearchParams({
-      days: String(days),
-      platform,
-      ...q,
-    });
-    return `/admin2?${p.toString()}`;
-  };
+  const href = (q: Record<string, string>) =>
+    `/admin2?${new URLSearchParams({ days: String(days), platform, ...q })}`;
+  const updated = new Date().toLocaleTimeString("es-MX", {
+    timeZone: "America/Mexico_City",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 
   return (
-    <main className="admin">
-      <header className="admin-header">
-        <div>
-          <h1>Panel 2 · Órale AI</h1>
-          <p className="muted">
-            Pagos desde RevenueCat · embudos de negocios nuevos · migración
-          </p>
-        </div>
-        <Link href="/admin" className="muted">
-          ← Panel de siempre
-        </Link>
-      </header>
+    <main className={s.page}>
+      <div className={s.wrap}>
+        <header className={s.top}>
+          <div className={s.brand}>
+            <div className={s.logo}>Ó</div>
+            <div>
+              <h1 className={s.title}>Órale AI · Panel</h1>
+              <p className={s.subtitle}>Actualizado a las {updated}</p>
+            </div>
+          </div>
+          <nav className={s.topLinks}>
+            <Link href="/admin">Panel de siempre</Link>
+          </nav>
+        </header>
 
-      {pingsRes.error ? (
-        <p className="panel">Error leyendo usage_pings: {pingsRes.error.message}</p>
-      ) : null}
+        {pingsRes.error ? (
+          <div className={s.error}>
+            No se pudo leer usage_pings: {pingsRes.error.message}
+          </div>
+        ) : null}
 
-      {/* 1. Suscripciones reales */}
-      <section className="panel">
-        <h2>Suscripciones (RevenueCat)</h2>
-        {rc.ok ? (
-          <>
-            <div className="kpis">
-              {rc.metrics.map((m) => (
-                <div className="kpi" key={m.id}>
-                  <div className="v">{formatMetric(m.value, m.unit)}</div>
-                  <div className="l">{m.name}</div>
-                </div>
+        {/* 1. Meta y suscripciones */}
+        <section className={`${s.card} ${s.hero}`}>
+          <div className={s.goal}>
+            <p className={s.eyebrow}>Meta</p>
+            <Ring value={active} goal={GOAL} />
+            <div className={s.goalLine}>
+              Faltan <strong>{Math.max(0, GOAL - active).toLocaleString("es-MX")}</strong>
+              {weeksLeft != null ? (
+                <>
+                  {" "}· a <strong>{perWeek.toFixed(0)}</strong> nuevas por semana,
+                  unas <strong>{weeksLeft}</strong> semanas
+                </>
+              ) : null}
+            </div>
+            <p className={s.note}>
+              El ritmo sale de las últimas 4 semanas y no resta cancelaciones.
+            </p>
+          </div>
+          <div>
+            <p className={s.eyebrow}>Suscripciones</p>
+            <h2 className={s.h2}>
+              {rc.ok ? "Según RevenueCat" : "Según la app"}
+              {rc.ok ? null : <span className={s.badge}>aproximado</span>}
+            </h2>
+            <div className={s.tiles} style={{ marginTop: 14 }}>
+              {rc.ok ? (
+                RC_ORDER.map((id) => metric(id))
+                  .filter((m): m is NonNullable<typeof m> => !!m)
+                  .map((m) => (
+                    <div className={s.tile} key={m.id}>
+                      <div className={s.tileValue}>
+                        {formatMetric(m.value, m.unit)}
+                      </div>
+                      <div className={s.tileLabel}>
+                        {RC_LABEL[m.id] ?? m.name}
+                      </div>
+                    </div>
+                  ))
+              ) : (
+                <>
+                  <div className={s.tile}>
+                    <div className={s.tileValue}>{appActive}</div>
+                    <div className={s.tileLabel}>Con plan activo (7 días)</div>
+                  </div>
+                  <div className={s.tile}>
+                    <div className={s.tileValue}>{perWeek.toFixed(1)}</div>
+                    <div className={s.tileLabel}>Nuevas por semana</div>
+                  </div>
+                </>
+              )}
+            </div>
+            {rc.ok ? null : (
+              <div className={s.warn}>
+                Sin RevenueCat: {rc.reason} Con la llave aquí salen activas,
+                pruebas, MRR e ingresos reales.
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* 2. Dónde se va la gente */}
+        <section className={s.card}>
+          <div className={s.cardHead}>
+            <div>
+              <p className={s.eyebrow}>Negocios nuevos</p>
+              <h2 className={s.h2}>¿Dónde se va la gente?</h2>
+              <p className={s.note}>
+                Dueños que abrieron la app por primera vez del {from} al {to}
+                ({cohort.length}). Sin meseros ni cambios de aparato.
+              </p>
+            </div>
+            <div className={s.pills}>
+              <Pill on={days === 7} href={href({ days: "7" })}>7 días</Pill>
+              <Pill on={days === 30} href={href({ days: "30" })}>30 días</Pill>
+              <span className={s.pillGap} />
+              {["todas", ...PLATFORMS].map((p) => (
+                <Pill key={p} on={platform === p} href={href({ platform: p })}>
+                  {p === "todas" ? "Todas" : PLATFORM_LABEL[p]}
+                </Pill>
               ))}
             </div>
-            {activeSubs != null ? (
-              <Goal value={activeSubs} goal={GOAL} />
-            ) : null}
-          </>
-        ) : (
-          <p className="muted">
-            Sin datos de RevenueCat: {rc.reason} Mientras tanto, las cifras de
-            suscripción de abajo vienen de la app y son aproximadas.
-          </p>
-        )}
-      </section>
-
-      {/* 2. Embudos */}
-      <section className="panel">
-        <div className="admin2-row">
-          <h2>Negocios nuevos · últimos {days} días</h2>
-          <nav className="admin2-tabs">
-            <Link className={days === 7 ? "on" : ""} href={href({ days: "7" })}>
-              7 días
-            </Link>
-            <Link className={days === 30 ? "on" : ""} href={href({ days: "30" })}>
-              30 días
-            </Link>
-            <span className="admin2-sep" />
-            {["todas", ...PLATFORMS].map((p) => (
-              <Link
-                key={p}
-                className={platform === p ? "on" : ""}
-                href={href({ platform: p })}
-              >
-                {p === "todas" ? "Todas" : PLATFORM_LABEL[p]}
-              </Link>
-            ))}
-          </nav>
-        </div>
-        <p className="muted">
-          Solo dueños que abrieron la app por primera vez del {from} al {to}:
-          sin meseros ni cambios de aparato. Hoy no cuenta todavía.
-        </p>
-        <div className="admin2-cols">
-          <div>
-            <h3>Bienvenida (app 3.0.89+)</h3>
-            <Funnel steps={onboarding} />
           </div>
-          <div>
-            <h3>Activación (todas las versiones)</h3>
-            <Funnel steps={activation} />
+
+          {worst ? (
+            <div className={s.callout}>
+              <div className={s.calloutBig}>
+                −{Math.round(worst.lostPct * 100)}%
+              </div>
+              <div className={s.calloutText}>
+                Cuello de botella: de «{worst.from.label}» a «{worst.to.label}»
+                <span>
+                  Se van {worst.lost} de {worst.from.n}. Arreglar este paso es lo
+                  que más suscripciones mueve.
+                </span>
+              </div>
+            </div>
+          ) : null}
+
+          <div className={s.funnels}>
+            <div>
+              <p className={s.funnelTitle}>Bienvenida · pantalla por pantalla (3.0.89+)</p>
+              <Funnel steps={onboarding} />
+            </div>
+            <div>
+              <p className={s.funnelTitle}>Activación · todas las versiones</p>
+              <Funnel steps={activation} />
+            </div>
           </div>
+
+          <div className={s.paths}>
+            {paths
+              .filter((p) => p.label !== "Sin dato (no llegaron)")
+              .map((p) => (
+                <div className={s.path} key={p.label}>
+                  <div className={s.pathTop}>
+                    <span>{p.label}</span>
+                    <span className={s.pathN}>{p.n}</span>
+                  </div>
+                  <div className={s.pathBig}>{pct(p.sold, p.n)}</div>
+                  <div className={s.pathSub}>
+                    vendieron · {pct(p.withMenu, p.n)} tienen menú ·{" "}
+                    {pct(p.subscribed, p.n)} pagaron
+                  </div>
+                </div>
+              ))}
+          </div>
+        </section>
+
+        {/* 3. Semanas y versiones */}
+        <div className={s.split}>
+          <section className={s.card}>
+            <div className={s.cardHead}>
+              <div>
+                <p className={s.eyebrow}>Semana a semana</p>
+                <h2 className={s.h2}>Negocios nuevos y suscripciones</h2>
+              </div>
+              <Legend />
+            </div>
+            <Weeks weeks={weeks} />
+            <p className={s.note}>
+              Barras: negocios nuevos por plataforma. Arriba, en amarillo:
+              primeras suscripciones según la app (una por cuenta de tienda).
+            </p>
+          </section>
+
+          <section className={s.card}>
+            <div className={s.cardHead}>
+              <div>
+                <p className={s.eyebrow}>Últimos 7 días</p>
+                <h2 className={s.h2}>Versiones en uso</h2>
+              </div>
+            </div>
+            <Versions list={vers} />
+          </section>
         </div>
-        <h3>Cómo armaron el menú</h3>
-        <table className="data">
-          <thead>
-            <tr>
-              <th>Camino</th>
-              <th>Negocios</th>
-              <th>Con menú</th>
-              <th>Vendieron</th>
-              <th>Suscritos</th>
-            </tr>
-          </thead>
-          <tbody>
-            {paths.map((p) => (
-              <tr key={p.label}>
-                <td>{p.label}</td>
-                <td>{p.n}</td>
-                <td>
-                  {p.withMenu} <span className="muted">{pct(p.withMenu, p.n)}</span>
-                </td>
-                <td>
-                  {p.sold} <span className="muted">{pct(p.sold, p.n)}</span>
-                </td>
-                <td>
-                  {p.subscribed}{" "}
-                  <span className="muted">{pct(p.subscribed, p.n)}</span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
 
-      {/* 3. Instalaciones y versiones */}
-      <section className="panel">
-        <h2>Por semana</h2>
-        <p className="muted">
-          Negocios nuevos (dueños, sin cambios de aparato) y primeras
-          suscripciones según la app: una por cuenta de tienda.
-        </p>
-        <table className="data">
-          <thead>
-            <tr>
-              <th>Semana (lunes)</th>
-              {PLATFORMS.map((p) => (
-                <th key={`i-${p}`}>Nuevos {PLATFORM_LABEL[p]}</th>
+        {/* 4. Migración */}
+        <section className={s.card}>
+          <div className={s.cardHead}>
+            <div>
+              <p className={s.eyebrow}>Migración</p>
+              <h2 className={s.h2}>Todo en verde</h2>
+            </div>
+          </div>
+          <div className={s.health}>
+            <Check
+              state={health.mismatches === null ? "idle" : health.mismatches === 0 ? "ok" : "bad"}
+              value={health.mismatches ?? "—"}
+              label="Diferencias en la tabla de líneas (C2). Debe ser 0."
+            />
+            <Check
+              state={health.proVerifiedPct >= 90 ? "ok" : "bad"}
+              value={pct(health.proVerified, health.proWithOrders)}
+              label={`Pro verificados: ${health.proVerified} de ${health.proWithOrders} con comandas en 7 días. Regla: 90%.`}
+            />
+            <Check
+              state={health.rcRemoves === 0 ? "ok" : "bad"}
+              value={health.rcRemoves}
+              label={`Casos donde RevenueCat quitaría acceso. ${health.rcMatch} coinciden, ${health.rcBetter} da más, ${health.rcErrors} errores.`}
+            />
+            <Check
+              state={health.syncV2 ? "ok" : "idle"}
+              value={health.syncV2 ?? "—"}
+              label={`Negocios con el sync nuevo (C5) · ${health.orderOps.toLocaleString("es-MX")} acciones por order-ops.`}
+            />
+          </div>
+          {health.unverified.length > 0 ? (
+            <div className={s.unverified}>
+              <span className={s.note} style={{ margin: 0 }}>Sin verificar:</span>
+              {health.unverified.map((n) => (
+                <span className={s.chip} key={n}>{n}</span>
               ))}
-              {PLATFORMS.map((p) => (
-                <th key={`s-${p}`}>Subs {PLATFORM_LABEL[p]}</th>
-              ))}
-              <th>Conversión</th>
-            </tr>
-          </thead>
-          <tbody>
-            {weeks.map((w) => {
-              const inst = Object.values(w.installs).reduce((a, b) => a + b, 0);
-              const subs = Object.values(w.subs).reduce((a, b) => a + b, 0);
-              return (
-                <tr key={w.week}>
-                  <td>{w.week}</td>
-                  {PLATFORMS.map((p) => (
-                    <td key={`i-${p}`}>{w.installs[p]}</td>
-                  ))}
-                  {PLATFORMS.map((p) => (
-                    <td key={`s-${p}`}>{w.subs[p]}</td>
-                  ))}
-                  <td>{pct(subs, inst)}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-
-        <h3>Versiones en uso (últimos 7 días)</h3>
-        <table className="data">
-          <thead>
-            <tr>
-              <th>Versión</th>
-              <th>Aparatos</th>
-              {PLATFORMS.map((p) => (
-                <th key={p}>{PLATFORM_LABEL[p]}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {vers.map((v) => (
-              <tr key={v.version}>
-                <td>{v.version}</td>
-                <td>{v.total}</td>
-                {PLATFORMS.map((p) => (
-                  <td key={p}>{v.byPlatform[p] ?? 0}</td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
-
-      {/* 4. Migración */}
-      <section className="panel">
-        <h2>Salud de la migración</h2>
-        <div className="kpis">
-          <Health
-            ok={health.mismatches === 0}
-            value={health.mismatches ?? "—"}
-            label="Diferencias en la tabla de líneas (C2, debe ser 0)"
-          />
-          <Health
-            ok={health.proVerifiedPct >= 90}
-            value={`${health.proVerified} / ${health.proWithOrders}`}
-            label={`Pro verificados con comandas en 7 días (${pct(health.proVerified, health.proWithOrders)}, regla: 90%)`}
-          />
-          <Health
-            ok={health.rcRemoves === 0}
-            value={health.rcMatch}
-            label={`Coinciden con RevenueCat · ${health.rcBetter} RC da más · ${health.rcErrors} errores`}
-          />
-          <Health
-            ok
-            value={health.syncV2 ?? "—"}
-            label="Negocios con el sync nuevo (C5)"
-          />
-          <Health ok value={health.orderOps} label="Acciones por order-ops" />
-        </div>
-        {health.unverified.length > 0 ? (
-          <p className="muted">
-            Sin verificar: {health.unverified.join(", ")}
-          </p>
-        ) : null}
-      </section>
+            </div>
+          ) : null}
+        </section>
+      </div>
     </main>
+  );
+}
+
+function Pill({
+  on,
+  href,
+  children,
+}: {
+  on: boolean;
+  href: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Link className={on ? s.pillOn : s.pill} href={href}>
+      {children}
+    </Link>
+  );
+}
+
+function Ring({ value, goal }: { value: number; goal: number }) {
+  const r = 90;
+  const c = 2 * Math.PI * r;
+  const share = Math.min(1, value / goal);
+  return (
+    <div className={s.ring}>
+      <svg viewBox="0 0 210 210" width="210" height="210" aria-hidden>
+        <defs>
+          <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#f15a29" />
+            <stop offset="100%" stopColor="#f5b942" />
+          </linearGradient>
+        </defs>
+        <circle cx="105" cy="105" r={r} fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth="14" />
+        <circle
+          cx="105"
+          cy="105"
+          r={r}
+          fill="none"
+          stroke="url(#ringGrad)"
+          strokeWidth="14"
+          strokeLinecap="round"
+          strokeDasharray={`${share * c} ${c}`}
+          transform="rotate(-90 105 105)"
+        />
+      </svg>
+      <div className={s.ringCenter}>
+        <div className={s.ringValue}>{value.toLocaleString("es-MX")}</div>
+        <div className={s.ringLabel}>
+          de {goal.toLocaleString("es-MX")} · {pct(value, goal)}
+        </div>
+      </div>
+    </div>
   );
 }
 
 function Funnel({ steps }: { steps: Step[] }) {
   const top = Math.max(1, steps[0]?.n ?? 1);
+  const worst = worstDrop(steps);
   return (
-    <div className="admin2-funnel">
-      {steps.map((s, i) => {
-        const prev = i === 0 ? s.n : steps[i - 1].n;
-        const lost = prev - s.n;
+    <div className={s.steps}>
+      {steps.map((step, i) => {
+        const prev = i === 0 ? step.n : steps[i - 1].n;
+        const kept = prev ? step.n / prev : 0;
+        const isWorst = worst?.to === step;
         return (
-          <div key={s.label} className="admin2-step">
-            <div className="admin2-bar" style={{ width: `${Math.max(4, (s.n / top) * 100)}%` }} />
-            <div className="admin2-step-text">
-              <strong>{s.n}</strong> {s.label}
-              {s.hint ? <span className="muted"> · {s.hint}</span> : null}
-              {i > 0 ? (
-                <span className={lost / Math.max(1, prev) >= 0.3 ? "admin2-lost big" : "admin2-lost"}>
-                  {pct(s.n, prev)} pasa · se van {lost}
-                </span>
-              ) : null}
+          <div className={s.step} key={step.label}>
+            <div className={s.track}>
+              <div
+                className={isWorst ? s.fillWorst : s.fill}
+                style={{ width: `${Math.max(3, (step.n / top) * 100)}%` }}
+              />
+              <div className={s.stepText}>
+                <span className={s.stepN}>{step.n}</span>
+                <span>{step.label}</span>
+                {step.hint ? <span className={s.stepHint}>{step.hint}</span> : null}
+              </div>
             </div>
+            {i === 0 ? (
+              <span className={s.conv}>100%</span>
+            ) : (
+              <span
+                className={
+                  isWorst || kept < 0.6 ? s.convBad : kept >= 0.85 ? s.convGood : s.conv
+                }
+              >
+                {pct(step.n, prev)}
+              </span>
+            )}
           </div>
         );
       })}
@@ -322,33 +425,102 @@ function Funnel({ steps }: { steps: Step[] }) {
   );
 }
 
-function Goal({ value, goal }: { value: number; goal: number }) {
+function Legend() {
   return (
-    <div className="admin2-goal">
-      <div className="admin2-goal-bar">
-        <div style={{ width: `${Math.min(100, (value / goal) * 100)}%` }} />
-      </div>
-      <span className="muted">
-        {value} de {goal.toLocaleString("es-MX")} suscripciones activas (
-        {pct(value, goal)})
+    <div className={s.legend}>
+      {PLATFORMS.map((p) => (
+        <span key={p}>
+          <span className={s.dot} style={{ background: PLATFORM_COLOR[p] }} />
+          {PLATFORM_LABEL[p]}
+        </span>
+      ))}
+      <span>
+        <span className={s.dot} style={{ background: "var(--amber)" }} />
+        Suscripciones
       </span>
     </div>
   );
 }
 
-function Health({
-  ok,
+function Weeks({ weeks }: { weeks: WeekRow[] }) {
+  const totals = weeks.map((w) =>
+    Object.values(w.installs).reduce((a, b) => a + b, 0),
+  );
+  const max = Math.max(1, ...totals);
+  return (
+    <div className={s.weeks}>
+      {weeks.map((w, i) => {
+        const subs = Object.values(w.subs).reduce((a, b) => a + b, 0);
+        return (
+          <div className={s.week} key={w.week}>
+            <span className={s.weekSubs}>{subs}</span>
+            <span className={s.weekTotal}>{totals[i]}</span>
+            <div className={s.stack} style={{ height: `${(totals[i] / max) * 140}px` }}>
+              {PLATFORMS.map((p) => (
+                <div
+                  key={p}
+                  style={{
+                    background: PLATFORM_COLOR[p],
+                    flex: w.installs[p] || 0,
+                    opacity: i === weeks.length - 1 ? 0.55 : 0.9,
+                  }}
+                />
+              ))}
+            </div>
+            <span className={s.weekLabel}>
+              {i === weeks.length - 1 ? "esta" : w.week.slice(5).replace("-", "/")}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function Versions({
+  list,
+}: {
+  list: { version: string; total: number; byPlatform: Record<string, number> }[];
+}) {
+  const max = Math.max(1, ...list.map((v) => v.total));
+  return (
+    <div className={s.bars}>
+      {list.map((v) => (
+        <div className={s.bar} key={v.version}>
+          <span className={s.barName}>{v.version}</span>
+          <div className={s.barTrack} style={{ width: `${(v.total / max) * 100}%` }}>
+            {PLATFORMS.map((p) => (
+              <div
+                key={p}
+                style={{ background: PLATFORM_COLOR[p], flex: v.byPlatform[p] ?? 0 }}
+              />
+            ))}
+          </div>
+          <span className={s.barN}>{v.total}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function Check({
+  state,
   value,
   label,
 }: {
-  ok: boolean;
+  state: "ok" | "bad" | "idle";
   value: number | string;
   label: string;
 }) {
+  const light =
+    state === "ok" ? s.lightOk : state === "bad" ? s.lightBad : s.lightIdle;
   return (
-    <div className={`kpi admin2-health ${ok ? "ok" : "bad"}`}>
-      <div className="v">{value}</div>
-      <div className="l">{label}</div>
+    <div className={s.check}>
+      <span className={light} />
+      <div>
+        <div className={s.checkValue}>{value}</div>
+        <div className={s.checkLabel}>{label}</div>
+      </div>
     </div>
   );
 }

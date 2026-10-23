@@ -313,3 +313,31 @@ export async function revenueCatOverview(): Promise<RcOverview> {
     return { ok: false, reason: "No se pudo conectar con RevenueCat." };
   }
 }
+
+/// El paso donde más gente se va (proporcionalmente). Con pocos datos un
+/// paso de 3 a 1 parecería el peor, así que se piden al menos 10 personas.
+export function worstDrop(steps: Step[]) {
+  let worst: { from: Step; to: Step; lostPct: number; lost: number } | null =
+    null;
+  for (let i = 1; i < steps.length; i++) {
+    const from = steps[i - 1];
+    const to = steps[i];
+    if (from.n < 10) continue;
+    const lost = from.n - to.n;
+    const lostPct = lost / from.n;
+    if (!worst || lostPct > worst.lostPct) worst = { from, to, lostPct, lost };
+  }
+  return worst;
+}
+
+/// Promedio de primeras suscripciones por semana en las últimas [n] semanas
+/// completas (sin la semana en curso).
+export function avgWeeklySubs(weeks: WeekRow[], n = 4): number {
+  const done = weeks.slice(0, -1).slice(-n);
+  if (done.length === 0) return 0;
+  const total = done.reduce(
+    (sum, w) => sum + Object.values(w.subs).reduce((a, b) => a + b, 0),
+    0,
+  );
+  return total / done.length;
+}
