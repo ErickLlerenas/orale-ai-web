@@ -295,7 +295,9 @@ export async function revenueCatOverview(): Promise<RcOverview> {
     return {
       ok: false,
       reason:
-        "Falta REVENUECAT_V2_SECRET_KEY o REVENUECAT_PROJECT_ID en .env.local.",
+        process.env.VERCEL
+          ? "Falta REVENUECAT_V2_SECRET_KEY o REVENUECAT_PROJECT_ID en Vercel (Settings › Environment Variables)."
+          : "Falta REVENUECAT_V2_SECRET_KEY o REVENUECAT_PROJECT_ID en .env.local.",
     };
   }
   try {
