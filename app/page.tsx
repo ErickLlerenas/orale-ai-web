@@ -96,8 +96,8 @@ const proFeatures = [
   },
   {
     num: "03",
-    title: "Impresión por la red",
-    text: "Cocina y barra reciben el ticket al momento.",
+    title: "Comanda en cocina o en caja",
+    text: "Con impresora de red, cocina y barra la reciben al momento. Sin ella, se imprime en la caja.",
   },
 ];
 
@@ -236,7 +236,10 @@ export default function Home() {
             </ol>
             <p className="pro-note">
               <Info size={16} aria-hidden="true" />
-              <span>Para meseros e impresión necesitas WiFi del local e impresora de red.</span>
+              <span>
+                Los meseros solo necesitan internet en su celular. La impresora de red
+                es opcional: sin ella, los pedidos llegan a la caja y ahí se imprime la comanda.
+              </span>
             </p>
             <div id="menu-en-linea" className="pro-online-benefit">
               <div>
@@ -297,7 +300,7 @@ export default function Home() {
                 <li>Incluye todo Órale AI</li>
                 <li>Cada mesero pide desde su celular</li>
                 <li>Las comandas se sincronizan solas</li>
-                <li>Imprimen directo a cocina por la red</li>
+                <li>Comanda directo a cocina (con impresora de red) o en caja</li>
                 <li>Tienda en línea con pedidos por WhatsApp</li>
               </ul>
               <a className="btn btn-pro plan-cta" href="#cta">

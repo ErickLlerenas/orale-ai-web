@@ -118,7 +118,7 @@ export default function Terms() {
         </p>
         <p>
           <strong>Órale AI Pro</strong> incluye varios celulares tomando
-          comandas y sincronización de menú y órdenes abiertas, con WiFi del local.
+          comandas y sincronización de menú y órdenes abiertas, con internet. La impresora de red en cocina es opcional.
           También incluye una tienda en línea opcional que publica tu menú y abre
           WhatsApp para que el cliente envíe su pedido. No cobra al cliente ni
           registra automáticamente ese pedido en caja; el negocio lo confirma.
