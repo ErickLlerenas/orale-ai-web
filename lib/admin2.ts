@@ -536,3 +536,32 @@ export function dayPulse(
     reinstalled: reinstalled.size,
   };
 }
+
+// ---------------------------------------------------------------- Neto
+
+/// Suscripciones activas según la app al cierre de cada semana: cuentas con
+/// plan activo que abrieron la app en los 7 días anteriores. [weeks]
+/// intervalos hacia atrás desde [today] (regresa weeks + 1 puntos).
+export function activeSeries(rows: PingRow[], today: string, weeks = 8) {
+  const cuts: string[] = [];
+  const d = new Date(`${today}T12:00:00Z`);
+  for (let i = 0; i <= weeks; i++) {
+    cuts.unshift(d.toISOString().slice(0, 10));
+    d.setUTCDate(d.getUTCDate() - 7);
+  }
+  const sets = cuts.map(() => new Set<string>());
+  const minus7 = cuts.map((c) => {
+    const x = new Date(`${c}T12:00:00Z`);
+    x.setUTCDate(x.getUTCDate() - 7);
+    return x.toISOString().slice(0, 10);
+  });
+  for (const r of rows) {
+    if (!r.subscription_active) continue;
+    for (let i = 0; i < cuts.length; i++) {
+      if (r.ping_date > minus7[i] && r.ping_date <= cuts[i]) {
+        sets[i].add(r.account_key ?? r.install_id);
+      }
+    }
+  }
+  return cuts.map((day, i) => ({ day, n: sets[i].size }));
+}

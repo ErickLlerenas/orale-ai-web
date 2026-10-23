@@ -5,6 +5,7 @@ import {
   PING_COLUMNS,
   PLATFORMS,
   activationFunnel,
+  activeSeries,
   baseOf,
   dayPulse,
   downloadsByPlatform,
@@ -133,8 +134,16 @@ export default async function Admin2({
   ).size;
   const active = metric("active_subscriptions")?.value ?? appActive;
   const perWeek = avgWeeklySubs(weeks);
+  // Crecimiento NETO (entran menos las que se van), de las activas que ve la
+  // app semana a semana. Es lo que de verdad acerca a la meta.
+  const series = activeSeries(rows, today, 8);
+  const netPerWeek =
+    (series[series.length - 1].n - series[0].n) / (series.length - 1);
+  // Mismo periodo para entradas y neto, si no las salidas salen chuecas.
+  const inPerWeek = avgWeeklySubs(weeks, 7);
+  const leavingPerWeek = Math.max(0, inPerWeek - netPerWeek);
   const weeksLeft =
-    perWeek > 0 ? Math.ceil(Math.max(0, GOAL - active) / perWeek) : null;
+    netPerWeek > 0 ? Math.ceil(Math.max(0, GOAL - active) / netPerWeek) : null;
 
   const href = (q: Record<string, string>) =>
     `/admin2?${new URLSearchParams({ days: String(days), platform, ...q })}`;
@@ -220,17 +229,36 @@ export default async function Admin2({
               Faltan{" "}
               <strong>
                 {Math.max(0, GOAL - active).toLocaleString("es-MX")}
-              </strong>
+              </strong>{" "}
+              ·{" "}
               {weeksLeft != null ? (
                 <>
-                  {" "}
-                  · a <strong>{perWeek.toFixed(0)}</strong> nuevas por semana,
-                  unas <strong>{weeksLeft}</strong> semanas
+                  a este ritmo, <strong>{humanWeeks(weeksLeft)}</strong>
                 </>
-              ) : null}
+              ) : (
+                <strong>no estás creciendo neto</strong>
+              )}
             </div>
+            <div className={s.flow}>
+              <span>
+                <b className={s.flowIn}>+{inPerWeek.toFixed(0)}</b> entran
+              </span>
+              <span>
+                <b className={s.flowOut}>−{leavingPerWeek.toFixed(0)}</b> se van
+              </span>
+              <span>
+                <b>
+                  {netPerWeek >= 0 ? "+" : ""}
+                  {netPerWeek.toFixed(1)}
+                </b>{" "}
+                neto
+              </span>
+              <span className={s.flowUnit}>por semana</span>
+            </div>
+            <Sparkline points={series} />
             <p className={s.note}>
-              El ritmo sale de las últimas 4 semanas y no resta cancelaciones.
+              Activas según la app al cierre de cada semana (8 semanas). Ya
+              resta cancelaciones y pruebas que no pagaron.
             </p>
           </div>
           <div>
@@ -929,6 +957,78 @@ function Stepper({
         </li>
       ))}
     </ol>
+  );
+}
+
+/// 116 semanas → «unos 2.2 años»; 20 → «unos 5 meses».
+function humanWeeks(w: number) {
+  if (w > 78) return `unos ${(w / 52).toFixed(1)} años`;
+  if (w > 10) return `unos ${Math.round(w / 4.35)} meses`;
+  return `unas ${w} semanas`;
+}
+
+function Sparkline({ points }: { points: { day: string; n: number }[] }) {
+  const w = 260;
+  const h = 56;
+  const min = Math.min(...points.map((p) => p.n));
+  const max = Math.max(...points.map((p) => p.n));
+  const span = Math.max(1, max - min);
+  const xy = points.map((p, i) => [
+    (i / (points.length - 1)) * (w - 8) + 4,
+    h - 6 - ((p.n - min) / span) * (h - 16),
+  ]);
+  const line = xy.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
+  const last = xy[xy.length - 1];
+  return (
+    <svg
+      className={s.spark}
+      viewBox={`0 0 ${w} ${h}`}
+      width="100%"
+      height={h}
+      aria-label="Suscripciones activas por semana"
+    >
+      <polyline
+        points={`4,${h} ${line} ${w - 4},${h}`}
+        fill="rgba(245,185,66,0.12)"
+        stroke="none"
+      />
+      <polyline
+        points={line}
+        fill="none"
+        stroke="var(--amber)"
+        strokeWidth="2"
+        strokeLinejoin="round"
+      />
+      {xy.map(([x, y], i) => (
+        <circle
+          key={i}
+          cx={x}
+          cy={y}
+          r={i === xy.length - 1 ? 3.5 : 2}
+          fill="var(--amber)"
+        >
+          <title>{`${points[i].day}: ${points[i].n}`}</title>
+        </circle>
+      ))}
+      <text
+        x={last[0] - 4}
+        y={Math.max(10, last[1] - 8)}
+        textAnchor="end"
+        fontSize="11"
+        fontWeight="700"
+        fill="var(--ink)"
+      >
+        {points[points.length - 1].n}
+      </text>
+      <text
+        x={8}
+        y={Math.max(10, xy[0][1] - 8)}
+        fontSize="11"
+        fill="var(--mute)"
+      >
+        {points[0].n}
+      </text>
+    </svg>
   );
 }
 

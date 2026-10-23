@@ -1127,3 +1127,31 @@
 .page section[id] {
   scroll-margin-top: 70px;
 }
+
+/* ---- Flujo de suscripciones ---- */
+.flow {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px 14px;
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--soft);
+}
+.flow b {
+  color: var(--ink);
+  font-weight: 800;
+}
+.flow .flowIn {
+  color: var(--green);
+}
+.flow .flowOut {
+  color: var(--red);
+}
+.flowUnit {
+  color: var(--mute);
+}
+.spark {
+  display: block;
+  margin-top: 12px;
+}
