@@ -20,6 +20,7 @@ import {
   newOwners,
   onboardingFunnel,
   pct,
+  planMix,
   revenueCatOverview,
   toInstalls,
   versions,
@@ -137,6 +138,7 @@ export default async function Admin2({
   // Crecimiento NETO (entran menos las que se van), de las activas que ve la
   // app semana a semana. Es lo que de verdad acerca a la meta.
   const series = activeSeries(rows, today, 8);
+  const plans = planMix(rows, mxDay(7));
   const netPerWeek =
     (series[series.length - 1].n - series[0].n) / (series.length - 1);
   // Mismo periodo para entradas y neto, si no las salidas salen chuecas.
@@ -296,6 +298,7 @@ export default async function Admin2({
                 </>
               )}
             </div>
+            <Plans counts={plans} />
             {rc.ok ? null : (
               <div className={s.warn}>
                 Sin RevenueCat: {rc.reason} Con la llave aquí salen activas,
@@ -1029,6 +1032,51 @@ function Sparkline({ points }: { points: { day: string; n: number }[] }) {
         {points[0].n}
       </text>
     </svg>
+  );
+}
+
+const PLAN_INFO = [
+  { key: "monthly", label: "Mensual", color: "var(--orange)" },
+  { key: "yearly", label: "Anual", color: "var(--orange-2)" },
+  { key: "pro_monthly", label: "Pro mensual", color: "var(--amber)" },
+  { key: "pro_yearly", label: "Pro anual", color: "#fde68a" },
+];
+
+/// Mezcla de planes: el anual casi no se va, así que vale verlo crecer.
+function Plans({ counts }: { counts: Record<string, number> }) {
+  const total = PLAN_INFO.reduce((a, p) => a + (counts[p.key] ?? 0), 0);
+  if (!total) return null;
+  const yearly = (counts.yearly ?? 0) + (counts.pro_yearly ?? 0);
+  return (
+    <div className={s.plans}>
+      <div className={s.plansHead}>
+        <span className={s.funnelTitle} style={{ margin: 0 }}>
+          Planes de tus clientes
+        </span>
+        <span className={s.note} style={{ margin: 0 }}>
+          {pct(yearly, total)} anual · según la app, 7 días
+        </span>
+      </div>
+      <div className={s.plansBar}>
+        {PLAN_INFO.map((p) =>
+          counts[p.key] ? (
+            <div
+              key={p.key}
+              style={{ flex: counts[p.key], background: p.color }}
+              title={`${p.label}: ${counts[p.key]}`}
+            />
+          ) : null,
+        )}
+      </div>
+      <div className={s.plansLegend}>
+        {PLAN_INFO.map((p) => (
+          <span key={p.key}>
+            <span className={s.dot} style={{ background: p.color }} />
+            {p.label} <b>{counts[p.key] ?? 0}</b>
+          </span>
+        ))}
+      </div>
+    </div>
   );
 }
 

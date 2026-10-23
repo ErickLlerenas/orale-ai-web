@@ -23,12 +23,13 @@ export type PingRow = {
   orders_total: number | null;
   orders_today: number | null;
   days_since_install: number | null;
+  plan: string | null;
   subscription_active: boolean | null;
   subscribed_at: string | null;
 };
 
 export const PING_COLUMNS =
-  "install_id, account_key, ping_date, platform, app_version, is_caja, inherited_access, onboarding_stage, menu_path, product_count, orders_total, orders_today, days_since_install, subscription_active, subscribed_at";
+  "install_id, account_key, ping_date, platform, app_version, is_caja, inherited_access, onboarding_stage, menu_path, product_count, orders_total, orders_today, days_since_install, plan, subscription_active, subscribed_at";
 
 /// Ventas gratis antes de pedir suscripción (subscription_provider.dart).
 export const FREE_ORDER_LIMIT = 10;
@@ -564,4 +565,22 @@ export function activeSeries(rows: PingRow[], today: string, weeks = 8) {
     }
   }
   return cuts.map((day, i) => ({ day, n: sets[i].size }));
+}
+
+/// Plan de cada cuenta con suscripción activa vista en los últimos 7 días
+/// (su último plan reportado).
+export function planMix(rows: PingRow[], since: string) {
+  const last = new Map<string, { day: string; plan: string }>();
+  for (const r of rows) {
+    if (r.ping_date < since || !r.subscription_active || !r.plan) continue;
+    if (r.plan === "none") continue;
+    const key = r.account_key ?? r.install_id;
+    const prev = last.get(key);
+    if (!prev || r.ping_date >= prev.day) {
+      last.set(key, { day: r.ping_date, plan: r.plan });
+    }
+  }
+  const counts: Record<string, number> = {};
+  for (const { plan } of last.values()) counts[plan] = (counts[plan] ?? 0) + 1;
+  return counts;
 }
