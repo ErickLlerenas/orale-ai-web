@@ -297,10 +297,9 @@ export async function revenueCatOverview(): Promise<RcOverview> {
   if (!key || !project) {
     return {
       ok: false,
-      reason:
-        process.env.VERCEL
-          ? "Falta REVENUECAT_V2_SECRET_KEY o REVENUECAT_PROJECT_ID en Vercel (Settings › Environment Variables)."
-          : "Falta REVENUECAT_V2_SECRET_KEY o REVENUECAT_PROJECT_ID en .env.local.",
+      reason: process.env.VERCEL
+        ? "Falta REVENUECAT_V2_SECRET_KEY o REVENUECAT_PROJECT_ID en Vercel (Settings › Environment Variables)."
+        : "Falta REVENUECAT_V2_SECRET_KEY o REVENUECAT_PROJECT_ID en .env.local.",
     };
   }
   try {
@@ -881,4 +880,122 @@ export function recentLost(
     }
   }
   return lost.sort((x, y) => y.lastPaid.localeCompare(x.lastPaid));
+}
+
+export type RiskAccount = {
+  key: string;
+  platform: string | null;
+  plan: string | null;
+  version: string | null;
+  /** Último día que la caja abrió la app (con plan activo). */
+  lastSeen: string;
+  /** Días completos sin abrir la app. */
+  quietDays: number;
+  /** Ventas por día que abrió, en sus 14 días antes de dejar de abrir. */
+  avgDaily: number;
+  /** De esos 14 días, cuántos abrió la app. */
+  activeDays: number;
+  installIds: string[];
+};
+
+/// Cuentas que HOY todavía pagan pero dejaron de abrir la app hace
+/// [minQuiet]–[maxQuiet] días. Es la señal que llega antes de la baja: el 81%
+/// de los que se van primero dejan de abrir. A partir de [maxQuiet]+1 ya salen
+/// en «Dejaron de tener plan» (ver [recentLost]).
+///
+/// Solo cuenta la caja (los meseros no pagan) y salta accesos heredados
+/// (transferencias): ese aparato no es quien paga.
+export function atRisk(
+  rows: PingRow[],
+  today: string,
+  minQuiet = 3,
+  maxQuiet = 6,
+  minActiveDays = 7,
+): RiskAccount[] {
+  type Acc = {
+    lastSeen: string;
+    paidOnLast: boolean;
+    inherited: boolean;
+    plan: string | null;
+    platform: string | null;
+    version: string | null;
+    installs: Set<string>;
+  };
+  const accs = new Map<string, Acc>();
+  for (const r of rows) {
+    if (r.is_caja === false) continue;
+    const k = r.account_key ?? r.install_id;
+    let a = accs.get(k);
+    if (!a) {
+      a = {
+        lastSeen: "",
+        paidOnLast: false,
+        inherited: false,
+        plan: null,
+        platform: null,
+        version: null,
+        installs: new Set(),
+      };
+      accs.set(k, a);
+    }
+    a.installs.add(r.install_id);
+    if (r.inherited_access) a.inherited = true;
+    if (r.ping_date > a.lastSeen) {
+      a.lastSeen = r.ping_date;
+      a.paidOnLast = !!r.subscription_active;
+      a.plan = r.plan ?? a.plan;
+      a.platform = r.platform ?? a.platform;
+      a.version = r.app_version ?? a.version;
+    } else if (r.ping_date === a.lastSeen && r.subscription_active) {
+      a.paidOnLast = true;
+      a.plan = r.plan ?? a.plan;
+    }
+  }
+  const dayMs = 86_400_000;
+  const todayMs = Date.parse(`${today}T12:00:00Z`);
+  const out: RiskAccount[] = [];
+  for (const [key, a] of accs) {
+    if (!a.lastSeen || !a.paidOnLast || a.inherited) continue;
+    const quiet = Math.round(
+      (todayMs - Date.parse(`${a.lastSeen}T12:00:00Z`)) / dayMs,
+    );
+    if (quiet < minQuiet || quiet > maxQuiet) continue;
+    out.push({
+      key,
+      platform: a.platform,
+      plan: a.plan,
+      version: a.version,
+      lastSeen: a.lastSeen,
+      quietDays: quiet,
+      avgDaily: 0,
+      activeDays: 0,
+      installIds: [...a.installs],
+    });
+  }
+  // Ventas por día abierto en sus últimos 14 días: quién vendía más pesa más.
+  const byKey = new Map(out.map((r) => [r.key, r]));
+  const days = new Map<string, Set<string>>();
+  const sales = new Map<string, number>();
+  for (const r of rows) {
+    if (r.is_caja === false) continue;
+    const k = r.account_key ?? r.install_id;
+    const acc = byKey.get(k);
+    if (!acc) continue;
+    const from = new Date(`${acc.lastSeen}T12:00:00Z`);
+    from.setUTCDate(from.getUTCDate() - 13);
+    if (r.ping_date < from.toISOString().slice(0, 10)) continue;
+    if (!days.has(k)) days.set(k, new Set());
+    days.get(k)!.add(r.ping_date);
+    sales.set(k, (sales.get(k) ?? 0) + (r.orders_today ?? 0));
+  }
+  for (const acc of out) {
+    const n = days.get(acc.key)?.size ?? 0;
+    acc.activeDays = n;
+    acc.avgDaily = n ? Math.round((sales.get(acc.key) ?? 0) / n) : 0;
+  }
+  // Solo quien abría casi diario: un negocio de fin de semana pasa días sin
+  // abrir y no está en riesgo. Primero a quien más vendía.
+  return out
+    .filter((r) => r.activeDays >= minActiveDays)
+    .sort((x, y) => y.avgDaily - x.avgDaily || x.quietDays - y.quietDays);
 }

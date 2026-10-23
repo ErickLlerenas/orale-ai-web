@@ -21,6 +21,8 @@ import {
   onboardingFunnel,
   pct,
   recentLost,
+  atRisk,
+  type RiskAccount,
   planMix,
   retention,
   revenueCatOverview,
@@ -147,6 +149,8 @@ export default async function Admin2({
   const ret = retention(rows, mxDay(56), mxDay(43), mxDay(9));
   const lost = recentLost(rows, today);
   const churn = await churnDetails(supabase, lost);
+  const risk = atRisk(rows, today);
+  const riskNames = await businessNames(supabase, risk);
   const netPerWeek =
     (series[series.length - 1].n - series[0].n) / (series.length - 1);
   // Mismo periodo para entradas y neto, si no las salidas salen chuecas.
@@ -187,6 +191,7 @@ export default async function Admin2({
             ["cuello", "Cuello de botella"],
             ["plataformas", "Plataformas"],
             ["retencion", "Quién se queda"],
+            ["riesgo", "En riesgo"],
             ["bajas", "Bajas"],
             ["migracion", "Migración"],
           ].map(([id, label]) => (
@@ -504,6 +509,34 @@ export default async function Admin2({
               />
             ))}
           </div>
+        </section>
+
+        {/* 2c. En riesgo */}
+        <section className={s.card} id="riesgo">
+          <div className={s.cardHead}>
+            <div>
+              <p className={s.eyebrow}>Antes de que se vayan</p>
+              <h2 className={s.h2}>En riesgo ({risk.length})</h2>
+            </div>
+          </div>
+          <p className={s.note} style={{ marginTop: -4, marginBottom: 10 }}>
+            Todavía pagan y abrían la app casi diario, pero llevan de 3 a 6 días
+            sin abrirla: casi siempre es lo que pasa antes de cancelar. Primero
+            los que más vendían. Escríbeles hoy.
+          </p>
+          {risk.length === 0 ? (
+            <p className={s.note}>Nadie en riesgo ahorita.</p>
+          ) : (
+            <div className={s.bizList}>
+              {risk.slice(0, 40).map((r) => (
+                <RiskRow
+                  key={r.key}
+                  risk={r}
+                  name={riskNames.get(r.key) ?? null}
+                />
+              ))}
+            </div>
+          )}
         </section>
 
         {/* 2d. Bajas */}
@@ -1290,6 +1323,32 @@ const storeLabel = (s: string | null) =>
 const storeIcon = (s: string | null) =>
   s === "APP_STORE" ? "🍎" : s === "PLAY_STORE" ? "🤖" : "💳";
 
+function RiskRow({ risk, name }: { risk: RiskAccount; name: string | null }) {
+  return (
+    <div className={s.biz}>
+      <div className={s.bizIcon} aria-hidden>
+        {name ? "🍽️" : "👤"}
+      </div>
+      <div className={s.bizBody}>
+        <div className={s.bizName}>
+          {name ??
+            `${PLATFORM_LABEL[risk.platform ?? ""] ?? "—"} · cuenta ${risk.key.slice(0, 8)}`}
+        </div>
+        <div className={s.bizMeta}>
+          {productLabel(risk.plan)} · vendía ~{risk.avgDaily} al día · abría{" "}
+          {risk.activeDays} de 14 días · {risk.version ?? "—"}
+        </div>
+      </div>
+      <div className={s.bizRight}>
+        <span className={risk.quietDays >= 5 ? s.verBad : s.verMid}>
+          {risk.quietDays} días sin abrir
+        </span>
+        <span className={s.bizSeen}>sigue pagando</span>
+      </div>
+    </div>
+  );
+}
+
 function LostRow({
   lost,
   name,
@@ -1348,14 +1407,15 @@ function churnWhat(
   return { what: "Canceló la renovación", tone: "bad" };
 }
 
-async function churnDetails(
+/// Nombre del negocio para los Pro: aparato de la caja → negocio. Los Básicos
+/// no lo mandan, así que no salen aquí.
+async function businessNames(
   supabase: ReturnType<typeof adminClient>,
-  lost: LostAccount[],
+  accounts: { key: string; installIds: string[] }[],
 ) {
-  // Nombre del negocio para los Pro: aparato de la caja → negocio.
   const names = new Map<string, string>();
   const installToKey = new Map<string, string>();
-  for (const l of lost)
+  for (const l of accounts)
     for (const i of l.installIds) installToKey.set(i, l.key);
   const installIds = [...installToKey.keys()];
   const bizByInstall = new Map<string, string>();
@@ -1388,6 +1448,14 @@ async function churnDetails(
     const name = bizName.get(biz);
     if (key && name && !names.has(key)) names.set(key, name);
   }
+  return names;
+}
+
+async function churnDetails(
+  supabase: ReturnType<typeof adminClient>,
+  lost: LostAccount[],
+) {
+  const names = await businessNames(supabase, lost);
 
   // Avisos de RevenueCat. Antes de conectar el webhook la tabla no existe.
   const since = new Date(Date.now() - 30 * 86_400_000).toISOString();
