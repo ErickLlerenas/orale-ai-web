@@ -588,6 +588,67 @@ export default async function Admin2({
           )}
 
           <p className={s.funnelTitle} style={{ marginTop: 22 }}>
+            Lo que contestan en la app al cancelar · últimos 30 días
+          </p>
+          {churn.answers === null ? (
+            <p className={s.note}>
+              Llega con la siguiente versión de la app: a quien cancela y la
+              sigue abriendo le preguntamos «¿Por qué te vas?».
+            </p>
+          ) : churn.answers.length === 0 ? (
+            <p className={s.note}>Todavía nadie ha contestado.</p>
+          ) : (
+            <>
+              <p className={s.note} style={{ marginTop: -4, marginBottom: 10 }}>
+                {Object.keys(CANCEL_REASON)
+                  .map((k) => {
+                    const n = churn.answers!.filter(
+                      (a) => a.reason === k,
+                    ).length;
+                    return n ? `${CANCEL_REASON[k]}: ${n}` : null;
+                  })
+                  .filter(Boolean)
+                  .join(" · ")}
+                {" · "}
+                Aceptaron el precio más bajo:{" "}
+                {churn.answers.filter((a) => a.offerAccepted).length} de{" "}
+                {churn.answers.filter((a) => a.offerShown).length}
+              </p>
+              <div className={s.bizList}>
+                {churn.answers.slice(0, 30).map((a) => (
+                  <div className={s.biz} key={a.id}>
+                    <div className={s.bizIcon} aria-hidden>
+                      {a.businessName ? "🍽️" : "👤"}
+                    </div>
+                    <div className={s.bizBody}>
+                      <div className={s.bizName}>
+                        {CANCEL_REASON[a.reason] ?? a.reason}
+                        {a.businessName ? ` · ${a.businessName}` : ""}
+                      </div>
+                      <div className={s.bizMeta}>
+                        {productLabel(a.product)}
+                        {a.detail ? ` · «${a.detail}»` : ""}
+                      </div>
+                    </div>
+                    <div className={s.bizRight}>
+                      {a.offerShown && (
+                        <span className={a.offerAccepted ? s.ver : s.verMid}>
+                          {a.offerAccepted
+                            ? "Se quedó con el precio bajo"
+                            : "No aceptó el precio bajo"}
+                        </span>
+                      )}
+                      <span className={s.bizSeen}>
+                        {ago(a.at.slice(0, 10), today)}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          <p className={s.funnelTitle} style={{ marginTop: 22 }}>
             Dejaron de tener plan · según la app, últimas 4 semanas (
             {lost.length})
           </p>
@@ -1305,6 +1366,8 @@ const PRODUCT_LABEL: Record<string, string> = {
   orale_yearly: "Anual",
   orale_pro_monthly: "Pro mensual",
   orale_pro_yearly: "Pro anual",
+  orale_monthly_99: "Mensual $99",
+  orale_pro_monthly_199: "Pro mensual $199",
   monthly: "Mensual",
   yearly: "Anual",
   pro_monthly: "Pro mensual",
@@ -1451,6 +1514,25 @@ async function businessNames(
   return names;
 }
 
+type CancelAnswer = {
+  id: string;
+  reason: string;
+  detail: string | null;
+  product: string;
+  offerShown: boolean;
+  offerAccepted: boolean;
+  businessName: string | null;
+  at: string;
+};
+
+const CANCEL_REASON: Record<string, string> = {
+  too_expensive: "Está muy caro",
+  low_use: "No la uso tanto",
+  missing: "Me falta algo",
+  closed: "Cerré el negocio",
+  other: "Otro",
+};
+
 async function churnDetails(
   supabase: ReturnType<typeof adminClient>,
   lost: LostAccount[],
@@ -1539,7 +1621,43 @@ async function churnDetails(
       };
     });
   }
-  return { names, events };
+  // «¿Por qué te vas?» de la app. Antes del deploy la tabla no existe.
+  const ans = await supabase
+    .from("cancel_survey_answers")
+    .select(
+      "id, install_id, product_id, reason, detail, offer_shown, offer_accepted, created_at",
+    )
+    .gte("created_at", since)
+    .order("created_at", { ascending: false })
+    .limit(80);
+  let answers: CancelAnswer[] | null = null;
+  if (!ans.error) {
+    const rows = (ans.data ?? []) as {
+      id: string;
+      install_id: string;
+      product_id: string;
+      reason: string;
+      detail: string | null;
+      offer_shown: boolean;
+      offer_accepted: boolean;
+      created_at: string;
+    }[];
+    const biz = await businessNames(
+      supabase,
+      rows.map((r) => ({ key: r.install_id, installIds: [r.install_id] })),
+    );
+    answers = rows.map((r) => ({
+      id: r.id,
+      reason: r.reason,
+      detail: r.detail,
+      product: r.product_id,
+      offerShown: r.offer_shown,
+      offerAccepted: r.offer_accepted,
+      businessName: biz.get(r.install_id) ?? null,
+      at: r.created_at,
+    }));
+  }
+  return { names, events, answers };
 }
 
 function Pill({
