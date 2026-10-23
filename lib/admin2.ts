@@ -135,7 +135,10 @@ export function onboardingFunnel(list: Install[]): Step[] {
       hint: "Pantallas 2 a 5",
     },
     { label: "Terminaron la bienvenida", n: c((i) => (i.stage ?? 0) >= 7) },
-    { label: "Menú hecho (con IA o a mano)", n: c((i) => i.products > 0) },
+    {
+      label: "Menú listo (IA, a mano o de ejemplo)",
+      n: c((i) => i.products > 0),
+    },
     { label: "Primera venta", n: c((i) => i.orders > 0) },
     {
       label: `Llegaron a ${FREE_ORDER_LIMIT} ventas`,
