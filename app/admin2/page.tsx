@@ -20,6 +20,7 @@ import {
   newOwners,
   onboardingFunnel,
   pct,
+  recentLost,
   planMix,
   retention,
   revenueCatOverview,
@@ -29,6 +30,7 @@ import {
   worstDrop,
   type Count,
   type DayRow,
+  type LostAccount,
   type PingRow,
   type RetRow,
   type Step,
@@ -143,6 +145,8 @@ export default async function Admin2({
   const plans = planMix(rows, mxDay(7));
   // Quién se queda: pagaban hace 8–6 semanas, ¿siguen con plan los últimos 10 días?
   const ret = retention(rows, mxDay(56), mxDay(43), mxDay(9));
+  const lost = recentLost(rows, today);
+  const churn = await churnDetails(supabase, lost);
   const netPerWeek =
     (series[series.length - 1].n - series[0].n) / (series.length - 1);
   // Mismo periodo para entradas y neto, si no las salidas salen chuecas.
@@ -183,6 +187,7 @@ export default async function Admin2({
             ["cuello", "Cuello de botella"],
             ["plataformas", "Plataformas"],
             ["retencion", "Quién se queda"],
+            ["bajas", "Bajas"],
             ["migracion", "Migración"],
           ].map(([id, label]) => (
             <a key={id} href={`#${id}`}>
@@ -499,6 +504,78 @@ export default async function Admin2({
               />
             ))}
           </div>
+        </section>
+
+        {/* 2d. Bajas */}
+        <section className={s.card} id="bajas">
+          <div className={s.cardHead}>
+            <div>
+              <p className={s.eyebrow}>Bajas</p>
+              <h2 className={s.h2}>¿Quién se fue?</h2>
+            </div>
+          </div>
+
+          <p className={s.funnelTitle}>Avisos de RevenueCat · motivo exacto</p>
+          {churn.events === null ? (
+            <p className={s.note}>
+              Se conecta hoy en la noche. Desde ahí, cada cancelación, cobro
+              fallido o reembolso sale aquí con su motivo.
+            </p>
+          ) : churn.events.length === 0 ? (
+            <p className={s.note}>
+              Todavía no llega ninguna baja desde que se conectó.
+            </p>
+          ) : (
+            <div className={s.bizList}>
+              {churn.events.map((e) => (
+                <div className={s.biz} key={e.id}>
+                  <div className={s.bizIcon} aria-hidden>
+                    {e.businessName ? "🍽️" : storeIcon(e.store)}
+                  </div>
+                  <div className={s.bizBody}>
+                    <div className={s.bizName}>
+                      {e.businessName ?? `${storeLabel(e.store)} · ${e.who}`}
+                    </div>
+                    <div className={s.bizMeta}>
+                      {productLabel(e.product)}
+                      {e.expiresAt
+                        ? ` · acceso hasta el ${shortDay(e.expiresAt.slice(0, 10))}`
+                        : ""}
+                    </div>
+                  </div>
+                  <div className={s.bizRight}>
+                    <span className={e.tone === "bad" ? s.verBad : s.verOld}>
+                      {e.what}
+                    </span>
+                    <span className={s.bizSeen}>{e.when}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <p className={s.funnelTitle} style={{ marginTop: 22 }}>
+            Dejaron de tener plan · según la app, últimas 4 semanas (
+            {lost.length})
+          </p>
+          <p className={s.note} style={{ marginTop: -4, marginBottom: 10 }}>
+            Aproximado y sin motivo: cuentas que tenían plan y llevan una semana
+            sin aparecer con él. En los Pro sale el nombre del negocio.
+          </p>
+          {lost.length === 0 ? (
+            <p className={s.note}>Nadie en las últimas 4 semanas.</p>
+          ) : (
+            <div className={s.bizList}>
+              {lost.slice(0, 40).map((l) => (
+                <LostRow
+                  key={l.key}
+                  lost={l}
+                  name={churn.names.get(l.key) ?? null}
+                  today={today}
+                />
+              ))}
+            </div>
+          )}
         </section>
 
         {/* 3. Semanas y versiones */}
@@ -1188,6 +1265,213 @@ function RetGroup({
       })}
     </div>
   );
+}
+
+const PRODUCT_LABEL: Record<string, string> = {
+  orale_monthly: "Mensual",
+  orale_yearly: "Anual",
+  orale_pro_monthly: "Pro mensual",
+  orale_pro_yearly: "Pro anual",
+  monthly: "Mensual",
+  yearly: "Anual",
+  pro_monthly: "Pro mensual",
+  pro_yearly: "Pro anual",
+};
+const productLabel = (p: string | null) =>
+  (p && PRODUCT_LABEL[p]) ?? p ?? "Plan";
+const storeLabel = (s: string | null) =>
+  s === "APP_STORE" || s === "ios"
+    ? "iPhone"
+    : s === "PLAY_STORE" || s === "android"
+      ? "Android"
+      : s === "STRIPE" || s === "windows"
+        ? "Web / Windows"
+        : (s ?? "—");
+const storeIcon = (s: string | null) =>
+  s === "APP_STORE" ? "🍎" : s === "PLAY_STORE" ? "🤖" : "💳";
+
+function LostRow({
+  lost,
+  name,
+  today,
+}: {
+  lost: LostAccount;
+  name: string | null;
+  today: string;
+}) {
+  const days =
+    Math.round(
+      (Date.parse(lost.lastPaid) - Date.parse(lost.firstPaid)) / 86_400_000,
+    ) + 1;
+  return (
+    <div className={s.biz}>
+      <div className={s.bizIcon} aria-hidden>
+        {name ? "🍽️" : "👤"}
+      </div>
+      <div className={s.bizBody}>
+        <div className={s.bizName}>
+          {name ??
+            `${PLATFORM_LABEL[lost.platform ?? ""] ?? "—"} · cuenta ${lost.key.slice(0, 8)}`}
+        </div>
+        <div className={s.bizMeta}>
+          {productLabel(lost.plan)} · con plan {days}{" "}
+          {days === 1 ? "día" : "días"} · {lost.recentSales} ventas en sus
+          últimas 2 semanas · {lost.version ?? "—"}
+        </div>
+      </div>
+      <div className={s.bizRight}>
+        <span className={lost.stillOpens ? s.verBad : s.verMid}>
+          {lost.stillOpens ? "Abre la app sin plan" : "Ya no abre la app"}
+        </span>
+        <span className={s.bizSeen}>
+          último día con plan: {ago(lost.lastPaid, today)}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/// Qué pasó, en palabras, según el tipo y motivo de RevenueCat.
+function churnWhat(
+  type: string,
+  reason: string | null,
+): { what: string; tone: "bad" | "warn" } {
+  if (type === "BILLING_ISSUE" || reason === "BILLING_ERROR") {
+    return { what: "Le falló el cobro", tone: "warn" };
+  }
+  if (reason === "CUSTOMER_SUPPORT") return { what: "Reembolso", tone: "bad" };
+  if (reason === "PRICE_INCREASE") {
+    return { what: "No aceptó el precio nuevo", tone: "bad" };
+  }
+  if (type === "EXPIRATION")
+    return { what: "Se le acabó el plan", tone: "bad" };
+  return { what: "Canceló la renovación", tone: "bad" };
+}
+
+async function churnDetails(
+  supabase: ReturnType<typeof adminClient>,
+  lost: LostAccount[],
+) {
+  // Nombre del negocio para los Pro: aparato de la caja → negocio.
+  const names = new Map<string, string>();
+  const installToKey = new Map<string, string>();
+  for (const l of lost)
+    for (const i of l.installIds) installToKey.set(i, l.key);
+  const installIds = [...installToKey.keys()];
+  const bizByInstall = new Map<string, string>();
+  for (let i = 0; i < installIds.length; i += 150) {
+    const r = await supabase
+      .from("business_devices")
+      .select("install_id, business_id")
+      .eq("role", "owner")
+      .in("install_id", installIds.slice(i, i + 150));
+    for (const d of (r.data ?? []) as {
+      install_id: string;
+      business_id: string;
+    }[]) {
+      bizByInstall.set(d.install_id, d.business_id);
+    }
+  }
+  const bizIds = [...new Set(bizByInstall.values())];
+  const bizName = new Map<string, string>();
+  if (bizIds.length) {
+    const r = await supabase
+      .from("businesses")
+      .select("id, name")
+      .in("id", bizIds);
+    for (const b of (r.data ?? []) as { id: string; name: string }[]) {
+      bizName.set(b.id, b.name);
+    }
+  }
+  for (const [install, biz] of bizByInstall) {
+    const key = installToKey.get(install);
+    const name = bizName.get(biz);
+    if (key && name && !names.has(key)) names.set(key, name);
+  }
+
+  // Avisos de RevenueCat. Antes de conectar el webhook la tabla no existe.
+  const since = new Date(Date.now() - 30 * 86_400_000).toISOString();
+  const ev = await supabase
+    .from("revenuecat_events")
+    .select(
+      "id, type, app_user_id, product_id, store, cancel_reason, original_transaction_id, event_at, expiration_at, environment",
+    )
+    .in("type", ["CANCELLATION", "EXPIRATION", "BILLING_ISSUE"])
+    .gte("event_at", since)
+    .order("event_at", { ascending: false })
+    .limit(60);
+  let events:
+    | {
+        id: string;
+        who: string;
+        businessName: string | null;
+        product: string | null;
+        store: string | null;
+        what: string;
+        tone: "bad" | "warn";
+        when: string;
+        expiresAt: string | null;
+      }[]
+    | null = null;
+  if (!ev.error) {
+    const rows = (
+      (ev.data ?? []) as {
+        id: string;
+        type: string;
+        app_user_id: string | null;
+        product_id: string | null;
+        store: string | null;
+        cancel_reason: string | null;
+        original_transaction_id: string | null;
+        event_at: string | null;
+        expiration_at: string | null;
+        environment: string | null;
+      }[]
+    ).filter((e) => e.environment !== "SANDBOX");
+    // Pro en iPhone: la llave de cobro del negocio lleva la transacción original.
+    const keys = rows
+      .map((e) => e.original_transaction_id)
+      .filter((x): x is string => !!x)
+      .map((id) => `apple:Production:${id}`);
+    const proName = new Map<string, string>();
+    if (keys.length) {
+      const r = await supabase
+        .from("businesses")
+        .select("name, pro_billing_key")
+        .in("pro_billing_key", keys);
+      for (const b of (r.data ?? []) as {
+        name: string;
+        pro_billing_key: string;
+      }[]) {
+        proName.set(b.pro_billing_key.split(":")[2] ?? "", b.name);
+      }
+    }
+    events = rows.map((e) => {
+      const w = churnWhat(e.type, e.cancel_reason);
+      return {
+        id: e.id,
+        who: (e.app_user_id ?? "").replace("orale_purchase_", "").slice(0, 8),
+        businessName: e.original_transaction_id
+          ? (proName.get(e.original_transaction_id) ?? null)
+          : null,
+        product: e.product_id,
+        store: e.store,
+        what: w.what,
+        tone: w.tone,
+        when: e.event_at
+          ? new Date(e.event_at).toLocaleString("es-MX", {
+              timeZone: "America/Mexico_City",
+              day: "numeric",
+              month: "short",
+              hour: "2-digit",
+              minute: "2-digit",
+            })
+          : "—",
+        expiresAt: e.expiration_at,
+      };
+    });
+  }
+  return { names, events };
 }
 
 function Pill({

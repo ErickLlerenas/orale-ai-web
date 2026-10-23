@@ -760,3 +760,120 @@ export function retention(
     g.rows.sort((x, y) => order[x.label] - order[y.label]);
   return { total, groups };
 }
+
+// ---------------------------------------------------------------- Bajas
+
+export type LostAccount = {
+  key: string;
+  platform: string | null;
+  plan: string | null;
+  version: string | null;
+  firstPaid: string;
+  lastPaid: string;
+  /** Ventas en sus últimos 14 días con plan. */
+  recentSales: number;
+  /** Siguió abriendo la app después de quedarse sin plan. */
+  stillOpens: boolean;
+  installIds: string[];
+};
+
+/// Cuentas que tuvieron plan y lo dejaron de tener: su último día con plan
+/// cae en los últimos [windowDays] y en los últimos [quietDays] ya no aparece
+/// con plan en ninguno de sus aparatos (una semana: hay quien no abre la app
+/// a diario). Aproximado (sale de la app, sin motivo):
+/// el motivo exacto llega con el webhook de RevenueCat.
+export function recentLost(
+  rows: PingRow[],
+  today: string,
+  windowDays = 28,
+  quietDays = 7,
+): LostAccount[] {
+  const shift = (n: number) => {
+    const d = new Date(`${today}T12:00:00Z`);
+    d.setUTCDate(d.getUTCDate() - n);
+    return d.toISOString().slice(0, 10);
+  };
+  const from = shift(windowDays);
+  const quietSince = shift(quietDays - 1);
+  type Acc = {
+    first: string;
+    last: string;
+    lastSeen: string;
+    plan: string | null;
+    platform: string | null;
+    version: string | null;
+    inherited: boolean;
+    installs: Set<string>;
+  };
+  const accs = new Map<string, Acc>();
+  for (const r of rows) {
+    const k = r.account_key ?? r.install_id;
+    let a = accs.get(k);
+    if (!a) {
+      a = {
+        first: "",
+        last: "",
+        lastSeen: r.ping_date,
+        plan: null,
+        platform: null,
+        version: null,
+        inherited: false,
+        installs: new Set(),
+      };
+      accs.set(k, a);
+    }
+    a.installs.add(r.install_id);
+    if (r.ping_date > a.lastSeen) a.lastSeen = r.ping_date;
+    if (r.inherited_access) a.inherited = true;
+    if (r.subscription_active) {
+      if (!a.first || r.ping_date < a.first) a.first = r.ping_date;
+      if (r.ping_date >= a.last) {
+        a.last = r.ping_date;
+        a.plan = r.plan ?? a.plan;
+        a.platform = r.platform ?? a.platform;
+        a.version = r.app_version ?? a.version;
+      }
+    }
+  }
+  // Último día con plan de cada aparato: si el aparato sigue con plan bajo
+  // otra cuenta (inició sesión), no es una baja.
+  const lastPaidByInstall = new Map<string, string>();
+  for (const r of rows) {
+    if (!r.subscription_active) continue;
+    const prev = lastPaidByInstall.get(r.install_id);
+    if (!prev || r.ping_date > prev)
+      lastPaidByInstall.set(r.install_id, r.ping_date);
+  }
+  const lost: LostAccount[] = [];
+  for (const [key, a] of accs) {
+    if (!a.last || a.inherited) continue;
+    if (a.last < from || a.last >= quietSince) continue;
+    const switched = [...a.installs].some(
+      (i) => (lastPaidByInstall.get(i) ?? "") > a.last,
+    );
+    if (switched) continue;
+    lost.push({
+      key,
+      platform: a.platform,
+      plan: a.plan,
+      version: a.version,
+      firstPaid: a.first,
+      lastPaid: a.last,
+      recentSales: 0,
+      stillOpens: a.lastSeen > a.last,
+      installIds: [...a.installs],
+    });
+  }
+  // Ventas de sus últimos 14 días con plan.
+  const byKey = new Map(lost.map((l) => [l.key, l]));
+  for (const r of rows) {
+    const l = byKey.get(r.account_key ?? r.install_id);
+    if (!l || r.ping_date > l.lastPaid) continue;
+    const d = new Date(`${l.lastPaid}T12:00:00Z`);
+    d.setUTCDate(d.getUTCDate() - 13);
+    if (r.ping_date >= d.toISOString().slice(0, 10)) {
+      l.recentSales += r.orders_today ?? 0;
+    }
+  }
+  return lost.sort((x, y) => y.lastPaid.localeCompare(x.lastPaid));
+}
