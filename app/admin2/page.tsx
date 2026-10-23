@@ -6,6 +6,8 @@ import {
   PLATFORMS,
   activationFunnel,
   baseOf,
+  cmpVersion,
+  newestVersion,
   avgWeeklySubs,
   menuPaths,
   mxDay,
@@ -89,6 +91,7 @@ export default async function Admin2({
   const weeks = weekly(installs, rows, 8, today);
   const vers = versions(rows, mxDay(7));
   const worst = worstDrop(onboarding) ?? worstDrop(activation);
+  const newest = newestVersion(rows, mxDay(7));
 
   const metric = (id: string) =>
     rc.ok ? rc.metrics.find((m) => m.id === id) : undefined;
@@ -345,21 +348,111 @@ export default async function Admin2({
             />
           </div>
           {health.unverified.length > 0 ? (
-            <div className={s.unverified}>
-              <span className={s.note} style={{ margin: 0 }}>
-                Sin verificar:
-              </span>
-              {health.unverified.map((n) => (
-                <span className={s.chip} key={n}>
-                  {n}
-                </span>
-              ))}
-            </div>
+            <>
+              <p className={s.funnelTitle} style={{ marginTop: 22 }}>
+                Pro sin verificar · {health.unverified.length}
+              </p>
+              <p className={s.note} style={{ marginTop: -4, marginBottom: 10 }}>
+                Versión de la caja. Verde: la más nueva ({newest ?? "—"}). Gris:
+                reciente. Amarillo: vieja. Rojo: muy vieja, pídeles actualizar.
+              </p>
+              <div className={s.bizList}>
+                {health.unverified.map((b) => (
+                  <Biz key={b.name} biz={b} newest={newest} today={today} />
+                ))}
+              </div>
+            </>
           ) : null}
         </section>
       </div>
     </main>
   );
+}
+
+type UnverifiedBiz = {
+  name: string;
+  caja: { platform: string; version: string; seen: string } | null;
+  waiters: { version: string }[];
+};
+
+function Biz({
+  biz,
+  newest,
+  today,
+}: {
+  biz: UnverifiedBiz;
+  newest: string | null;
+  today: string;
+}) {
+  // Qué tan atrás va: 0 = la más nueva, hasta 5 = reciente, hasta 20 =
+  // vieja, más = muy vieja (hay que pedirle que actualice).
+  const tone = (v: string) => {
+    if (!newest) return s.verMid;
+    const gap = versionGap(v, newest);
+    return gap <= 0
+      ? s.ver
+      : gap <= 5
+        ? s.verMid
+        : gap <= 20
+          ? s.verOld
+          : s.verBad;
+  };
+  const oldest = biz.waiters.map((w) => w.version).sort(cmpVersion)[0];
+  return (
+    <div className={s.biz}>
+      <div className={s.bizIcon} aria-hidden>
+        <svg
+          viewBox="0 0 24 24"
+          width="20"
+          height="20"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M7 3v8M4.5 3v5a2.5 2.5 0 0 0 5 0V3M7 11v10" />
+          <path d="M17 21V3c-2.2 0-3.5 2.5-3.5 6v4.5H17" />
+        </svg>
+      </div>
+      <div className={s.bizBody}>
+        <div className={s.bizName}>{biz.name}</div>
+        <div className={s.bizMeta}>
+          {biz.waiters.length === 0
+            ? "Sin meseros"
+            : `${biz.waiters.length} ${biz.waiters.length === 1 ? "mesero" : "meseros"}` +
+              (oldest ? ` · el más viejo en ${oldest}` : "")}
+        </div>
+      </div>
+      {biz.caja ? (
+        <div className={s.bizRight}>
+          <span className={tone(biz.caja.version)}>
+            {PLATFORM_LABEL[biz.caja.platform] ?? biz.caja.platform}{" "}
+            {biz.caja.version}
+          </span>
+          <span className={s.bizSeen}>caja · {ago(biz.caja.seen, today)}</span>
+        </div>
+      ) : (
+        <div className={s.bizRight}>
+          <span className={s.verBad}>sin caja</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/// Cuántas versiones de diferencia hay (3.0.82 vs 3.0.96 = 14).
+function versionGap(v: string, newest: string) {
+  const [a1, a2, a3] = v.split(".").map((x) => parseInt(x, 10) || 0);
+  const [b1, b2, b3] = newest.split(".").map((x) => parseInt(x, 10) || 0);
+  if (a1 !== b1 || a2 !== b2) return cmpVersion(v, newest) < 0 ? 999 : 0;
+  return b3 - a3;
+}
+
+/// «hoy», «ayer», «hace 5 días».
+function ago(day: string, today: string) {
+  const d = Math.round((Date.parse(today) - Date.parse(day)) / 86_400_000);
+  return d <= 0 ? "hoy" : d === 1 ? "ayer" : `hace ${d} días`;
 }
 
 function Pill({
@@ -641,6 +734,63 @@ async function migrationHealth(supabase: ReturnType<typeof adminClient>) {
     pro_verified_at: string | null;
   }[];
   const verified = list.filter((b) => b.pro_verified_at).length;
+  const unv = list.filter((b) => !b.pro_verified_at);
+  const devs = unv.length
+    ? await supabase
+        .from("business_devices")
+        .select("business_id, install_id, role")
+        .in(
+          "business_id",
+          unv.map((b) => b.id),
+        )
+    : { data: [] };
+  const devList = (devs.data ?? []) as {
+    business_id: string;
+    install_id: string | null;
+    role: string;
+  }[];
+  const installIds = devList
+    .map((d) => d.install_id)
+    .filter((x): x is string => !!x);
+  const usage = installIds.length
+    ? await supabase
+        .from("latest_usage")
+        .select("install_id, platform, app_version, ping_date")
+        .in("install_id", installIds)
+    : { data: [] };
+  const byInstall = new Map(
+    (
+      (usage.data ?? []) as {
+        install_id: string;
+        platform: string | null;
+        app_version: string | null;
+        ping_date: string;
+      }[]
+    ).map((u) => [u.install_id, u]),
+  );
+  const unverified: UnverifiedBiz[] = unv.map((b) => {
+    const mine = devList.filter((d) => d.business_id === b.id);
+    const cajaUsage = mine
+      .filter((d) => d.role === "owner")
+      .map((d) => (d.install_id ? byInstall.get(d.install_id) : undefined))
+      .filter((u): u is NonNullable<typeof u> => !!u?.app_version)
+      .sort((x, y) => y.ping_date.localeCompare(x.ping_date))[0];
+    return {
+      name: b.name,
+      caja: cajaUsage
+        ? {
+            platform: cajaUsage.platform ?? "?",
+            version: cajaUsage.app_version!,
+            seen: cajaUsage.ping_date,
+          }
+        : null,
+      waiters: mine
+        .filter((d) => d.role !== "owner")
+        .map((d) => (d.install_id ? byInstall.get(d.install_id) : undefined))
+        .filter((u): u is NonNullable<typeof u> => !!u?.app_version)
+        .map((u) => ({ version: u.app_version! })),
+    };
+  });
   const outcomes = (parity.data ?? []) as { outcome: string }[];
   const count = (o: string) => outcomes.filter((r) => r.outcome === o).length;
   return {
@@ -648,7 +798,7 @@ async function migrationHealth(supabase: ReturnType<typeof adminClient>) {
     proWithOrders: list.length,
     proVerified: verified,
     proVerifiedPct: list.length ? (verified / list.length) * 100 : 100,
-    unverified: list.filter((b) => !b.pro_verified_at).map((b) => b.name),
+    unverified,
     rcMatch: count("match"),
     rcBetter: count("rc_better"),
     rcErrors: count("rc_error"),
