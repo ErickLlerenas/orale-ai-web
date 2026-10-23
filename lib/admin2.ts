@@ -104,7 +104,10 @@ export function newOwners(installs: Install[], from: string, to: string) {
   );
 }
 
-export type Step = { label: string; n: number; hint?: string };
+/// [after]: pasos que no van en cadena (alguien puede suscribirse sin llegar
+/// a 10 ventas). Se comparan contra «Primera venta» y no cuentan como cuello
+/// de botella, porque una semana es poco tiempo para pagar.
+export type Step = { label: string; n: number; hint?: string; after?: boolean };
 
 /// Embudo de la bienvenida (apps 3.0.89+: las que mandan la pantalla).
 export function onboardingFunnel(list: Install[]): Step[] {
@@ -127,10 +130,11 @@ export function onboardingFunnel(list: Install[]): Step[] {
     { label: "Primera venta", n: c((i) => i.orders > 0) },
     {
       label: `Llegaron a ${FREE_ORDER_LIMIT} ventas`,
+      after: true,
       n: c((i) => i.orders >= FREE_ORDER_LIMIT),
       hint: "Aquí sale el pago",
     },
-    { label: "Se suscribieron", n: c((i) => i.subscribed) },
+    { label: "Se suscribieron", n: c((i) => i.subscribed), after: true },
   ];
 }
 
@@ -165,9 +169,10 @@ export function activationFunnel(list: Install[]): Step[] {
     { label: "Primera venta", n: c((i) => i.orders > 0) },
     {
       label: `${FREE_ORDER_LIMIT} ventas`,
+      after: true,
       n: c((i) => i.orders >= FREE_ORDER_LIMIT),
     },
-    { label: "Suscritos", n: c((i) => i.subscribed) },
+    { label: "Suscritos", n: c((i) => i.subscribed), after: true },
   ];
 }
 
@@ -271,7 +276,10 @@ export function mxDay(daysAgo = 0): string {
 // ---------------------------------------------------------------- RevenueCat
 
 export type RcOverview =
-  | { ok: true; metrics: { id: string; name: string; value: number; unit?: string }[] }
+  | {
+      ok: true;
+      metrics: { id: string; name: string; value: number; unit?: string }[];
+    }
   | { ok: false; reason: string };
 
 /// Métricas generales del proyecto en RevenueCat (API v2, solo lectura).
@@ -316,12 +324,21 @@ export async function revenueCatOverview(): Promise<RcOverview> {
 
 /// El paso donde más gente se va (proporcionalmente). Con pocos datos un
 /// paso de 3 a 1 parecería el peor, así que se piden al menos 10 personas.
+/// Contra qué paso se compara [i]: el anterior, o el último paso en cadena
+/// si es un paso [after].
+export function baseOf(steps: Step[], i: number): Step {
+  if (!steps[i].after) return steps[Math.max(0, i - 1)];
+  for (let j = i - 1; j >= 0; j--) if (!steps[j].after) return steps[j];
+  return steps[0];
+}
+
 export function worstDrop(steps: Step[]) {
   let worst: { from: Step; to: Step; lostPct: number; lost: number } | null =
     null;
-  for (let i = 1; i < steps.length; i++) {
-    const from = steps[i - 1];
-    const to = steps[i];
+  const chain = steps.filter((st) => !st.after);
+  for (let i = 1; i < chain.length; i++) {
+    const from = chain[i - 1];
+    const to = chain[i];
     if (from.n < 10) continue;
     const lost = from.n - to.n;
     const lostPct = lost / from.n;

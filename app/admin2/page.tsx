@@ -5,6 +5,7 @@ import {
   PING_COLUMNS,
   PLATFORMS,
   activationFunnel,
+  baseOf,
   avgWeeklySubs,
   menuPaths,
   mxDay,
@@ -45,7 +46,6 @@ const RC_LABEL: Record<string, string> = {
   mrr: "Ingreso mensual (MRR)",
   revenue: "Ingresos últimos 28 días",
   new_customers: "Clientes nuevos (28 días)",
-  active_users: "Usuarios activos (28 días)",
 };
 const RC_ORDER = Object.keys(RC_LABEL);
 
@@ -139,10 +139,14 @@ export default async function Admin2({
             <p className={s.eyebrow}>Meta</p>
             <Ring value={active} goal={GOAL} />
             <div className={s.goalLine}>
-              Faltan <strong>{Math.max(0, GOAL - active).toLocaleString("es-MX")}</strong>
+              Faltan{" "}
+              <strong>
+                {Math.max(0, GOAL - active).toLocaleString("es-MX")}
+              </strong>
               {weeksLeft != null ? (
                 <>
-                  {" "}· a <strong>{perWeek.toFixed(0)}</strong> nuevas por semana,
+                  {" "}
+                  · a <strong>{perWeek.toFixed(0)}</strong> nuevas por semana,
                   unas <strong>{weeksLeft}</strong> semanas
                 </>
               ) : null}
@@ -161,14 +165,16 @@ export default async function Admin2({
               {rc.ok ? (
                 RC_ORDER.map((id) => metric(id))
                   .filter((m): m is NonNullable<typeof m> => !!m)
-                  .map((m) => (
-                    <div className={s.tile} key={m.id}>
-                      <div className={s.tileValue}>
-                        {formatMetric(m.value, m.unit)}
-                      </div>
-                      <div className={s.tileLabel}>
-                        {RC_LABEL[m.id] ?? m.name}
-                      </div>
+                  .map((m) => ({
+                    key: m.id,
+                    value: formatMetric(m.value, m.unit),
+                    label: RC_LABEL[m.id] ?? m.name,
+                  }))
+                  .concat(derivedTiles(metric("mrr"), active, perWeek))
+                  .map((t) => (
+                    <div className={s.tile} key={t.key}>
+                      <div className={s.tileValue}>{t.value}</div>
+                      <div className={s.tileLabel}>{t.label}</div>
                     </div>
                   ))
               ) : (
@@ -200,13 +206,18 @@ export default async function Admin2({
               <p className={s.eyebrow}>Negocios nuevos</p>
               <h2 className={s.h2}>¿Dónde se va la gente?</h2>
               <p className={s.note}>
-                Dueños que abrieron la app por primera vez del {from} al {to}
-                ({cohort.length}). Sin meseros ni cambios de aparato.
+                {cohort.length} dueños abrieron la app por primera vez del{" "}
+                {shortDay(from)} al {shortDay(to)}. Sin meseros ni cambios de
+                aparato.
               </p>
             </div>
             <div className={s.pills}>
-              <Pill on={days === 7} href={href({ days: "7" })}>7 días</Pill>
-              <Pill on={days === 30} href={href({ days: "30" })}>30 días</Pill>
+              <Pill on={days === 7} href={href({ days: "7" })}>
+                7 días
+              </Pill>
+              <Pill on={days === 30} href={href({ days: "30" })}>
+                30 días
+              </Pill>
               <span className={s.pillGap} />
               {["todas", ...PLATFORMS].map((p) => (
                 <Pill key={p} on={platform === p} href={href({ platform: p })}>
@@ -224,8 +235,8 @@ export default async function Admin2({
               <div className={s.calloutText}>
                 Cuello de botella: de «{worst.from.label}» a «{worst.to.label}»
                 <span>
-                  Se van {worst.lost} de {worst.from.n}. Arreglar este paso es lo
-                  que más suscripciones mueve.
+                  Se van {worst.lost} de {worst.from.n}. Arreglar este paso es
+                  lo que más suscripciones mueve.
                 </span>
               </div>
             </div>
@@ -233,7 +244,9 @@ export default async function Admin2({
 
           <div className={s.funnels}>
             <div>
-              <p className={s.funnelTitle}>Bienvenida · pantalla por pantalla (3.0.89+)</p>
+              <p className={s.funnelTitle}>
+                Bienvenida · pantalla por pantalla (3.0.89+)
+              </p>
               <Funnel steps={onboarding} />
             </div>
             <div>
@@ -294,12 +307,24 @@ export default async function Admin2({
           <div className={s.cardHead}>
             <div>
               <p className={s.eyebrow}>Migración</p>
-              <h2 className={s.h2}>Todo en verde</h2>
+              <h2 className={s.h2}>
+                {health.mismatches === 0 &&
+                health.proVerifiedPct >= 90 &&
+                health.rcRemoves === 0
+                  ? "Todo en verde"
+                  : "Hay algo que revisar"}
+              </h2>
             </div>
           </div>
           <div className={s.health}>
             <Check
-              state={health.mismatches === null ? "idle" : health.mismatches === 0 ? "ok" : "bad"}
+              state={
+                health.mismatches === null
+                  ? "idle"
+                  : health.mismatches === 0
+                    ? "ok"
+                    : "bad"
+              }
               value={health.mismatches ?? "—"}
               label="Diferencias en la tabla de líneas (C2). Debe ser 0."
             />
@@ -321,9 +346,13 @@ export default async function Admin2({
           </div>
           {health.unverified.length > 0 ? (
             <div className={s.unverified}>
-              <span className={s.note} style={{ margin: 0 }}>Sin verificar:</span>
+              <span className={s.note} style={{ margin: 0 }}>
+                Sin verificar:
+              </span>
               {health.unverified.map((n) => (
-                <span className={s.chip} key={n}>{n}</span>
+                <span className={s.chip} key={n}>
+                  {n}
+                </span>
               ))}
             </div>
           ) : null}
@@ -362,7 +391,14 @@ function Ring({ value, goal }: { value: number; goal: number }) {
             <stop offset="100%" stopColor="#f5b942" />
           </linearGradient>
         </defs>
-        <circle cx="105" cy="105" r={r} fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth="14" />
+        <circle
+          cx="105"
+          cy="105"
+          r={r}
+          fill="none"
+          stroke="rgba(255,255,255,0.07)"
+          strokeWidth="14"
+        />
         <circle
           cx="105"
           cy="105"
@@ -391,33 +427,50 @@ function Funnel({ steps }: { steps: Step[] }) {
   return (
     <div className={s.steps}>
       {steps.map((step, i) => {
-        const prev = i === 0 ? step.n : steps[i - 1].n;
+        const prev = i === 0 ? step.n : baseOf(steps, i).n;
         const kept = prev ? step.n / prev : 0;
         const isWorst = worst?.to === step;
+        const firstAfter = step.after && !steps[i - 1]?.after;
         return (
-          <div className={s.step} key={step.label}>
-            <div className={s.track}>
-              <div
-                className={isWorst ? s.fillWorst : s.fill}
-                style={{ width: `${Math.max(3, (step.n / top) * 100)}%` }}
-              />
-              <div className={s.stepText}>
-                <span className={s.stepN}>{step.n}</span>
-                <span>{step.label}</span>
-                {step.hint ? <span className={s.stepHint}>{step.hint}</span> : null}
+          <div key={step.label}>
+            {firstAfter ? (
+              <p className={s.afterLabel}>
+                De los {baseOf(steps, i).n} que vendieron (una semana es poco
+                para pagar; mira 30 días)
+              </p>
+            ) : null}
+            <div className={s.step}>
+              <div className={s.track}>
+                <div
+                  className={isWorst ? s.fillWorst : s.fill}
+                  style={{ width: `${Math.max(3, (step.n / top) * 100)}%` }}
+                />
+                <div className={s.stepText}>
+                  <span className={s.stepN}>{step.n}</span>
+                  <span>{step.label}</span>
+                  {step.hint ? (
+                    <span className={s.stepHint}>{step.hint}</span>
+                  ) : null}
+                </div>
               </div>
+              {i === 0 ? (
+                <span className={s.conv}>100%</span>
+              ) : (
+                <span
+                  className={
+                    step.after
+                      ? s.conv
+                      : isWorst || kept < 0.6
+                        ? s.convBad
+                        : kept >= 0.85
+                          ? s.convGood
+                          : s.conv
+                  }
+                >
+                  {pct(step.n, prev)}
+                </span>
+              )}
             </div>
-            {i === 0 ? (
-              <span className={s.conv}>100%</span>
-            ) : (
-              <span
-                className={
-                  isWorst || kept < 0.6 ? s.convBad : kept >= 0.85 ? s.convGood : s.conv
-                }
-              >
-                {pct(step.n, prev)}
-              </span>
-            )}
           </div>
         );
       })}
@@ -455,7 +508,10 @@ function Weeks({ weeks }: { weeks: WeekRow[] }) {
           <div className={s.week} key={w.week}>
             <span className={s.weekSubs}>{subs}</span>
             <span className={s.weekTotal}>{totals[i]}</span>
-            <div className={s.stack} style={{ height: `${(totals[i] / max) * 140}px` }}>
+            <div
+              className={s.stack}
+              style={{ height: `${(totals[i] / max) * 140}px` }}
+            >
               {PLATFORMS.map((p) => (
                 <div
                   key={p}
@@ -468,7 +524,9 @@ function Weeks({ weeks }: { weeks: WeekRow[] }) {
               ))}
             </div>
             <span className={s.weekLabel}>
-              {i === weeks.length - 1 ? "esta" : w.week.slice(5).replace("-", "/")}
+              {i === weeks.length - 1
+                ? "esta"
+                : w.week.slice(5).replace("-", "/")}
             </span>
           </div>
         );
@@ -480,7 +538,11 @@ function Weeks({ weeks }: { weeks: WeekRow[] }) {
 function Versions({
   list,
 }: {
-  list: { version: string; total: number; byPlatform: Record<string, number> }[];
+  list: {
+    version: string;
+    total: number;
+    byPlatform: Record<string, number>;
+  }[];
 }) {
   const max = Math.max(1, ...list.map((v) => v.total));
   return (
@@ -488,11 +550,17 @@ function Versions({
       {list.map((v) => (
         <div className={s.bar} key={v.version}>
           <span className={s.barName}>{v.version}</span>
-          <div className={s.barTrack} style={{ width: `${(v.total / max) * 100}%` }}>
+          <div
+            className={s.barTrack}
+            style={{ width: `${(v.total / max) * 100}%` }}
+          >
             {PLATFORMS.map((p) => (
               <div
                 key={p}
-                style={{ background: PLATFORM_COLOR[p], flex: v.byPlatform[p] ?? 0 }}
+                style={{
+                  background: PLATFORM_COLOR[p],
+                  flex: v.byPlatform[p] ?? 0,
+                }}
               />
             ))}
           </div>
@@ -525,9 +593,12 @@ function Check({
   );
 }
 
-function formatMetric(value: number, unit?: string) {
+function formatMetric(value: number, unit?: string, decimals = 0) {
   if (unit === "$" || unit === "USD") {
-    return `$${Math.round(value).toLocaleString("es-MX")}`;
+    return `$${value.toLocaleString("es-MX", {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
+    })}`;
   }
   return Math.round(value).toLocaleString("es-MX");
 }
@@ -557,7 +628,13 @@ async function migrationHealth(supabase: ReturnType<typeof adminClient>) {
         .from("businesses")
         .select("id, name, pro_verified_at")
         .in("id", ids)
-    : { data: [] as { id: string; name: string; pro_verified_at: string | null }[] };
+    : {
+        data: [] as {
+          id: string;
+          name: string;
+          pro_verified_at: string | null;
+        }[],
+      };
   const list = (businesses.data ?? []) as {
     id: string;
     name: string;
@@ -582,4 +659,43 @@ async function migrationHealth(supabase: ReturnType<typeof adminClient>) {
     orderOps: ops.count ?? 0,
     syncV2: v2.error ? null : (v2.count ?? 0),
   };
+}
+
+/// «2026-10-15» → «15 oct».
+function shortDay(day: string) {
+  const months = "ene feb mar abr may jun jul ago sep oct nov dic".split(" ");
+  const [, m, d] = day.split("-").map(Number);
+  return `${d} ${months[m - 1]}`;
+}
+
+/// Lo que se puede sacar de RevenueCat sin pedirle más: cuánto deja cada
+/// suscriptor y cuánto sería el MRR al llegar a la meta.
+function derivedTiles(
+  mrr: { value: number; unit?: string } | undefined,
+  active: number,
+  perWeek: number,
+) {
+  const tiles = [
+    {
+      key: "per_week",
+      value: perWeek.toFixed(0),
+      label: "Nuevas por semana (app, 4 sem.)",
+    },
+  ];
+  if (mrr && active > 0) {
+    const each = mrr.value / active;
+    tiles.push(
+      {
+        key: "arpu",
+        value: formatMetric(each, mrr.unit, 2),
+        label: "Deja cada suscriptor al mes",
+      },
+      {
+        key: "mrr_goal",
+        value: formatMetric(each * GOAL, mrr.unit),
+        label: `MRR al llegar a ${GOAL.toLocaleString("es-MX")}`,
+      },
+    );
+  }
+  return tiles;
 }
