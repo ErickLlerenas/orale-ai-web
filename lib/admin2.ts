@@ -503,7 +503,13 @@ export function dayPulse(
   const seen = new Set<string>();
   const sold = new Set<string>();
   const firstDay = new Map(installs.map((i) => [i.id, i.firstDay]));
-  // Reinstalaron: la app dice "instalada hoy" pero el aparato ya existía.
+  // Reinstalaron: la app dice "instalada hoy" pero el aparato ya se había
+  // visto ANTES de ayer. Si se vio por primera vez ayer, es la instalación de
+  // ayer que todavía no cumple 24 h (la app cuenta días de 24 h, no de
+  // calendario), y ya se contó ayer.
+  const dayBefore = new Date(`${day}T12:00:00Z`);
+  dayBefore.setUTCDate(dayBefore.getUTCDate() - 1);
+  const yesterday = dayBefore.toISOString().slice(0, 10);
   const reinstalled = new Set<string>();
   for (const r of rows) {
     if (r.ping_date !== day) continue;
@@ -513,7 +519,7 @@ export function dayPulse(
     }
     if (
       r.days_since_install === 0 &&
-      (firstDay.get(r.install_id) ?? day) < day
+      (firstDay.get(r.install_id) ?? day) < yesterday
     ) {
       reinstalled.add(r.install_id);
     }
