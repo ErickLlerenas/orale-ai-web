@@ -21,6 +21,7 @@ import {
   onboardingFunnel,
   pct,
   planMix,
+  retention,
   revenueCatOverview,
   toInstalls,
   versions,
@@ -29,6 +30,7 @@ import {
   type Count,
   type DayRow,
   type PingRow,
+  type RetRow,
   type Step,
   type WeekRow,
 } from "@/lib/admin2";
@@ -139,6 +141,8 @@ export default async function Admin2({
   // app semana a semana. Es lo que de verdad acerca a la meta.
   const series = activeSeries(rows, today, 8);
   const plans = planMix(rows, mxDay(7));
+  // Quién se queda: pagaban hace 8–6 semanas, ¿siguen con plan los últimos 10 días?
+  const ret = retention(rows, mxDay(56), mxDay(43), mxDay(9));
   const netPerWeek =
     (series[series.length - 1].n - series[0].n) / (series.length - 1);
   // Mismo periodo para entradas y neto, si no las salidas salen chuecas.
@@ -178,6 +182,7 @@ export default async function Admin2({
             ["descargas", "Descargas"],
             ["cuello", "Cuello de botella"],
             ["plataformas", "Plataformas"],
+            ["retencion", "Quién se queda"],
             ["migracion", "Migración"],
           ].map(([id, label]) => (
             <a key={id} href={`#${id}`}>
@@ -443,6 +448,38 @@ export default async function Admin2({
             </div>
           </div>
           <HeatTable rows={conv} />
+        </section>
+
+        {/* 2c. Quién se queda */}
+        <section className={s.card} id="retencion">
+          <div className={s.cardHead}>
+            <div>
+              <p className={s.eyebrow}>Retención</p>
+              <h2 className={s.h2}>¿Quién se queda?</h2>
+              <p className={s.note}>
+                Cuentas que pagaban del {shortDay(mxDay(56))} al{" "}
+                {shortDay(mxDay(43))} ({ret.total.n}) y si siguen usando la app
+                con su plan desde el {shortDay(mxDay(9))}. «Se fue» = dejó de
+                abrirla con plan; casi siempre termina en cancelación.
+              </p>
+            </div>
+            <div className={s.retTotal}>
+              <span className={s.retTotalN}>
+                {pct(ret.total.gone, ret.total.n)}
+              </span>
+              <span className={s.retTotalL}>se fue en 6 semanas</span>
+            </div>
+          </div>
+          <div className={s.retGrid}>
+            {ret.groups.map((g) => (
+              <RetGroup
+                key={g.title}
+                title={g.title}
+                rows={g.rows}
+                avg={ret.total.gone / Math.max(1, ret.total.n)}
+              />
+            ))}
+          </div>
         </section>
 
         {/* 3. Semanas y versiones */}
@@ -1076,6 +1113,47 @@ function Plans({ counts }: { counts: Record<string, number> }) {
           </span>
         ))}
       </div>
+    </div>
+  );
+}
+
+/// Una barra por grupo: verde lo que se queda, rojo lo que se va. La raya
+/// marca el promedio para ver de un vistazo quién está mejor o peor.
+function RetGroup({
+  title,
+  rows,
+  avg,
+}: {
+  title: string;
+  rows: RetRow[];
+  avg: number;
+}) {
+  return (
+    <div className={s.retCard}>
+      <p className={s.funnelTitle}>{title}</p>
+      {rows.map((r) => {
+        const gone = r.n ? r.gone / r.n : 0;
+        const tone =
+          gone <= avg * 0.6
+            ? s.retGood
+            : gone >= avg * 1.3
+              ? s.retBad
+              : s.retMid;
+        return (
+          <div className={s.retRow} key={r.label}>
+            <div className={s.retLabel}>
+              <span>{r.label}</span>
+              <small>{r.n}</small>
+            </div>
+            <div className={s.retTrack}>
+              <div className={s.retStay} style={{ flex: r.n - r.gone }} />
+              <div className={s.retGone} style={{ flex: r.gone }} />
+              <div className={s.retAvg} style={{ right: `${avg * 100}%` }} />
+            </div>
+            <span className={tone}>{pct(r.gone, r.n)}</span>
+          </div>
+        );
+      })}
     </div>
   );
 }

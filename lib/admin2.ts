@@ -584,3 +584,158 @@ export function planMix(rows: PingRow[], since: string) {
   for (const { plan } of last.values()) counts[plan] = (counts[plan] ?? 0) + 1;
   return counts;
 }
+
+// ---------------------------------------------------------------- Retención
+
+export type RetRow = { label: string; n: number; gone: number };
+
+/// ¿Quién se queda? Toma las cuentas que pagaban en [baseFrom, baseTo] y ve
+/// cuáles siguen con plan activo desde [stayFrom] (en cualquiera de sus
+/// aparatos). Las agrupa por cómo usaban la app en esas 2 semanas.
+/// "Se fue" = dejó de abrir la app con plan activo; casi siempre termina en
+/// cancelación, pero no es la cancelación confirmada por la tienda.
+export function retention(
+  rows: PingRow[],
+  baseFrom: string,
+  baseTo: string,
+  stayFrom: string,
+) {
+  type Acc = {
+    days: Set<string>;
+    orders: number;
+    products: number;
+    plan: string | null;
+    planDay: string;
+    platform: string | null;
+    paid: boolean;
+    inherited: boolean;
+  };
+  const accs = new Map<string, Acc>();
+  const installsOf = new Map<string, Set<string>>();
+  for (const r of rows) {
+    if (r.ping_date < baseFrom || r.ping_date > baseTo) continue;
+    const k = r.account_key ?? r.install_id;
+    let a = accs.get(k);
+    if (!a) {
+      a = {
+        days: new Set(),
+        orders: 0,
+        products: 0,
+        plan: null,
+        planDay: "",
+        platform: null,
+        paid: false,
+        inherited: false,
+      };
+      accs.set(k, a);
+    }
+    a.days.add(r.ping_date);
+    a.orders += r.orders_today ?? 0;
+    a.products = Math.max(a.products, r.product_count ?? 0);
+    a.platform = r.platform ?? a.platform;
+    if (r.inherited_access) a.inherited = true;
+    if (r.subscription_active) {
+      a.paid = true;
+      if (r.plan && r.ping_date >= a.planDay) {
+        a.plan = r.plan;
+        a.planDay = r.ping_date;
+      }
+    }
+  }
+  const base = new Map([...accs].filter(([, a]) => a.paid && !a.inherited));
+  // Aparatos de cada cuenta (para no contar como baja a quien solo cambió
+  // de identidad, p. ej. inició sesión y ahora reporta con su cuenta).
+  for (const r of rows) {
+    const k = r.account_key ?? r.install_id;
+    if (!base.has(k)) continue;
+    let set = installsOf.get(r.install_id);
+    if (!set) installsOf.set(r.install_id, (set = new Set()));
+    set.add(k);
+  }
+  const stayed = new Set<string>();
+  for (const r of rows) {
+    if (r.ping_date < stayFrom || !r.subscription_active) continue;
+    for (const k of installsOf.get(r.install_id) ?? []) stayed.add(k);
+    const own = r.account_key ?? r.install_id;
+    if (base.has(own)) stayed.add(own);
+  }
+
+  const groups: { title: string; rows: RetRow[] }[] = [
+    { title: "Qué tanto abren la app (de 14 días)", rows: [] },
+    { title: "Cuánto venden (en 2 semanas)", rows: [] },
+    { title: "Plan", rows: [] },
+    { title: "Tamaño del menú", rows: [] },
+    { title: "Plataforma", rows: [] },
+  ];
+  const bucket = (g: number, label: string, gone: boolean) => {
+    let row = groups[g].rows.find((x) => x.label === label);
+    if (!row) groups[g].rows.push((row = { label, n: 0, gone: 0 }));
+    row.n++;
+    if (gone) row.gone++;
+  };
+  const order: Record<string, number> = {};
+  const total = { n: 0, gone: 0 };
+  for (const [k, a] of base) {
+    const gone = !stayed.has(k);
+    total.n++;
+    if (gone) total.gone++;
+    const d = a.days.size;
+    bucket(
+      0,
+      d >= 10 ? "10 días o más" : d >= 5 ? "5 a 9 días" : "Menos de 5",
+      gone,
+    );
+    bucket(
+      1,
+      a.orders >= 100
+        ? "100 ventas o más"
+        : a.orders >= 20
+          ? "20 a 99"
+          : "Menos de 20",
+      gone,
+    );
+    const plan = a.plan ?? "";
+    bucket(2, plan.endsWith("yearly") ? "Anual" : "Mensual", gone);
+    bucket(2, plan.startsWith("pro") ? "Pro" : "Básico", gone);
+    bucket(
+      3,
+      a.products >= 40
+        ? "40 o más"
+        : a.products >= 15
+          ? "15 a 39"
+          : "Menos de 15",
+      gone,
+    );
+    const p = a.platform ?? "?";
+    if ((PLATFORMS as readonly string[]).includes(p)) {
+      bucket(
+        4,
+        p === "ios" ? "iOS" : p === "android" ? "Android" : "Windows",
+        gone,
+      );
+    }
+  }
+  // Orden fijo para que siempre se lean igual (de mejor a peor uso).
+  const ORDER = [
+    "10 días o más",
+    "5 a 9 días",
+    "Menos de 5",
+    "100 ventas o más",
+    "20 a 99",
+    "Menos de 20",
+    "Anual",
+    "Mensual",
+    "Básico",
+    "Pro",
+    "40 o más",
+    "15 a 39",
+    "Menos de 15",
+    "Android",
+    "iOS",
+    "Windows",
+  ];
+  ORDER.forEach((l, i) => (order[l] = i));
+  for (const g of groups)
+    g.rows.sort((x, y) => order[x.label] - order[y.label]);
+  return { total, groups };
+}

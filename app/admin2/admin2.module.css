@@ -1198,3 +1198,91 @@
   color: var(--ink);
   margin-left: 6px;
 }
+
+/* ---- Quién se queda ---- */
+.retTotal {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+.retTotalN {
+  font-size: 34px;
+  font-weight: 800;
+  color: var(--red);
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+.retTotalL {
+  font-size: 12px;
+  color: var(--mute);
+}
+.retGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 12px;
+}
+.retCard {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 16px;
+}
+.retRow {
+  display: grid;
+  grid-template-columns: 140px 1fr 52px;
+  gap: 10px;
+  align-items: center;
+  margin-top: 10px;
+}
+.retLabel {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.retLabel small {
+  color: var(--mute);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.retTrack {
+  position: relative;
+  display: flex;
+  height: 12px;
+  border-radius: 999px;
+  overflow: hidden;
+  gap: 2px;
+  background: rgba(255, 255, 255, 0.05);
+}
+.retStay {
+  background: rgba(52, 211, 153, 0.75);
+}
+.retGone {
+  background: rgba(248, 113, 113, 0.85);
+}
+.retAvg {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  background: var(--ink);
+  opacity: 0.7;
+}
+.retGood,
+.retMid,
+.retBad {
+  font-size: 13px;
+  font-weight: 800;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.retGood {
+  color: var(--green);
+}
+.retMid {
+  color: var(--soft);
+}
+.retBad {
+  color: var(--red);
+}
