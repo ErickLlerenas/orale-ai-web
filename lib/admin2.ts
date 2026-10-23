@@ -661,11 +661,11 @@ export function retention(
   }
 
   const groups: { title: string; rows: RetRow[] }[] = [
-    { title: "Qué tanto abren la app (de 14 días)", rows: [] },
-    { title: "Cuánto venden (en 2 semanas)", rows: [] },
-    { title: "Plan", rows: [] },
-    { title: "Tamaño del menú", rows: [] },
-    { title: "Plataforma", rows: [] },
+    { title: "¿Cuántos días abren la app? (de 14)", rows: [] },
+    { title: "¿Cuánto venden en 2 semanas?", rows: [] },
+    { title: "¿Qué plan tienen?", rows: [] },
+    { title: "¿Cuántos productos tiene su menú?", rows: [] },
+    { title: "¿Dónde la usan?", rows: [] },
   ];
   const bucket = (g: number, label: string, gone: boolean) => {
     let row = groups[g].rows.find((x) => x.label === label);
@@ -695,8 +695,19 @@ export function retention(
       gone,
     );
     const plan = a.plan ?? "";
-    bucket(2, plan.endsWith("yearly") ? "Anual" : "Mensual", gone);
-    bucket(2, plan.startsWith("pro") ? "Pro" : "Básico", gone);
+    const pro = plan.startsWith("pro");
+    const yearly = plan.endsWith("yearly");
+    bucket(
+      2,
+      pro
+        ? yearly
+          ? "Pro anual"
+          : "Pro mensual"
+        : yearly
+          ? "Anual"
+          : "Mensual",
+      gone,
+    );
     bucket(
       3,
       a.products >= 40
@@ -723,10 +734,10 @@ export function retention(
     "100 ventas o más",
     "20 a 99",
     "Menos de 20",
-    "Anual",
     "Mensual",
-    "Básico",
-    "Pro",
+    "Anual",
+    "Pro mensual",
+    "Pro anual",
     "40 o más",
     "15 a 39",
     "Menos de 15",

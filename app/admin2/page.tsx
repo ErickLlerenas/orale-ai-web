@@ -63,7 +63,7 @@ const RC_LABEL: Record<string, string> = {
   active_trials: "En prueba gratis",
   mrr: "Ingreso mensual (MRR)",
   revenue: "Ingresos últimos 28 días",
-  new_customers: "Clientes nuevos (28 días)",
+  new_customers: "Usuarios nuevos en RevenueCat (28 días)",
 };
 const RC_ORDER = Object.keys(RC_LABEL);
 
@@ -258,14 +258,14 @@ export default async function Admin2({
                   {netPerWeek >= 0 ? "+" : ""}
                   {netPerWeek.toFixed(1)}
                 </b>{" "}
-                neto
+                crecimiento real
               </span>
               <span className={s.flowUnit}>por semana</span>
             </div>
             <Sparkline points={series} />
             <p className={s.note}>
-              Activas según la app al cierre de cada semana (8 semanas). Ya
-              resta cancelaciones y pruebas que no pagaron.
+              Clientes con plan activo cada semana (últimas 8). Ya se descuentan
+              los que cancelaron.
             </p>
           </div>
           <div>
@@ -323,8 +323,9 @@ export default async function Admin2({
                 <Delta now={dlTotal} before={dlPrevTotal} />
               </h2>
               <p className={s.note}>
-                Aparatos nuevos (dueños y meseros), sin cambios de aparato.
-                Comparado con los 30 días anteriores.
+                Aparatos que abrieron la app por primera vez (dueños y meseros).
+                No cuenta reinstalaciones ni cambios de celular. La flecha
+                compara con los 30 días anteriores.
               </p>
             </div>
             <Legend subs={false} />
@@ -350,8 +351,8 @@ export default async function Admin2({
                     {p.waiters} meseros
                   </div>
                   <div className={s.platPay}>
-                    <strong>{pct(c.paid, c.n)}</strong> de los negocios nuevos
-                    pagan
+                    <strong>{pct(c.paid, c.n)}</strong> de los dueños nuevos
+                    termina pagando
                   </div>
                 </div>
               );
@@ -367,9 +368,8 @@ export default async function Admin2({
               <p className={s.eyebrow}>Negocios nuevos</p>
               <h2 className={s.h2}>¿Dónde se va la gente?</h2>
               <p className={s.note}>
-                {cohort.length} dueños abrieron la app por primera vez del{" "}
-                {shortDay(from)} al {shortDay(to)}. Sin meseros ni cambios de
-                aparato.
+                {cohort.length} dueños nuevos del {shortDay(from)} al{" "}
+                {shortDay(to)}, y hasta dónde llegó cada uno. No cuenta meseros.
               </p>
             </div>
             <div className={s.pills}>
@@ -394,10 +394,11 @@ export default async function Admin2({
                 −{Math.round(worst.lostPct * 100)}%
               </div>
               <div className={s.calloutText}>
-                Cuello de botella: de «{worst.from.label}» a «{worst.to.label}»
+                Aquí se pierde más gente: entre «{worst.from.label}» y «
+                {worst.to.label}»
                 <span>
-                  Se van {worst.lost} de {worst.from.n}. Arreglar este paso es
-                  lo que más suscripciones mueve.
+                  De {worst.from.n} que llegaron, {worst.lost} ya no siguieron.
+                  Mejorar este paso es lo que más suscripciones te daría.
                 </span>
               </div>
             </div>
@@ -406,12 +407,14 @@ export default async function Admin2({
           <div className={s.funnels}>
             <div>
               <p className={s.funnelTitle}>
-                Bienvenida · pantalla por pantalla (3.0.89+)
+                Paso a paso en la bienvenida (app 3.0.89 o más nueva)
               </p>
               <Funnel steps={onboarding} />
             </div>
             <div>
-              <p className={s.funnelTitle}>Activación · todas las versiones</p>
+              <p className={s.funnelTitle}>
+                Del primer día hasta pagar (todas las versiones)
+              </p>
               <Funnel steps={activation} />
             </div>
           </div>
@@ -427,8 +430,8 @@ export default async function Admin2({
                   </div>
                   <div className={s.pathBig}>{pct(p.sold, p.n)}</div>
                   <div className={s.pathSub}>
-                    vendieron · {pct(p.withMenu, p.n)} tienen menú ·{" "}
-                    {pct(p.subscribed, p.n)} pagaron
+                    ya vendieron · {pct(p.withMenu, p.n)} tiene menú ·{" "}
+                    {pct(p.subscribed, p.n)} ya paga
                   </div>
                 </div>
               ))}
@@ -442,8 +445,8 @@ export default async function Admin2({
               <p className={s.eyebrow}>Negocios nuevos · últimos 30 días</p>
               <h2 className={s.h2}>¿Qué plataforma convierte mejor?</h2>
               <p className={s.note}>
-                De cada 100 dueños nuevos, cuántos llegan a cada paso. Entre más
-                intenso el color, mejor.
+                De cada 100 dueños nuevos del último mes, cuántos llegan a cada
+                paso. Color más fuerte = mejor.
               </p>
             </div>
           </div>
@@ -457,10 +460,12 @@ export default async function Admin2({
               <p className={s.eyebrow}>Retención</p>
               <h2 className={s.h2}>¿Quién se queda?</h2>
               <p className={s.note}>
-                Cuentas que pagaban del {shortDay(mxDay(56))} al{" "}
-                {shortDay(mxDay(43))} ({ret.total.n}) y si siguen usando la app
-                con su plan desde el {shortDay(mxDay(9))}. «Se fue» = dejó de
-                abrirla con plan; casi siempre termina en cancelación.
+                Tomamos a los {ret.total.n} clientes que pagaban del{" "}
+                {shortDay(mxDay(56))} al {shortDay(mxDay(43))} y vimos quién
+                sigue usando la app con su plan 6 semanas después. «Se fue» = ya
+                no la abre con plan (casi siempre termina cancelando). La raya
+                blanca es el promedio: a la izquierda les va mejor, a la derecha
+                peor.
               </p>
             </div>
             <div className={s.retTotal}>
@@ -494,8 +499,8 @@ export default async function Admin2({
             </div>
             <Weeks weeks={weeks} />
             <p className={s.note}>
-              Barras: negocios nuevos por plataforma. Arriba, en amarillo:
-              primeras suscripciones según la app (una por cuenta de tienda).
+              La barra es cuántos dueños nuevos llegaron cada semana. El número
+              amarillo es cuántos se suscribieron por primera vez.
             </p>
           </section>
 
@@ -572,7 +577,8 @@ export default async function Admin2({
                 <span> de {health.proWithOrders} negocios</span>
               </div>
               <p className={s.note} style={{ margin: "4px 0 12px" }}>
-                Todos sus aparatos activos (14 días) ya tienen {C4_APP} o más.
+                Negocios Pro donde la caja y todos los meseros ya actualizaron a
+                la {C4_APP}. Solo a esos se les puede prender el sync nuevo.
               </p>
               {PLATFORMS.map((p) => {
                 const r = health.ready.byPlatform[p] ?? { on: 0, total: 0 };
@@ -602,7 +608,8 @@ export default async function Admin2({
                 <span> {cutoffDays === 1 ? "día" : "días"} · 4 nov</span>
               </div>
               <p className={s.note} style={{ margin: "4px 0 12px" }}>
-                Regla: se mantiene si 90% o más de los Pro están verificados.
+                Ese día se apaga la forma vieja de validar pagos. Se hace si al
+                menos 90% de los Pro ya están verificados.
               </p>
               <div className={s.readyTrack} style={{ height: 12 }}>
                 <div
@@ -636,32 +643,33 @@ export default async function Admin2({
                     : "bad"
               }
               value={health.mismatches ?? "—"}
-              label="Diferencias en la tabla de líneas (C2). Debe ser 0."
+              label="Comandas que no cuadran entre la tabla vieja y la nueva (C2). Debe ser 0."
             />
             <Check
               state={health.proVerifiedPct >= 90 ? "ok" : "bad"}
               value={pct(health.proVerified, health.proWithOrders)}
-              label={`Pro verificados: ${health.proVerified} de ${health.proWithOrders} con comandas en 7 días. Regla: 90%.`}
+              label={`Negocios Pro verificados: ${health.proVerified} de ${health.proWithOrders} que tuvieron comandas esta semana. Mínimo 90%.`}
             />
             <Check
               state={health.rcRemoves === 0 ? "ok" : "bad"}
               value={health.rcRemoves}
-              label={`Casos donde RevenueCat quitaría acceso. ${health.rcMatch} coinciden, ${health.rcBetter} da más, ${health.rcErrors} errores.`}
+              label={`Clientes a los que RevenueCat les quitaría el plan por error. Debe ser 0. (${health.rcMatch} coinciden, en ${health.rcBetter} RevenueCat da más, ${health.rcErrors} no se pudieron revisar)`}
             />
             <Check
               state={health.syncV2 ? "ok" : "idle"}
               value={health.syncV2 ?? "—"}
-              label={`Negocios con el sync nuevo (C5) · ${health.orderOps.toLocaleString("es-MX")} acciones por order-ops.`}
+              label={`Negocios con el sync nuevo prendido (C5). ${health.orderOps.toLocaleString("es-MX")} acciones mandadas por el sync nuevo.`}
             />
           </div>
           {health.unverified.length > 0 ? (
             <>
               <p className={s.funnelTitle} style={{ marginTop: 22 }}>
-                Pro sin verificar · {health.unverified.length}
+                Pro que todavía no se verifican · {health.unverified.length}
               </p>
               <p className={s.note} style={{ marginTop: -4, marginBottom: 10 }}>
-                Versión de la caja. Verde: la más nueva ({newest ?? "—"}). Gris:
-                reciente. Amarillo: vieja. Rojo: muy vieja, pídeles actualizar.
+                La pastilla es la versión de su caja. Verde: la más nueva (
+                {newest ?? "—"}) · Gris: reciente · Amarillo: vieja · Rojo: muy
+                vieja, pídeles que actualicen.
               </p>
               <div className={s.bizList}>
                 {health.unverified.map((b) => (
@@ -1231,8 +1239,8 @@ function Funnel({ steps }: { steps: Step[] }) {
           <div key={step.label}>
             {firstAfter ? (
               <p className={s.afterLabel}>
-                De los {baseOf(steps, i).n} que vendieron (una semana es poco
-                para pagar; mira 30 días)
+                De los {baseOf(steps, i).n} que ya vendieron. En 7 días casi
+                nadie alcanza a pagar: mira 30 días.
               </p>
             ) : null}
             <div className={s.step}>
@@ -1536,7 +1544,7 @@ function derivedTiles(
     {
       key: "per_week",
       value: perWeek.toFixed(0),
-      label: "Nuevas por semana (app, 4 sem.)",
+      label: "Suscripciones nuevas por semana",
     },
   ];
   if (mrr && active > 0) {
@@ -1545,12 +1553,12 @@ function derivedTiles(
       {
         key: "arpu",
         value: formatMetric(each, mrr.unit, 2),
-        label: "Deja cada suscriptor al mes",
+        label: "Te deja cada cliente al mes",
       },
       {
         key: "mrr_goal",
         value: formatMetric(each * GOAL, mrr.unit),
-        label: `MRR al llegar a ${GOAL.toLocaleString("es-MX")}`,
+        label: `Ingreso al mes con ${GOAL.toLocaleString("es-MX")} clientes`,
       },
     );
   }
