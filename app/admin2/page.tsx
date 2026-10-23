@@ -6,6 +6,11 @@ import {
   PLATFORMS,
   activationFunnel,
   baseOf,
+  dayPulse,
+  downloadsByPlatform,
+  downloadsDaily,
+  firstSubscriptions,
+  platformConversion,
   cmpVersion,
   newestVersion,
   avgWeeklySubs,
@@ -19,6 +24,8 @@ import {
   versions,
   weekly,
   worstDrop,
+  type Count,
+  type DayRow,
   type PingRow,
   type Step,
   type WeekRow,
@@ -31,6 +38,11 @@ export const revalidate = 0;
 const GOAL = 1000;
 /// Desde cuándo corre la tabla de líneas en sombra (C2) en prod.
 const C2_SINCE = "2026-10-14T05:39:28Z";
+/// Primera versión de la app con el sync nuevo (C4). C5 solo se prende en
+/// negocios donde todos sus aparatos ya la tienen.
+const C4_APP = "3.0.96";
+/// Corte de los pagos viejos (decidido el 28 oct; regla: 90% verificados).
+const LEGACY_CUTOFF = "2026-11-04";
 const PLATFORM_LABEL: Record<string, string> = {
   android: "Android",
   ios: "iOS",
@@ -93,6 +105,24 @@ export default async function Admin2({
   const worst = worstDrop(onboarding) ?? worstDrop(activation);
   const newest = newestVersion(rows, mxDay(7));
 
+  // Hoy y ayer.
+  const subsList = firstSubscriptions(rows);
+  const pulse = {
+    today: dayPulse(rows, installs, subsList, today),
+    yesterday: dayPulse(rows, installs, subsList, mxDay(1)),
+  };
+  // Descargas: 30 días contra los 30 anteriores.
+  const dlDays = downloadsDaily(installs, mxDay(29), today);
+  const dlNow = downloadsByPlatform(installs, mxDay(29), today);
+  const dlPrev = downloadsByPlatform(installs, mxDay(59), mxDay(30));
+  const dlTotal = dlNow.reduce((a, p) => a + p.total, 0);
+  const dlPrevTotal = dlPrev.reduce((a, p) => a + p.total, 0);
+  // Embudo por plataforma: 30 días para que alcancen a pagar.
+  const conv = platformConversion(newOwners(installs, mxDay(30), mxDay(1)));
+  const cutoffDays = Math.round(
+    (Date.parse(LEGACY_CUTOFF) - Date.parse(today)) / 86_400_000,
+  );
+
   const metric = (id: string) =>
     rc.ok ? rc.metrics.find((m) => m.id === id) : undefined;
   // Sin RevenueCat: los que hoy tienen plan según la app (aproximado).
@@ -130,14 +160,59 @@ export default async function Admin2({
           </nav>
         </header>
 
+        <nav className={s.jump}>
+          {[
+            ["hoy", "Hoy"],
+            ["meta", "Meta"],
+            ["descargas", "Descargas"],
+            ["cuello", "Cuello de botella"],
+            ["plataformas", "Plataformas"],
+            ["migracion", "Migración"],
+          ].map(([id, label]) => (
+            <a key={id} href={`#${id}`}>
+              {label}
+            </a>
+          ))}
+        </nav>
+
         {pingsRes.error ? (
           <div className={s.error}>
             No se pudo leer usage_pings: {pingsRes.error.message}
           </div>
         ) : null}
 
+        {/* 0. Hoy y ayer */}
+        <section className={s.pulse} id="hoy">
+          <PulseTile
+            label="Descargas"
+            tone="orange"
+            now={pulse.today.downloads}
+            before={pulse.yesterday.downloads}
+            hint={`+${pulse.today.reinstalled} reinstalaron`}
+          />
+          <PulseTile
+            label="Se suscribieron"
+            tone="amber"
+            now={pulse.today.subscribed}
+            before={pulse.yesterday.subscribed}
+            hint="según la app"
+          />
+          <PulseTile
+            label="Abrieron la app"
+            tone="blue"
+            now={pulse.today.opened}
+            before={pulse.yesterday.opened}
+          />
+          <PulseTile
+            label="Cobrando"
+            tone="green"
+            now={pulse.today.selling}
+            before={pulse.yesterday.selling}
+          />
+        </section>
+
         {/* 1. Meta y suscripciones */}
-        <section className={`${s.card} ${s.hero}`}>
+        <section className={`${s.card} ${s.hero}`} id="meta">
           <div className={s.goal}>
             <p className={s.eyebrow}>Meta</p>
             <Ring value={active} goal={GOAL} />
@@ -202,8 +277,55 @@ export default async function Admin2({
           </div>
         </section>
 
+        {/* 1b. Descargas */}
+        <section className={s.card} id="descargas">
+          <div className={s.cardHead}>
+            <div>
+              <p className={s.eyebrow}>Descargas · últimos 30 días</p>
+              <h2 className={s.h2}>
+                {dlTotal.toLocaleString("es-MX")}{" "}
+                <Delta now={dlTotal} before={dlPrevTotal} />
+              </h2>
+              <p className={s.note}>
+                Aparatos nuevos (dueños y meseros), sin cambios de aparato.
+                Comparado con los 30 días anteriores.
+              </p>
+            </div>
+            <Legend subs={false} />
+          </div>
+          <div className={s.platTiles}>
+            {dlNow.map((p, i) => {
+              const c = conv.find((x) => x.platform === p.platform)!;
+              return (
+                <div className={s.platTile} key={p.platform}>
+                  <div className={s.platHead}>
+                    <span
+                      className={s.dot}
+                      style={{ background: PLATFORM_COLOR[p.platform] }}
+                    />
+                    {PLATFORM_LABEL[p.platform]}
+                    <Delta now={p.total} before={dlPrev[i].total} />
+                  </div>
+                  <div className={s.platValue}>
+                    {p.total.toLocaleString("es-MX")}
+                  </div>
+                  <div className={s.platSub}>
+                    {pct(p.total, dlTotal)} del total · {p.owners} dueños ·{" "}
+                    {p.waiters} meseros
+                  </div>
+                  <div className={s.platPay}>
+                    <strong>{pct(c.paid, c.n)}</strong> de los negocios nuevos
+                    pagan
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <DailyBars days={dlDays} today={today} />
+        </section>
+
         {/* 2. Dónde se va la gente */}
-        <section className={s.card}>
+        <section className={s.card} id="cuello">
           <div className={s.cardHead}>
             <div>
               <p className={s.eyebrow}>Negocios nuevos</p>
@@ -277,6 +399,21 @@ export default async function Admin2({
           </div>
         </section>
 
+        {/* 2b. Por plataforma */}
+        <section className={s.card} id="plataformas">
+          <div className={s.cardHead}>
+            <div>
+              <p className={s.eyebrow}>Negocios nuevos · últimos 30 días</p>
+              <h2 className={s.h2}>¿Qué plataforma convierte mejor?</h2>
+              <p className={s.note}>
+                De cada 100 dueños nuevos, cuántos llegan a cada paso. Entre más
+                intenso el color, mejor.
+              </p>
+            </div>
+          </div>
+          <HeatTable rows={conv} />
+        </section>
+
         {/* 3. Semanas y versiones */}
         <div className={s.split}>
           <section className={s.card}>
@@ -306,7 +443,7 @@ export default async function Admin2({
         </div>
 
         {/* 4. Migración */}
-        <section className={s.card}>
+        <section className={s.card} id="migracion">
           <div className={s.cardHead}>
             <div>
               <p className={s.eyebrow}>Migración</p>
@@ -314,11 +451,113 @@ export default async function Admin2({
                 {health.mismatches === 0 &&
                 health.proVerifiedPct >= 90 &&
                 health.rcRemoves === 0
-                  ? "Todo en verde"
-                  : "Hay algo que revisar"}
+                  ? `Vamos en ${health.syncV2 === null ? "C4" : "C5"} · todo en verde`
+                  : `Vamos en ${health.syncV2 === null ? "C4" : "C5"} · hay algo que revisar`}
               </h2>
             </div>
           </div>
+          <Stepper
+            steps={[
+              {
+                id: "C1",
+                name: "Líneas canceladas no regresan",
+                state: "done",
+              },
+              {
+                id: "C2",
+                name: "Tabla de líneas en sombra",
+                state: "done",
+                sub: health.mismatches === 0 ? "0 diferencias" : undefined,
+              },
+              {
+                id: "C3",
+                name: "order-ops y order-changes",
+                state: "done",
+                sub: "en prod, sin usarse",
+              },
+              {
+                id: "C4",
+                name: `Interruptor + app ${C4_APP}`,
+                state: health.syncV2 === null ? "now" : "done",
+                sub: health.syncV2 === null ? "falta el servidor" : "listo",
+              },
+              {
+                id: "C5",
+                name: "Prender negocio por negocio",
+                state: health.syncV2 ? "now" : "next",
+                sub: `${health.ready.businesses} de ${health.proWithOrders} listos`,
+              },
+              {
+                id: "C6",
+                name: "Limpieza",
+                state: "next",
+                sub: "cuando <5% use versiones viejas",
+              },
+            ]}
+          />
+
+          <div className={s.readyGrid}>
+            <div className={s.readyCard}>
+              <p className={s.funnelTitle}>Listos para el sync nuevo (C5)</p>
+              <div className={s.readyBig}>
+                {health.ready.businesses}
+                <span> de {health.proWithOrders} negocios</span>
+              </div>
+              <p className={s.note} style={{ margin: "4px 0 12px" }}>
+                Todos sus aparatos activos (14 días) ya tienen {C4_APP} o más.
+              </p>
+              {PLATFORMS.map((p) => {
+                const r = health.ready.byPlatform[p] ?? { on: 0, total: 0 };
+                return (
+                  <div className={s.readyRow} key={p}>
+                    <span className={s.barName}>{PLATFORM_LABEL[p]}</span>
+                    <div className={s.readyTrack}>
+                      <div
+                        className={s.readyFill}
+                        style={{
+                          width: `${r.total ? (r.on / r.total) * 100 : 0}%`,
+                          background: PLATFORM_COLOR[p],
+                        }}
+                      />
+                    </div>
+                    <span className={s.barN}>
+                      {r.on}/{r.total}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            <div className={s.readyCard}>
+              <p className={s.funnelTitle}>Corte de pagos viejos</p>
+              <div className={s.readyBig}>
+                {cutoffDays > 0 ? cutoffDays : 0}
+                <span> {cutoffDays === 1 ? "día" : "días"} · 4 nov</span>
+              </div>
+              <p className={s.note} style={{ margin: "4px 0 12px" }}>
+                Regla: se mantiene si 90% o más de los Pro están verificados.
+              </p>
+              <div className={s.readyTrack} style={{ height: 12 }}>
+                <div
+                  className={s.readyFill}
+                  style={{
+                    width: `${Math.min(100, health.proVerifiedPct)}%`,
+                    background:
+                      health.proVerifiedPct >= 90
+                        ? "var(--green)"
+                        : "var(--amber)",
+                  }}
+                />
+                <div className={s.readyMark} style={{ left: "90%" }} />
+              </div>
+              <p className={s.platSub} style={{ marginTop: 8 }}>
+                {Math.round(health.proVerifiedPct)}% verificados ·{" "}
+                {health.proVerifiedPct >= 90
+                  ? "se mantiene el corte"
+                  : "habría que moverlo"}
+              </p>
+            </div>
+          </div>
+
           <div className={s.health}>
             <Check
               state={
@@ -455,6 +694,244 @@ function ago(day: string, today: string) {
   return d <= 0 ? "hoy" : d === 1 ? "ayer" : `hace ${d} días`;
 }
 
+const TONE: Record<string, string> = {
+  orange: "var(--orange-2)",
+  amber: "var(--amber)",
+  blue: "var(--ios)",
+  green: "var(--green)",
+};
+
+function PulseTile({
+  label,
+  tone,
+  now,
+  before,
+  hint,
+}: {
+  label: string;
+  tone: string;
+  now: Count;
+  before: Count;
+  hint?: string;
+}) {
+  return (
+    <div className={s.pulseTile} style={{ ["--tone" as string]: TONE[tone] }}>
+      <div className={s.pulseLabel}>
+        <span className={s.pulseDot} />
+        {label}
+        {hint ? <span className={s.pulseHint}>{hint}</span> : null}
+      </div>
+      <div className={s.pulseRow}>
+        <div>
+          <div className={s.pulseWhen}>Hoy</div>
+          <div className={s.pulseNow}>{now.total.toLocaleString("es-MX")}</div>
+        </div>
+        <div className={s.pulseBefore}>
+          <div className={s.pulseWhen}>Ayer</div>
+          <div className={s.pulseYesterday}>
+            {before.total.toLocaleString("es-MX")}
+          </div>
+        </div>
+      </div>
+      <PlatformSplit c={now} />
+    </div>
+  );
+}
+
+/// Barrita apilada por plataforma con los números abajo.
+function PlatformSplit({ c }: { c: Count }) {
+  return (
+    <div>
+      <div className={s.splitBar}>
+        {PLATFORMS.map((p) =>
+          c.byPlatform[p] ? (
+            <div
+              key={p}
+              style={{ flex: c.byPlatform[p], background: PLATFORM_COLOR[p] }}
+            />
+          ) : null,
+        )}
+      </div>
+      <div className={s.splitNums}>
+        {PLATFORMS.map((p) => (
+          <span key={p}>
+            <span className={s.dot} style={{ background: PLATFORM_COLOR[p] }} />
+            {c.byPlatform[p] ?? 0}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function Delta({ now, before }: { now: number; before: number }) {
+  if (!before) return null;
+  const d = Math.round(((now - before) / before) * 100);
+  return (
+    <span className={d >= 0 ? s.deltaUp : s.deltaDown}>
+      {d >= 0 ? "▲" : "▼"} {Math.abs(d)}%
+    </span>
+  );
+}
+
+function DailyBars({ days, today }: { days: DayRow[]; today: string }) {
+  const max = Math.max(1, ...days.map((d) => d.total));
+  const avg =
+    days.slice(0, -1).reduce((a, d) => a + d.total, 0) /
+    Math.max(1, days.length - 1);
+  return (
+    <div className={s.daysWrap}>
+      <div
+        className={s.avgLine}
+        style={{ bottom: `${22 + (avg / max) * 150}px` }}
+      >
+        <span>promedio {avg.toFixed(0)}/día</span>
+      </div>
+      <div className={s.days}>
+        {days.map((d) => {
+          const dow = new Date(`${d.day}T12:00:00Z`).getUTCDay();
+          return (
+            <div
+              className={s.day}
+              key={d.day}
+              title={`${shortDay(d.day)}: ${d.total} · ${PLATFORMS.map((p) => `${PLATFORM_LABEL[p]} ${d.byPlatform[p]}`).join(" · ")}`}
+            >
+              <span className={s.dayN}>{d.total || ""}</span>
+              <div
+                className={s.dayStack}
+                style={{
+                  height: `${(d.total / max) * 150}px`,
+                  opacity: d.day === today ? 0.55 : 1,
+                }}
+              >
+                {PLATFORMS.map((p) => (
+                  <div
+                    key={p}
+                    style={{
+                      flex: d.byPlatform[p],
+                      background: PLATFORM_COLOR[p],
+                    }}
+                  />
+                ))}
+              </div>
+              <span
+                className={
+                  dow === 0 || dow === 6 ? s.dayLabelWeekend : s.dayLabel
+                }
+              >
+                {d.day === today ? "hoy" : Number(d.day.slice(8))}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function HeatTable({
+  rows,
+}: {
+  rows: {
+    platform: string;
+    n: number;
+    menu: number;
+    sold: number;
+    limit: number;
+    paid: number;
+  }[];
+}) {
+  const cols = [
+    { key: "menu", label: "Hicieron menú" },
+    { key: "sold", label: "Vendieron" },
+    { key: "limit", label: `Llegaron a 10 ventas` },
+    { key: "paid", label: "Pagaron" },
+  ] as const;
+  // Cada columna se colorea contra su mejor plataforma.
+  const best = Object.fromEntries(
+    cols.map((c) => [
+      c.key,
+      Math.max(0.0001, ...rows.map((r) => (r.n ? r[c.key] / r.n : 0))),
+    ]),
+  );
+  return (
+    <div className={s.heat}>
+      <div className={s.heatHead}>
+        <span>Plataforma</span>
+        <span>Nuevos</span>
+        {cols.map((c) => (
+          <span key={c.key}>{c.label}</span>
+        ))}
+      </div>
+      {rows.map((r) => (
+        <div className={s.heatRow} key={r.platform}>
+          <span className={s.heatName}>
+            <span
+              className={s.dot}
+              style={{ background: PLATFORM_COLOR[r.platform] }}
+            />
+            {PLATFORM_LABEL[r.platform]}
+          </span>
+          <span className={s.heatN}>{r.n}</span>
+          {cols.map((c) => {
+            const share = r.n ? r[c.key] / r.n : 0;
+            const strength = share / best[c.key];
+            return (
+              <span
+                key={c.key}
+                className={s.heatCell}
+                style={{
+                  background: `rgba(241, 90, 41, ${0.08 + strength * 0.5})`,
+                  borderColor:
+                    strength === 1 ? "var(--orange-2)" : "transparent",
+                }}
+                title={`${r[c.key]} de ${r.n}`}
+              >
+                <strong>{pct(r[c.key], r.n)}</strong>
+                <small>{r[c.key]}</small>
+              </span>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function Stepper({
+  steps,
+}: {
+  steps: {
+    id: string;
+    name: string;
+    state: "done" | "now" | "next";
+    sub?: string;
+  }[];
+}) {
+  return (
+    <ol className={s.stepper}>
+      {steps.map((st) => (
+        <li
+          key={st.id}
+          className={
+            st.state === "done"
+              ? s.stDone
+              : st.state === "now"
+                ? s.stNow
+                : s.stNext
+          }
+        >
+          <span className={s.stDot}>{st.state === "done" ? "✓" : st.id}</span>
+          <span className={s.stName}>
+            <b>{st.id}</b> {st.name}
+          </span>
+          {st.sub ? <span className={s.stSub}>{st.sub}</span> : null}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
 function Pill({
   on,
   href,
@@ -571,7 +1048,7 @@ function Funnel({ steps }: { steps: Step[] }) {
   );
 }
 
-function Legend() {
+function Legend({ subs = true }: { subs?: boolean }) {
   return (
     <div className={s.legend}>
       {PLATFORMS.map((p) => (
@@ -580,10 +1057,12 @@ function Legend() {
           {PLATFORM_LABEL[p]}
         </span>
       ))}
-      <span>
-        <span className={s.dot} style={{ background: "var(--amber)" }} />
-        Suscripciones
-      </span>
+      {subs ? (
+        <span>
+          <span className={s.dot} style={{ background: "var(--amber)" }} />
+          Suscripciones
+        </span>
+      ) : null}
     </div>
   );
 }
@@ -734,6 +1213,7 @@ async function migrationHealth(supabase: ReturnType<typeof adminClient>) {
     pro_verified_at: string | null;
   }[];
   const verified = list.filter((b) => b.pro_verified_at).length;
+  const ready = await c5Readiness(supabase, ids);
   const unv = list.filter((b) => !b.pro_verified_at);
   const devs = unv.length
     ? await supabase
@@ -799,6 +1279,7 @@ async function migrationHealth(supabase: ReturnType<typeof adminClient>) {
     proVerified: verified,
     proVerifiedPct: list.length ? (verified / list.length) * 100 : 100,
     unverified,
+    ready,
     rcMatch: count("match"),
     rcBetter: count("rc_better"),
     rcErrors: count("rc_error"),
@@ -848,4 +1329,73 @@ function derivedTiles(
     );
   }
   return tiles;
+}
+
+/// Separa una lista larga para no armar URLs gigantes en los filtros `in`.
+function chunks<T>(list: T[], size = 150): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < list.length; i += size) out.push(list.slice(i, i + size));
+  return out;
+}
+
+/// Cuántos negocios Pro activos tienen TODOS sus aparatos (vistos en 14
+/// días) en la versión con el sync nuevo, y cuántos aparatos por plataforma.
+async function c5Readiness(
+  supabase: ReturnType<typeof adminClient>,
+  businessIds: string[],
+) {
+  const devices: { business_id: string; install_id: string | null }[] = [];
+  for (const part of chunks(businessIds)) {
+    const r = await supabase
+      .from("business_devices")
+      .select("business_id, install_id")
+      .in("business_id", part);
+    devices.push(...((r.data ?? []) as typeof devices));
+  }
+  const installIds = [
+    ...new Set(
+      devices.map((d) => d.install_id).filter((x): x is string => !!x),
+    ),
+  ];
+  const usage = new Map<
+    string,
+    { platform: string | null; app_version: string | null; ping_date: string }
+  >();
+  for (const part of chunks(installIds)) {
+    const r = await supabase
+      .from("latest_usage")
+      .select("install_id, platform, app_version, ping_date")
+      .in("install_id", part);
+    for (const u of (r.data ?? []) as {
+      install_id: string;
+      platform: string | null;
+      app_version: string | null;
+      ping_date: string;
+    }[]) {
+      usage.set(u.install_id, u);
+    }
+  }
+  const since = mxDay(14);
+  const byPlatform: Record<string, { on: number; total: number }> = {};
+  const counted = new Set<string>();
+  const perBiz = new Map<string, { active: number; on: number }>();
+  for (const d of devices) {
+    const u = d.install_id ? usage.get(d.install_id) : undefined;
+    if (!u || u.ping_date < since || !u.app_version) continue;
+    const on = cmpVersion(u.app_version, C4_APP) >= 0;
+    const b = perBiz.get(d.business_id) ?? { active: 0, on: 0 };
+    b.active++;
+    if (on) b.on++;
+    perBiz.set(d.business_id, b);
+    if (counted.has(d.install_id!)) continue;
+    counted.add(d.install_id!);
+    const p = u.platform ?? "?";
+    byPlatform[p] ??= { on: 0, total: 0 };
+    byPlatform[p].total++;
+    if (on) byPlatform[p].on++;
+  }
+  const businesses = [...perBiz.values()].filter(
+    (b) => b.active > 0 && b.on === b.active,
+  ).length;
+  return { businesses, byPlatform };
 }

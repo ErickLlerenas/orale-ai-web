@@ -21,12 +21,14 @@ export type PingRow = {
   menu_path: string | null;
   product_count: number | null;
   orders_total: number | null;
+  orders_today: number | null;
+  days_since_install: number | null;
   subscription_active: boolean | null;
   subscribed_at: string | null;
 };
 
 export const PING_COLUMNS =
-  "install_id, account_key, ping_date, platform, app_version, is_caja, inherited_access, onboarding_stage, menu_path, product_count, orders_total, subscription_active, subscribed_at";
+  "install_id, account_key, ping_date, platform, app_version, is_caja, inherited_access, onboarding_stage, menu_path, product_count, orders_total, orders_today, days_since_install, subscription_active, subscribed_at";
 
 /// Ventas gratis antes de pedir suscripción (subscription_provider.dart).
 export const FREE_ORDER_LIMIT = 10;
@@ -217,18 +219,9 @@ export function weekly(
     const w = byWeek.get(weekStart(i.firstDay));
     if (w && i.platform in w.installs) w.installs[i.platform]++;
   }
-  const firstSub = new Map<string, { day: string; platform: string }>();
-  for (const r of rows) {
-    if (!r.subscribed_at) continue;
-    const key = r.account_key ?? r.install_id;
-    const prev = firstSub.get(key);
-    if (!prev || r.subscribed_at < prev.day) {
-      firstSub.set(key, { day: r.subscribed_at, platform: r.platform ?? "" });
-    }
-  }
-  for (const s of firstSub.values()) {
+  for (const s of firstSubscriptions(rows)) {
     const w = byWeek.get(weekStart(s.day));
-    if (w && s.platform in w.subs) w.subs[s.platform]++;
+    if (w && s.platform && s.platform in w.subs) w.subs[s.platform]++;
   }
   return list.map((w) => byWeek.get(w)!);
 }
@@ -378,4 +371,162 @@ export function newestVersion(rows: PingRow[], since: string): string | null {
     if (!best || cmpVersion(r.app_version, best) > 0) best = r.app_version;
   }
   return best;
+}
+
+// ---------------------------------------------------------------- Descargas
+
+/// Días yyyy-mm-dd de [from] a [to] inclusive.
+export function dayRange(from: string, to: string): string[] {
+  const out: string[] = [];
+  const d = new Date(`${from}T12:00:00Z`);
+  while (d.toISOString().slice(0, 10) <= to) {
+    out.push(d.toISOString().slice(0, 10));
+    d.setUTCDate(d.getUTCDate() + 1);
+  }
+  return out;
+}
+
+export type DayRow = {
+  day: string;
+  byPlatform: Record<string, number>;
+  total: number;
+};
+
+/// Aparatos nuevos por día (primera señal), dueños y meseros, sin cambios de
+/// aparato. Es lo más cercano a "descargas" que tenemos.
+export function downloadsDaily(
+  installs: Install[],
+  from: string,
+  to: string,
+): DayRow[] {
+  const days = new Map(
+    dayRange(from, to).map((day) => [
+      day,
+      {
+        day,
+        byPlatform: Object.fromEntries(PLATFORMS.map((p) => [p, 0])),
+        total: 0,
+      } as DayRow,
+    ]),
+  );
+  for (const i of installs) {
+    if (i.inherited) continue;
+    const d = days.get(i.firstDay);
+    if (!d || !(i.platform in d.byPlatform)) continue;
+    d.byPlatform[i.platform]++;
+    d.total++;
+  }
+  return [...days.values()];
+}
+
+/// Descargas por plataforma en [from, to]: total, dueños y meseros.
+export function downloadsByPlatform(
+  installs: Install[],
+  from: string,
+  to: string,
+) {
+  return PLATFORMS.map((p) => {
+    const list = installs.filter(
+      (i) =>
+        !i.inherited &&
+        i.platform === p &&
+        i.firstDay >= from &&
+        i.firstDay <= to,
+    );
+    return {
+      platform: p as string,
+      total: list.length,
+      owners: list.filter((i) => i.owner).length,
+      waiters: list.filter((i) => !i.owner).length,
+    };
+  });
+}
+
+/// Mismo embudo de activación, una fila por plataforma.
+export function platformConversion(cohort: Install[]) {
+  return PLATFORMS.map((p) => {
+    const list = cohort.filter((i) => i.platform === p);
+    const c = (f: (i: Install) => boolean) => list.filter(f).length;
+    return {
+      platform: p as string,
+      n: list.length,
+      menu: c((i) => i.products > 0),
+      sold: c((i) => i.orders > 0),
+      limit: c((i) => i.orders >= FREE_ORDER_LIMIT),
+      paid: c((i) => i.subscribed),
+    };
+  });
+}
+
+// ---------------------------------------------------------------- Hoy / ayer
+
+const zeroByPlatform = () =>
+  Object.fromEntries(PLATFORMS.map((p) => [p, 0])) as Record<string, number>;
+
+export type Count = { total: number; byPlatform: Record<string, number> };
+
+function bump(c: Count, platform: string | null) {
+  c.total++;
+  if (platform && platform in c.byPlatform) c.byPlatform[platform]++;
+}
+
+/// Primera suscripción por cuenta de tienda (o aparato si no hay cuenta).
+export function firstSubscriptions(rows: PingRow[]) {
+  const first = new Map<string, { day: string; platform: string | null }>();
+  for (const r of rows) {
+    if (!r.subscribed_at) continue;
+    const key = r.account_key ?? r.install_id;
+    const prev = first.get(key);
+    if (!prev || r.subscribed_at < prev.day) {
+      first.set(key, { day: r.subscribed_at, platform: r.platform });
+    }
+  }
+  return [...first.values()];
+}
+
+/// Lo que pasó en un día: descargas, se suscribieron, abrieron y cobraron.
+export function dayPulse(
+  rows: PingRow[],
+  installs: Install[],
+  subs: { day: string; platform: string | null }[],
+  day: string,
+) {
+  const mk = (): Count => ({ total: 0, byPlatform: zeroByPlatform() });
+  const downloads = mk();
+  const subscribed = mk();
+  const opened = mk();
+  const selling = mk();
+  for (const i of installs) {
+    if (i.firstDay === day && !i.inherited) bump(downloads, i.platform);
+  }
+  for (const s of subs) if (s.day === day) bump(subscribed, s.platform);
+  const seen = new Set<string>();
+  const sold = new Set<string>();
+  const firstDay = new Map(installs.map((i) => [i.id, i.firstDay]));
+  // Reinstalaron: la app dice "instalada hoy" pero el aparato ya existía.
+  const reinstalled = new Set<string>();
+  for (const r of rows) {
+    if (r.ping_date !== day) continue;
+    if (!seen.has(r.install_id)) {
+      seen.add(r.install_id);
+      bump(opened, r.platform);
+    }
+    if (
+      r.days_since_install === 0 &&
+      (firstDay.get(r.install_id) ?? day) < day
+    ) {
+      reinstalled.add(r.install_id);
+    }
+    if ((r.orders_today ?? 0) > 0 && !sold.has(r.install_id)) {
+      sold.add(r.install_id);
+      bump(selling, r.platform);
+    }
+  }
+  return {
+    downloads,
+    subscribed,
+    opened,
+    selling,
+    reinstalled: reinstalled.size,
+  };
 }
