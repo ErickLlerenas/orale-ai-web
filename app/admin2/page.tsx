@@ -465,9 +465,7 @@ export default async function Admin2({
                 Tomamos a los {ret.total.n} clientes que pagaban del{" "}
                 {shortDay(mxDay(56))} al {shortDay(mxDay(43))} y vimos quién
                 sigue usando la app con su plan 6 semanas después. «Se fue» = ya
-                no la abre con plan (casi siempre termina cancelando). La raya
-                blanca es el promedio: a la izquierda les va mejor, a la derecha
-                peor.
+                no la abre con plan (casi siempre termina cancelando).
               </p>
             </div>
             <div className={s.retTotal}>
@@ -476,6 +474,20 @@ export default async function Admin2({
               </span>
               <span className={s.retTotalL}>se fue en 6 semanas</span>
             </div>
+          </div>
+          <div className={s.retLegend}>
+            <span>
+              <span className={s.retSwatchStay} /> Siguen pagando
+            </span>
+            <span>
+              <span className={s.retSwatchGone} /> Se fueron
+            </span>
+            <span className={s.retLegendNote}>
+              El número de la derecha es cuántos se fueron.{" "}
+              <b className={s.retGoodInline}>Verde:</b> les va mejor que el
+              promedio ({pct(ret.total.gone, ret.total.n)}).{" "}
+              <b className={s.retBadInline}>Rojo:</b> peor.
+            </span>
           </div>
           <div className={s.retGrid}>
             {ret.groups.map((g) => (
@@ -1129,6 +1141,9 @@ function Plans({ counts }: { counts: Record<string, number> }) {
 
 /// Una barra por grupo: verde lo que se queda, rojo lo que se va. La raya
 /// marca el promedio para ver de un vistazo quién está mejor o peor.
+/// Una barra por grupo: verde = siguen pagando, rojo = se fueron. A la
+/// derecha, cuántos se fueron, en rojo si es peor que el promedio y en verde
+/// si es mejor.
 function RetGroup({
   title,
   rows,
@@ -1143,24 +1158,31 @@ function RetGroup({
       <p className={s.funnelTitle}>{title}</p>
       {rows.map((r) => {
         const gone = r.n ? r.gone / r.n : 0;
+        const stay = 1 - gone;
         const tone =
-          gone <= avg * 0.6
+          gone <= avg * 0.75
             ? s.retGood
-            : gone >= avg * 1.3
+            : gone >= avg * 1.25
               ? s.retBad
               : s.retMid;
         return (
           <div className={s.retRow} key={r.label}>
             <div className={s.retLabel}>
               <span>{r.label}</span>
-              <small>{r.n}</small>
+              <small>{r.n} clientes</small>
             </div>
             <div className={s.retTrack}>
-              <div className={s.retStay} style={{ flex: r.n - r.gone }} />
-              <div className={s.retGone} style={{ flex: r.gone }} />
-              <div className={s.retAvg} style={{ right: `${avg * 100}%` }} />
+              <div className={s.retStay} style={{ flex: r.n - r.gone }}>
+                {stay >= 0.18 ? `${Math.round(stay * 100)}%` : ""}
+              </div>
+              <div className={s.retGone} style={{ flex: r.gone }}>
+                {gone >= 0.18 ? `${Math.round(gone * 100)}%` : ""}
+              </div>
             </div>
-            <span className={tone}>{pct(r.gone, r.n)}</span>
+            <span className={tone}>
+              {pct(r.gone, r.n)}
+              <small>se va</small>
+            </span>
           </div>
         );
       })}

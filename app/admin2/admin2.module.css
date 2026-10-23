@@ -1229,15 +1229,15 @@
 }
 .retRow {
   display: grid;
-  grid-template-columns: 140px 1fr 52px;
+  grid-template-columns: 150px 1fr 64px;
   gap: 10px;
   align-items: center;
   margin-top: 10px;
 }
 .retLabel {
   display: flex;
-  justify-content: space-between;
-  gap: 6px;
+  flex-direction: column;
+  gap: 1px;
   font-size: 13px;
   font-weight: 600;
 }
@@ -1249,17 +1249,31 @@
 .retTrack {
   position: relative;
   display: flex;
-  height: 12px;
+  height: 22px;
   border-radius: 999px;
   overflow: hidden;
   gap: 2px;
   background: rgba(255, 255, 255, 0.05);
 }
+.retStay,
+.retGone {
+  display: flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 800;
+  color: #06231a;
+  overflow: hidden;
+  white-space: nowrap;
+}
 .retStay {
-  background: rgba(52, 211, 153, 0.75);
+  background: rgba(52, 211, 153, 0.85);
+  padding-left: 8px;
 }
 .retGone {
-  background: rgba(248, 113, 113, 0.85);
+  background: rgba(248, 113, 113, 0.9);
+  color: #3a0b0b;
+  justify-content: flex-end;
+  padding-right: 8px;
 }
 .retAvg {
   position: absolute;
@@ -1272,10 +1286,20 @@
 .retGood,
 .retMid,
 .retBad {
-  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-size: 16px;
   font-weight: 800;
-  text-align: right;
+  line-height: 1.1;
   font-variant-numeric: tabular-nums;
+}
+.retGood small,
+.retMid small,
+.retBad small {
+  font-size: 10.5px;
+  font-weight: 600;
+  opacity: 0.8;
 }
 .retGood {
   color: var(--green);
@@ -1284,5 +1308,41 @@
   color: var(--soft);
 }
 .retBad {
+  color: var(--red);
+}
+
+.retLegend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 18px;
+  margin: -4px 0 14px;
+  font-size: 12.5px;
+  color: var(--soft);
+}
+.retLegend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.retSwatchStay,
+.retSwatchGone {
+  width: 14px;
+  height: 10px;
+  border-radius: 3px;
+}
+.retSwatchStay {
+  background: rgba(52, 211, 153, 0.85);
+}
+.retSwatchGone {
+  background: rgba(248, 113, 113, 0.9);
+}
+.retLegendNote {
+  color: var(--mute);
+}
+.retGoodInline {
+  color: var(--green);
+}
+.retBadInline {
   color: var(--red);
 }
