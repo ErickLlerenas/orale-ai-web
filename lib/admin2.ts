@@ -32,6 +32,26 @@ export type PingRow = {
 export const PING_COLUMNS =
   "install_id, account_key, ping_date, platform, app_version, is_caja, inherited_access, onboarding_stage, menu_path, product_count, orders_total, orders_today, days_since_install, plan, subscription_active, subscribed_at, updated_at";
 
+/// Algunas apps mandan el reporte a veces con la cuenta y a veces sin ella
+/// (account_key vacío). Sin esto, un mismo aparato contaba como dos clientes
+/// y el «sin cuenta» parecía que dejó de abrir la app. Si un aparato tuvo
+/// cuenta, todos sus reportes cuentan para la más reciente.
+export function fillAccountKeys(rows: PingRow[]): PingRow[] {
+  const latest = new Map<string, { day: string; key: string }>();
+  for (const r of rows) {
+    if (!r.account_key) continue;
+    const prev = latest.get(r.install_id);
+    if (!prev || r.ping_date >= prev.day) {
+      latest.set(r.install_id, { day: r.ping_date, key: r.account_key });
+    }
+  }
+  return rows.map((r) =>
+    r.account_key
+      ? r
+      : { ...r, account_key: latest.get(r.install_id)?.key ?? null },
+  );
+}
+
 /// Ventas gratis antes de pedir suscripción (subscription_provider.dart).
 export const FREE_ORDER_LIMIT = 10;
 

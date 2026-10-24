@@ -10,6 +10,7 @@ import {
   downloadsByPlatform,
   dayRange,
   downloadsDaily,
+  fillAccountKeys,
   firstSubscriptions,
   cmpVersion,
   newestVersion,
@@ -84,7 +85,7 @@ export default async function Admin2() {
     revenueCatOverview(),
     migrationHealth(supabase),
   ]);
-  const rows = pingsRes.data;
+  const rows = fillAccountKeys(pingsRes.data);
   const installs = toInstalls(rows);
   // El camino de un negocio nuevo: dueños que llegaron en los últimos 30
   // días (sin hoy), todas las plataformas, apps que reportan la bienvenida.
@@ -170,7 +171,12 @@ export default async function Admin2() {
   const ret = retention(rows, mxDay(56), mxDay(43), mxDay(9));
   const lost = recentLost(rows, today);
   const churn = await churnDetails(supabase, lost);
-  const risk = atRisk(rows, today);
+  const risk = await withoutActiveBusinesses(
+    supabase,
+    atRisk(rows, today),
+    rows,
+    mxDay(1),
+  );
   const riskNames = await businessNames(supabase, risk);
   // Usuarios de los últimos 14 días (uno por aparato y día), con el nombre
   // del negocio cuando lo tenemos (Pro).
@@ -521,116 +527,6 @@ export default async function Admin2() {
         {/* 2c. Usuarios (y en riesgo) */}
         <Users days={userDays} today={today} rows={userRows} risk={riskUsers} />
 
-        {/* 2d. Bajas */}
-        <section className={s.card} id="bajas">
-          <div className={s.cardHead}>
-            <div>
-              <p className={s.eyebrow}>Bajas</p>
-              <h2 className={s.h2}>¿Quién se fue?</h2>
-            </div>
-          </div>
-
-          <p className={s.funnelTitle}>Avisos de RevenueCat · motivo exacto</p>
-          {churn.events === null ? (
-            <p className={s.note}>
-              Se conecta hoy en la noche. Desde ahí, cada cancelación, cobro
-              fallido o reembolso sale aquí con su motivo.
-            </p>
-          ) : churn.events.length === 0 ? (
-            <p className={s.note}>
-              Todavía no llega ninguna baja desde que se conectó.
-            </p>
-          ) : (
-            <div className={s.bizList}>
-              {churn.events.map((e) => (
-                <div className={s.biz} key={e.id}>
-                  <div className={s.bizIcon} aria-hidden>
-                    {e.businessName ? "🍽️" : storeIcon(e.store)}
-                  </div>
-                  <div className={s.bizBody}>
-                    <div className={s.bizName}>
-                      {e.businessName ?? `${storeLabel(e.store)} · ${e.who}`}
-                    </div>
-                    <div className={s.bizMeta}>
-                      {productLabel(e.product)}
-                      {e.expiresAt
-                        ? ` · acceso hasta el ${shortDay(e.expiresAt.slice(0, 10))}`
-                        : ""}
-                    </div>
-                  </div>
-                  <div className={s.bizRight}>
-                    <span className={e.tone === "bad" ? s.verBad : s.verOld}>
-                      {e.what}
-                    </span>
-                    <span className={s.bizSeen}>{e.when}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <p className={s.funnelTitle} style={{ marginTop: 22 }}>
-            Lo que contestan en la app al cancelar · últimos 30 días
-          </p>
-          {churn.answers === null ? (
-            <p className={s.note}>
-              Llega con la siguiente versión de la app: a quien cancela y la
-              sigue abriendo le preguntamos «¿Por qué te vas?».
-            </p>
-          ) : churn.answers.length === 0 ? (
-            <p className={s.note}>Todavía nadie ha contestado.</p>
-          ) : (
-            <>
-              <p className={s.note} style={{ marginTop: -4, marginBottom: 10 }}>
-                {Object.keys(CANCEL_REASON)
-                  .map((k) => {
-                    const n = churn.answers!.filter(
-                      (a) => a.reason === k,
-                    ).length;
-                    return n ? `${CANCEL_REASON[k]}: ${n}` : null;
-                  })
-                  .filter(Boolean)
-                  .join(" · ")}
-                {" · "}
-                Aceptaron el precio más bajo:{" "}
-                {churn.answers.filter((a) => a.offerAccepted).length} de{" "}
-                {churn.answers.filter((a) => a.offerShown).length}
-              </p>
-              <div className={s.bizList}>
-                {churn.answers.slice(0, 30).map((a) => (
-                  <div className={s.biz} key={a.id}>
-                    <div className={s.bizIcon} aria-hidden>
-                      {a.businessName ? "🍽️" : "👤"}
-                    </div>
-                    <div className={s.bizBody}>
-                      <div className={s.bizName}>
-                        {CANCEL_REASON[a.reason] ?? a.reason}
-                        {a.businessName ? ` · ${a.businessName}` : ""}
-                      </div>
-                      <div className={s.bizMeta}>
-                        {productLabel(a.product)}
-                        {a.detail ? ` · «${a.detail}»` : ""}
-                      </div>
-                    </div>
-                    <div className={s.bizRight}>
-                      {a.offerShown && (
-                        <span className={a.offerAccepted ? s.ver : s.verMid}>
-                          {a.offerAccepted
-                            ? "Se quedó con el precio bajo"
-                            : "No aceptó el precio bajo"}
-                        </span>
-                      )}
-                      <span className={s.bizSeen}>
-                        {ago(a.at.slice(0, 10), today)}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-
-        </section>
 
         {/* 4. Migración */}
         <details className={s.moreBig}>
@@ -1472,6 +1368,58 @@ function churnWhat(
 
 /// Nombre del negocio para los Pro: aparato de la caja → negocio. Los Básicos
 /// no lo mandan, así que no salen aquí.
+/// Quita de «en riesgo» a quien sí sigue usando la app con otro aparato o
+/// cuenta del mismo negocio (cambió de celular, otra caja, etc.): si cualquier
+/// aparato del negocio abrió la app desde [since], no está en riesgo.
+async function withoutActiveBusinesses(
+  supabase: ReturnType<typeof adminClient>,
+  risk: RiskAccount[],
+  rows: PingRow[],
+  since: string,
+) {
+  const ids = [...new Set(risk.flatMap((r) => r.installIds))];
+  if (!ids.length) return risk;
+  const bizOf = new Map<string, string>();
+  for (const part of chunks(ids)) {
+    const r = await supabase
+      .from("business_devices")
+      .select("install_id, business_id")
+      .in("install_id", part);
+    for (const d of (r.data ?? []) as {
+      install_id: string;
+      business_id: string;
+    }[]) {
+      bizOf.set(d.install_id, d.business_id);
+    }
+  }
+  const bizIds = [...new Set(bizOf.values())];
+  if (!bizIds.length) return risk;
+  const devices = new Map<string, string[]>();
+  for (const part of chunks(bizIds)) {
+    const r = await supabase
+      .from("business_devices")
+      .select("install_id, business_id")
+      .in("business_id", part);
+    for (const d of (r.data ?? []) as {
+      install_id: string;
+      business_id: string;
+    }[]) {
+      devices.set(d.business_id, [
+        ...(devices.get(d.business_id) ?? []),
+        d.install_id,
+      ]);
+    }
+  }
+  const recent = new Set(
+    rows.filter((r) => r.ping_date >= since).map((r) => r.install_id),
+  );
+  return risk.filter((r) => {
+    const biz = r.installIds.map((i) => bizOf.get(i)).find(Boolean);
+    if (!biz) return true;
+    return !(devices.get(biz) ?? []).some((i) => recent.has(i));
+  });
+}
+
 async function businessNames(
   supabase: ReturnType<typeof adminClient>,
   accounts: { key: string; installIds: string[] }[],
