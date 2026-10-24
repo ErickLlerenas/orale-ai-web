@@ -2310,21 +2310,6 @@ function Journey({
         A la derecha, qué parte del paso anterior siguió. (Solo cuentan las
         versiones que reportan la bienvenida, desde la 3.0.93.)
       </p>
-      {drops.length ? (
-        <div className={s.callout}>
-          <div className={s.calloutBig}>
-            {Math.round(drops[0].ofArrived * 100)}%
-          </div>
-          <div className={s.calloutText}>
-            El hueco más grande: «{steps[drops[0].i].label.toLowerCase()}»
-            <span>
-              De los que llegaron a «{steps[drops[0].i - 1].label.toLowerCase()}
-              », {Math.round(drops[0].ofArrived * 100)}% no pasó de ahí. Ya
-              habían invertido tiempo en la app: aquí sí vale la pena mejorar.
-            </span>
-          </div>
-        </div>
-      ) : null}
       <div className={s.funnel}>
         {now.map((st, i) => row(st, i))}
         <p className={s.fDivider}>
