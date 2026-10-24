@@ -14,6 +14,7 @@ import {
   cmpVersion,
   newestVersion,
   avgWeeklySubs,
+  menuPaths,
   mxDay,
   newOwners,
   pct,
@@ -88,9 +89,17 @@ export default async function Admin2() {
   // días (sin hoy), todas las plataformas, apps que reportan la bienvenida.
   const journeyFrom = mxDay(30);
   const journeyTo = mxDay(1);
-  const journey = journeySteps(
-    newOwners(installs, journeyFrom, journeyTo).filter((i) => i.stage != null),
+  const journeyCohort = newOwners(installs, journeyFrom, journeyTo).filter(
+    (i) => i.stage != null,
   );
+  const journey = journeySteps(journeyCohort);
+  // La bienvenida se reporta desde la 3.0.93: el periodo real empieza con el
+  // primer negocio que la reportó, no hace 30 días.
+  const journeyStart = journeyCohort.reduce(
+    (m, i) => (i.firstDay < m ? i.firstDay : m),
+    journeyTo,
+  );
+  const journeyPaths = menuPaths(journeyCohort);
   const weeks = weekly(installs, rows, 8, today);
   const vers = versions(rows, mxDay(7));
   const newest = newestVersion(rows, mxDay(7));
@@ -400,7 +409,12 @@ export default async function Admin2() {
         </section>
 
         {/* 2. Dónde se va la gente */}
-        <Journey steps={journey} from={journeyFrom} to={journeyTo} />
+        <Journey
+          steps={journey}
+          paths={journeyPaths}
+          from={journeyStart}
+          to={journeyTo}
+        />
 
         {/* 2c. Quién se queda */}
         <section className={s.card} id="retencion">
@@ -989,7 +1003,14 @@ function NewSubs({
   };
   return (
     <section className={`${s.card} ${s.subsCard}`}>
-      <p className={s.eyebrow}>Nuevos suscriptores</p>
+      <p className={s.eyebrow}>
+        Nuevos suscriptores ·{" "}
+        {days.every((d) => d.store)
+          ? "según la tienda"
+          : days.some((d) => d.store)
+            ? "hoy según la tienda, ayer según la app"
+            : "según la app"}
+      </p>
       <div className={s.subsCols}>
         {days.map((d) => {
           const counts = new Map<string, number>();
@@ -1016,9 +1037,6 @@ function NewSubs({
                       {counts.get("?")} sin dato
                     </span>
                   ) : null}
-                </span>
-                <span className={s.subsSource}>
-                  {d.store ? "según la tienda" : "según la app"}
                 </span>
               </div>
               {d.list.length === 0 ? (
@@ -1102,7 +1120,10 @@ function DailyBars({ days, today }: { days: DayRow[]; today: string }) {
       >
         <span>promedio {avg.toFixed(0)}/día</span>
       </div>
-      <div className={s.days}>
+      <div
+        className={s.days}
+        style={{ gridTemplateColumns: `repeat(${days.length}, 1fr)` }}
+      >
         {days.map((d) => {
           const dow = new Date(`${d.day}T12:00:00Z`).getUTCDay();
           return (
@@ -1340,8 +1361,7 @@ function RetInsights({
         {Math.round(r.rate * 100)}%
       </span>
       <span>
-        <b>{r.label}</b>{" "}
-        <span className={s.insightGroup}>· {r.group.replace(/[¿?]/g, "")}</span>
+        <b>{insightText(r.group, r.label)}</b>
         <br />
         <span className={s.insightGroup}>
           se fueron {r.gone} de {r.n}
@@ -1365,6 +1385,19 @@ function RetInsights({
       ) : null}
     </div>
   );
+}
+
+/// «¿Cuántos días abren la app?» + «Menos de 5» → una frase que se lee sola.
+function insightText(group: string, label: string) {
+  const l = label.charAt(0).toLowerCase() + label.slice(1);
+  if (group.includes("días"))
+    return `Abren la app ${l}${l.includes("días") ? "" : " días"} (de 14)`;
+  if (group.includes("venden"))
+    return `Venden ${l}${l.includes("ventas") ? "" : " ventas"} en 2 semanas`;
+  if (group.includes("productos")) return `Menú con ${l} productos`;
+  if (group.includes("plan")) return `Plan ${label}`;
+  if (group.includes("Dónde")) return `Usan ${label}`;
+  return label;
 }
 
 /// Bajas por plan contra cuántos tienen ese plan hoy: qué plan sangra más.
@@ -2147,78 +2180,165 @@ async function migrationHealth(supabase: ReturnType<typeof adminClient>) {
 }
 
 /// «2026-10-15» → «15 oct».
-type JourneyStep = { label: string; n: number; hint?: string };
+type JourneyStep = {
+  label: string;
+  n: number;
+  hint?: string;
+  /** Necesita días: los que llegaron hace poco todavía no alcanzan. */
+  later?: boolean;
+};
 
-/// El camino de un dueño nuevo, de abrir la app a pagar.
+/// El camino de un dueño nuevo: la bienvenida pantalla por pantalla, el
+/// menú, la primera venta y, aparte, lo que necesita tiempo.
 function journeySteps(list: Install[]): JourneyStep[] {
   const c = (f: (i: Install) => boolean) => list.filter(f).length;
   return [
     { label: "Abrieron la app", n: list.length },
-    { label: "Terminaron la bienvenida", n: c((i) => (i.stage ?? 0) >= 7) },
-    { label: "Tienen menú", n: c((i) => i.products > 0) },
-    { label: "Hicieron su primera venta", n: c((i) => i.orders > 0) },
     {
-      label: `Llegaron a ${FREE_ORDER_LIMIT} ventas`,
+      label: "Pusieron el nombre del negocio",
+      n: c((i) => (i.stage ?? 0) >= 2),
+      hint: "pantalla 1",
+    },
+    {
+      label: "Crearon su PIN",
+      n: c((i) => (i.stage ?? 0) >= 6),
+      hint: "pantallas 2 a 5",
+    },
+    {
+      label: "Terminaron la bienvenida",
+      n: c((i) => (i.stage ?? 0) >= 7),
+    },
+    {
+      label: "Tienen menú",
+      n: c((i) => i.products > 0),
+      hint: "IA, a mano o ejemplo",
+    },
+    { label: "Primera venta", n: c((i) => i.orders > 0) },
+    {
+      label: `${FREE_ORDER_LIMIT} ventas`,
       n: c((i) => i.orders >= FREE_ORDER_LIMIT),
       hint: "aquí se les pide pagar",
+      later: true,
     },
-    { label: "Se suscribieron", n: c((i) => i.subscribed) },
+    { label: "Se suscribieron", n: c((i) => i.subscribed), later: true },
   ];
 }
 
 /// ¿Dónde se va la gente? De cada 100 que abren la app, cuántos llegan a
-/// cada paso. El paso donde más se pierde va en rojo.
+/// cada paso. En rojo, el paso donde se pierde más gente (de los que no
+/// necesitan tiempo). Abajo, cómo hicieron su menú y cuántos vendieron.
 function Journey({
   steps,
+  paths,
   from,
   to,
 }: {
   steps: JourneyStep[];
+  paths: ReturnType<typeof menuPaths>;
   from: string;
   to: string;
 }) {
   const top = Math.max(1, steps[0]?.n ?? 1);
-  let worst = -1;
-  let worstLost = 0;
-  for (let i = 1; i < steps.length; i++) {
-    const prev = steps[i - 1].n;
-    if (prev < 10) continue;
-    const lost = (prev - steps[i].n) / prev;
-    if (lost > worstLost) {
-      worstLost = lost;
-      worst = i;
-    }
-  }
+  const per100 = (n: number) => Math.round((n / top) * 100);
+  // Los dos pasos donde se pierde más gente (de cada 100), sin contar lo
+  // que necesita días.
+  const drops = steps
+    .map((st, i) => ({
+      i,
+      lost: i > 0 && !st.later ? per100(steps[i - 1].n) - per100(st.n) : 0,
+      ofArrived:
+        i > 0 && steps[i - 1].n ? 1 - st.n / steps[i - 1].n : 0,
+    }))
+    // El primer paso no cuenta: quien se va sin poner ni el nombre del
+    // negocio casi siempre solo estaba viendo (curiosos), no se atoró.
+    .filter((d) => d.lost > 0 && d.i >= 2)
+    .sort((a, b) => b.lost - a.lost)
+    .slice(0, 1);
+  const worstSet = new Set(drops.map((d) => d.i));
+  const tile = (st: JourneyStep, i: number) => {
+    const bad = worstSet.has(i);
+    const lost = i > 0 ? per100(steps[i - 1].n) - per100(st.n) : 0;
+    const ofArrived =
+      i > 0 && steps[i - 1].n ? 1 - st.n / steps[i - 1].n : 0;
+    return (
+      <div key={st.label} className={bad ? s.jStepBad : s.jStep}>
+        <div className={s.jBig}>{per100(st.n)}</div>
+        <div className={s.jLabel}>{st.label}</div>
+        <div className={s.jCount}>
+          {st.n.toLocaleString("es-MX")} negocios
+          {st.hint ? ` · ${st.hint}` : ""}
+        </div>
+        {i === 1 ? (
+          <div className={s.jLost}>
+            −{lost} se fueron sin empezar (curiosos)
+          </div>
+        ) : i > 1 && !st.later ? (
+          <div className={bad ? s.jLostBad : s.jLost}>
+            −{lost} aquí · {Math.round(ofArrived * 100)}% de los que llegaron
+          </div>
+        ) : null}
+      </div>
+    );
+  };
+  const now = steps.filter((st) => !st.later);
+  const later = steps.filter((st) => st.later);
+  const shownPaths = paths.filter(
+    (p) => p.label !== "Sin dato (no llegaron)" && p.n > 0,
+  );
   return (
     <section className={s.card} id="cuello">
       <p className={s.eyebrow}>Negocios nuevos</p>
       <h2 className={s.h2}>¿Dónde se va la gente?</h2>
       <p className={s.note}>
-        De cada 100 dueños que abrieron la app por primera vez (del{" "}
-        {shortDay(from)} al {shortDay(to)}), cuántos llegan a cada paso.
+        De cada 100 dueños nuevos, cuántos llegan a cada paso. Son{" "}
+        {steps[0]?.n ?? 0} negocios que abrieron la app del {shortDay(from)} al{" "}
+        {shortDay(to)} (solo cuentan las versiones que reportan la
+        bienvenida, desde la 3.0.93).
       </p>
-      <div className={s.journey}>
-        {steps.map((st, i) => {
-          const of100 = Math.round((st.n / top) * 100);
-          const bad = i === worst;
-          return (
-            <div key={st.label} className={bad ? s.jStepBad : s.jStep}>
-              <div className={s.jBig}>{of100}</div>
-              <div className={s.jLabel}>{st.label}</div>
-              <div className={s.jCount}>
-                {st.n.toLocaleString("es-MX")} negocios
-                {st.hint ? ` · ${st.hint}` : ""}
-              </div>
-              {bad ? (
-                <div className={s.jWhy}>
-                  Aquí se pierde más: {Math.round(worstLost * 100)}% no pasa
-                  de «{steps[i - 1].label.toLowerCase()}»
-                </div>
-              ) : null}
-            </div>
-          );
-        })}
+      {drops.length ? (
+        <div className={s.callout}>
+          <div className={s.calloutBig}>
+            {Math.round(drops[0].ofArrived * 100)}%
+          </div>
+          <div className={s.calloutText}>
+            El hueco más grande: «{steps[drops[0].i].label.toLowerCase()}»
+            <span>
+              De los que llegaron a «{steps[drops[0].i - 1].label.toLowerCase()}
+              », {Math.round(drops[0].ofArrived * 100)}% no pasó de ahí. Ya
+              habían invertido tiempo en la app: aquí sí vale la pena mejorar.
+            </span>
+          </div>
+        </div>
+      ) : null}
+      <div className={s.journey}>{now.map((st, i) => tile(st, i))}</div>
+      <p className={s.funnelTitle} style={{ marginTop: 14 }}>
+        Necesitan unos días (los que llegaron hace poco todavía no alcanzan)
+      </p>
+      <div className={s.journeyLater}>
+        {later.map((st) => tile(st, steps.indexOf(st)))}
       </div>
+      {shownPaths.length ? (
+        <>
+          <p className={s.funnelTitle} style={{ marginTop: 14 }}>
+            ¿Cómo hicieron su menú? · de los que terminaron la bienvenida
+          </p>
+          <div className={s.paths}>
+            {shownPaths.map((p) => (
+              <div className={s.path} key={p.label}>
+                <div className={s.pathTop}>
+                  <span>{p.label}</span>
+                  <span className={s.pathN}>{p.n}</span>
+                </div>
+                <div className={s.pathBig}>{pct(p.sold, p.n)}</div>
+                <div className={s.pathSub}>
+                  ya vendieron · {pct(p.withMenu, p.n)} tiene menú ·{" "}
+                  {pct(p.subscribed, p.n)} ya paga
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      ) : null}
     </section>
   );
 }
