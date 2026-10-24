@@ -1730,3 +1730,47 @@
   text-align: left;
   padding-left: 0;
 }
+
+/* ---- ¿Quién se queda? (filas simples) ---- */
+.rRow {
+  display: grid;
+  grid-template-columns: 130px 1fr 64px;
+  align-items: center;
+  gap: 12px;
+  padding: 7px 0;
+  border-top: 1px solid var(--line);
+}
+.rLabel {
+  display: flex;
+  flex-direction: column;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.rLabel small {
+  font-weight: 400;
+  color: var(--mute);
+  font-size: 11px;
+}
+.rTrack {
+  height: 12px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+.rFill {
+  height: 100%;
+  border-radius: 6px;
+}
+.rPct {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1.1;
+}
+.rPct small {
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--mute);
+}

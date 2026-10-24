@@ -423,50 +423,30 @@ export default async function Admin2() {
               <p className={s.eyebrow}>Retención</p>
               <h2 className={s.h2}>¿Quién se queda?</h2>
               <p className={s.note}>
-                Tomamos a los {ret.total.n} clientes que pagaban del{" "}
-                {shortDay(mxDay(56))} al {shortDay(mxDay(43))} y vimos quién
-                sigue usando la app con su plan 6 semanas después. «Se fue» = ya
-                no la abre con plan (casi siempre termina cancelando).
+                De los {ret.total.n} clientes que pagaban hace 2 meses, ¿cuántos
+                ya dejaron de usar la app con su plan? Entre más rojo, más se
+                van.
               </p>
             </div>
             <div className={s.retTotal}>
               <span className={s.retTotalN}>
                 {pct(ret.total.gone, ret.total.n)}
               </span>
-              <span className={s.retTotalL}>se fue en 6 semanas</span>
+              <span className={s.retTotalL}>se fue (promedio)</span>
             </div>
           </div>
-          <RetInsights
-            groups={ret.groups}
-            avg={ret.total.gone / Math.max(1, ret.total.n)}
-          />
-          <details className={s.more}>
-            <summary>Ver todos los grupos</summary>
-          <div className={s.retLegend}>
-            <span>
-              <span className={s.retSwatchStay} /> Siguen pagando
-            </span>
-            <span>
-              <span className={s.retSwatchGone} /> Se fueron
-            </span>
-            <span className={s.retLegendNote}>
-              El número de la derecha es cuántos se fueron.{" "}
-              <b className={s.retGoodInline}>Verde:</b> les va mejor que el
-              promedio ({pct(ret.total.gone, ret.total.n)}).{" "}
-              <b className={s.retBadInline}>Rojo:</b> peor.
-            </span>
-          </div>
           <div className={s.retGrid}>
-            {ret.groups.map((g) => (
-              <RetGroup
-                key={g.title}
-                title={g.title}
-                rows={g.rows}
-                avg={ret.total.gone / Math.max(1, ret.total.n)}
-              />
-            ))}
+            {/* El plan primero: es el que más dice (p. ej. Pro mensual). */}
+            {[...ret.groups]
+              .sort(
+                (a, b) =>
+                  Number(b.title.includes("plan")) -
+                  Number(a.title.includes("plan")),
+              )
+              .map((g) => (
+                <RetGroup key={g.title} title={g.title} rows={g.rows} />
+              ))}
           </div>
-          </details>
         </section>
 
         {/* 2c. En riesgo */}
@@ -1332,74 +1312,6 @@ function ShowMore({ first, items }: { first: number; items: JSX.Element[] }) {
   );
 }
 
-/// Lo que más se sale del promedio en «¿Quién se queda?», en una frase cada
-/// uno: así se ve de un vistazo dónde está el hueco (p. ej. Pro mensual).
-function RetInsights({
-  groups,
-  avg,
-}: {
-  groups: { title: string; rows: RetRow[] }[];
-  avg: number;
-}) {
-  const all = groups.flatMap((g) =>
-    g.rows
-      .filter((r) => r.n >= 15)
-      .map((r) => ({ group: g.title, ...r, rate: r.gone / r.n })),
-  );
-  const bad = all
-    .filter((r) => r.rate - avg >= 0.1)
-    .sort((a, b) => b.rate - a.rate)
-    .slice(0, 4);
-  const good = all
-    .filter((r) => avg - r.rate >= 0.15)
-    .sort((a, b) => a.rate - b.rate)
-    .slice(0, 4);
-  if (!bad.length && !good.length) return null;
-  const line = (r: (typeof all)[number], tone: "bad" | "good") => (
-    <div key={`${r.group}-${r.label}`} className={s.insight}>
-      <span className={tone === "bad" ? s.insightBad : s.insightGood}>
-        {Math.round(r.rate * 100)}%
-      </span>
-      <span>
-        <b>{insightText(r.group, r.label)}</b>
-        <br />
-        <span className={s.insightGroup}>
-          se fueron {r.gone} de {r.n}
-        </span>
-      </span>
-    </div>
-  );
-  return (
-    <div className={s.insights}>
-      {bad.length ? (
-        <div>
-          <p className={s.funnelTitle}>Se van más que el promedio</p>
-          {bad.map((r) => line(r, "bad"))}
-        </div>
-      ) : null}
-      {good.length ? (
-        <div>
-          <p className={s.funnelTitle}>Se quedan más</p>
-          {good.map((r) => line(r, "good"))}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-/// «¿Cuántos días abren la app?» + «Menos de 5» → una frase que se lee sola.
-function insightText(group: string, label: string) {
-  const l = label.charAt(0).toLowerCase() + label.slice(1);
-  if (group.includes("días"))
-    return `Abren la app ${l}${l.includes("días") ? "" : " días"} (de 14)`;
-  if (group.includes("venden"))
-    return `Venden ${l}${l.includes("ventas") ? "" : " ventas"} en 2 semanas`;
-  if (group.includes("productos")) return `Menú con ${l} productos`;
-  if (group.includes("plan")) return `Plan ${label}`;
-  if (group.includes("Dónde")) return `Usan ${label}`;
-  return label;
-}
-
 /// Bajas por plan contra cuántos tienen ese plan hoy: qué plan sangra más.
 function LostByPlan({
   lost,
@@ -1432,50 +1344,31 @@ function LostByPlan({
   );
 }
 
-/// Una barra por grupo: verde lo que se queda, rojo lo que se va. La raya
-/// marca el promedio para ver de un vistazo quién está mejor o peor.
-/// Una barra por grupo: verde = siguen pagando, rojo = se fueron. A la
-/// derecha, cuántos se fueron, en rojo si es peor que el promedio y en verde
-/// si es mejor.
-function RetGroup({
-  title,
-  rows,
-  avg,
-}: {
-  title: string;
-  rows: RetRow[];
-  avg: number;
-}) {
+/// Un grupo de «¿Quién se queda?»: por cada fila, qué parte se fue. La
+/// barra se llena con lo que se fue y se pone más roja entre más alto.
+function RetGroup({ title, rows }: { title: string; rows: RetRow[] }) {
   return (
     <div className={s.retCard}>
       <p className={s.funnelTitle}>{title}</p>
       {rows.map((r) => {
         const gone = r.n ? r.gone / r.n : 0;
-        const stay = 1 - gone;
-        const tone =
-          gone <= avg * 0.75
-            ? s.retGood
-            : gone >= avg * 1.25
-              ? s.retBad
-              : s.retMid;
+        const color = `color-mix(in srgb, #dc2626 ${Math.min(100, Math.round(gone * 140))}%, #fdba74)`;
         return (
-          <div className={s.retRow} key={r.label}>
-            <div className={s.retLabel}>
+          <div className={s.rRow} key={r.label}>
+            <div className={s.rLabel}>
               <span>{r.label}</span>
               <small>{r.n} clientes</small>
             </div>
-            <div className={s.retTrack}>
-              <div className={s.retStay} style={{ flex: r.n - r.gone }}>
-                {stay >= 0.18 ? `${Math.round(stay * 100)}%` : ""}
-              </div>
-              <div className={s.retGone} style={{ flex: r.gone }}>
-                {gone >= 0.18 ? `${Math.round(gone * 100)}%` : ""}
-              </div>
+            <div className={s.rTrack}>
+              <div
+                className={s.rFill}
+                style={{ width: `${Math.max(2, gone * 100)}%`, background: color }}
+              />
             </div>
-            <span className={tone}>
+            <div className={s.rPct} style={{ color }}>
               {pct(r.gone, r.n)}
-              <small>se va</small>
-            </span>
+              <small>se fue</small>
+            </div>
           </div>
         );
       })}

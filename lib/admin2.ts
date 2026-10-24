@@ -709,11 +709,11 @@ export function retention(
   }
 
   const groups: { title: string; rows: RetRow[] }[] = [
-    { title: "¿Cuántos días abren la app? (de 14)", rows: [] },
-    { title: "¿Cuánto venden en 2 semanas?", rows: [] },
-    { title: "¿Qué plan tienen?", rows: [] },
-    { title: "¿Cuántos productos tiene su menú?", rows: [] },
-    { title: "¿Dónde la usan?", rows: [] },
+    { title: "Cuántos días abren la app (de cada 14)", rows: [] },
+    { title: "Cuánto venden en 2 semanas", rows: [] },
+    { title: "Qué plan tienen", rows: [] },
+    { title: "Cuántos productos tiene su menú", rows: [] },
+    { title: "Dónde la usan", rows: [] },
   ];
   const bucket = (g: number, label: string, gone: boolean) => {
     let row = groups[g].rows.find((x) => x.label === label);
