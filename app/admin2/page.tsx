@@ -48,8 +48,9 @@ const C2_SINCE = "2026-10-14T05:39:28Z";
 /// Primera versión de la app con el sync nuevo (C4). C5 solo se prende en
 /// negocios donde todos sus aparatos ya la tienen.
 const C4_APP = "3.0.96";
-/// Corte de los pagos viejos (decidido el 28 oct; regla: 90% verificados).
-const LEGACY_CUTOFF = "2026-11-04";
+/// Corte de los pagos viejos (secreto PRO_LEGACY_UNTIL; se movió del 4 al 11
+/// nov para verificar antes a Don Gus y SHOTERIA). Regla: 90% verificados.
+const LEGACY_CUTOFF = "2026-11-11";
 const PLATFORM_LABEL: Record<string, string> = {
   android: "Android",
   ios: "iOS",
@@ -626,7 +627,11 @@ export default async function Admin2() {
               <p className={s.funnelTitle}>Corte de pagos viejos</p>
               <div className={s.readyBig}>
                 {cutoffDays > 0 ? cutoffDays : 0}
-                <span> {cutoffDays === 1 ? "día" : "días"} · 4 nov</span>
+                <span>
+                  {" "}
+                  {cutoffDays === 1 ? "día" : "días"} ·{" "}
+                  {shortDay(LEGACY_CUTOFF)}
+                </span>
               </div>
               <p className={s.note} style={{ margin: "4px 0 12px" }}>
                 Ese día se apaga la forma vieja de validar pagos. Se hace si al
