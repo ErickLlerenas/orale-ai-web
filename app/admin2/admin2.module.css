@@ -1997,3 +1997,8 @@
   gap: 5px;
   font-size: 12.5px;
 }
+.uOpened {
+  display: block;
+  font-size: 11px;
+  color: var(--mute);
+}

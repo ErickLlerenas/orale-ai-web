@@ -204,7 +204,12 @@ export default async function Admin2() {
     const gap = versionGap(v, newestV);
     return gap === 0 ? "green" : gap <= 3 ? "gray" : gap <= 8 ? "yellow" : "red";
   };
+  const openedDays = new Map<string, number>();
+  for (const r of rows) {
+    openedDays.set(r.install_id, (openedDays.get(r.install_id) ?? 0) + 1);
+  }
   const userRows: UserRow[] = recent.map((r) => ({
+    daysOpened: openedDays.get(r.install_id) ?? 1,
     day: r.ping_date,
     id: r.install_id,
     name: userNames.get(r.account_key ?? r.install_id) ?? null,

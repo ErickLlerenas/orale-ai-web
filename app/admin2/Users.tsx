@@ -23,6 +23,8 @@ export type UserRow = {
   inherited: boolean;
   /** Pantalla de la bienvenida a la que llegó (1–7), si la app la reporta. */
   stage: number | null;
+  /** Días distintos en que este aparato ha abierto la app. */
+  daysOpened: number;
   menuPath: string | null;
 };
 
@@ -78,7 +80,9 @@ const MENU_PATH: Record<string, string> = {
 function stepOf(r: UserRow) {
   if (r.orders > 0) return 6;
   if (r.products > 0) return 5;
-  const st = r.stage ?? 0;
+  // Las versiones antes de la 3.0.93 no reportan la bienvenida: no sabemos.
+  if (r.stage == null) return 0;
+  const st = r.stage;
   if (st >= 7) return 4;
   if (st >= 6) return 3;
   if (st >= 2) return 2;
@@ -87,6 +91,18 @@ function stepOf(r: UserRow) {
 
 function Progress({ r }: { r: UserRow }) {
   const step = stepOf(r);
+  if (step === 0) {
+    return (
+      <span className={s.uSteps} title="Su versión no reporta la bienvenida">
+        <span className={s.uDots}>
+          {STEPS.map((_, i) => (
+            <span key={i} className={s.dotOff} />
+          ))}
+        </span>
+        <span className={s.uMuted}>Sin dato (versión vieja)</span>
+      </span>
+    );
+  }
   const tone = step === 6 ? s.dotGood : step >= 4 ? s.dotMid : s.dotLow;
   const extra =
     step === 5 && r.menuPath && MENU_PATH[r.menuPath]
@@ -299,6 +315,11 @@ export default function Users({
                         ) : (
                           tenureLabel(r.tenure)
                         )}
+                        {r.tenure != null && r.tenure > 0 ? (
+                          <span className={s.uOpened}>
+                            abrió {r.daysOpened} {r.daysOpened === 1 ? "día" : "días"}
+                          </span>
+                        ) : null}
                       </td>
                       <td>
                         {r.waiter ? (
