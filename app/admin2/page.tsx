@@ -679,7 +679,7 @@ export default async function Admin2() {
             <Check
               state={health.proVerifiedPct >= 90 ? "ok" : "bad"}
               value={pct(health.proVerified, health.proWithOrders)}
-              label={`Negocios Pro verificados: ${health.proVerified} de ${health.proWithOrders} que tuvieron comandas esta semana. Mínimo 90%.`}
+              label={`Negocios Pro verificados: ${health.proVerified} de ${health.proWithOrders} que tuvieron comandas esta semana${health.unverified.some((b) => b.bridgeUntil) ? ` (${health.unverified.filter((b) => b.bridgeUntil).length} con puente)` : ""}. Mínimo 90%.`}
             />
             <Check
               state={health.rcRemoves === 0 ? "ok" : "bad"}
@@ -692,10 +692,35 @@ export default async function Admin2() {
               label={`Negocios con el sync nuevo prendido (C5). ${health.orderOps.toLocaleString("es-MX")} acciones mandadas por el sync nuevo.`}
             />
           </div>
-          {health.unverified.length > 0 ? (
+          {health.unverified.some((b) => b.bridgeUntil) ? (
             <>
               <p className={s.funnelTitle} style={{ marginTop: 22 }}>
-                Pro que todavía no se verifican · {health.unverified.length}
+                Con puente hasta el{" "}
+                {shortDay(
+                  health.unverified.find((b) => b.bridgeUntil)!.bridgeUntil!,
+                )}{" "}
+                · {health.unverified.filter((b) => b.bridgeUntil).length}
+              </p>
+              <p className={s.note} style={{ marginTop: -4, marginBottom: 10 }}>
+                Su caja no manda comprobante (versión vieja o plan heredado de
+                otro aparato), así que se verificaron a mano por un tiempo. En
+                cuanto actualicen la caja se verifican solos; si no, ese día se
+                les apagan los meseros.
+              </p>
+              <div className={s.bizList}>
+                {health.unverified
+                  .filter((b) => b.bridgeUntil)
+                  .map((b) => (
+                    <Biz key={b.name} biz={b} newest={newest} today={today} />
+                  ))}
+              </div>
+            </>
+          ) : null}
+          {health.unverified.some((b) => !b.bridgeUntil) ? (
+            <>
+              <p className={s.funnelTitle} style={{ marginTop: 22 }}>
+                Pro que todavía no se verifican ·{" "}
+                {health.unverified.filter((b) => !b.bridgeUntil).length}
               </p>
               <p className={s.note} style={{ marginTop: -4, marginBottom: 10 }}>
                 La pastilla es la versión de su caja. Verde: la más nueva (
@@ -703,9 +728,11 @@ export default async function Admin2() {
                 vieja, pídeles que actualicen.
               </p>
               <div className={s.bizList}>
-                {health.unverified.map((b) => (
-                  <Biz key={b.name} biz={b} newest={newest} today={today} />
-                ))}
+                {health.unverified
+                  .filter((b) => !b.bridgeUntil)
+                  .map((b) => (
+                    <Biz key={b.name} biz={b} newest={newest} today={today} />
+                  ))}
               </div>
             </>
           ) : null}
@@ -717,6 +744,8 @@ export default async function Admin2() {
 
 type UnverifiedBiz = {
   name: string;
+  /** Verificado a mano hasta esta fecha (puente), o null. */
+  bridgeUntil: string | null;
   caja: { platform: string; version: string; seen: string } | null;
   waiters: { version: string }[];
 };
@@ -1926,23 +1955,25 @@ async function migrationHealth(supabase: ReturnType<typeof adminClient>) {
   const businesses = ids.length
     ? await supabase
         .from("businesses")
-        .select("id, name, pro_verified_at")
+        .select("id, name, pro_verified_at, pro_billing_key, pro_paid_until")
         .in("id", ids)
-    : {
-        data: [] as {
-          id: string;
-          name: string;
-          pro_verified_at: string | null;
-        }[],
-      };
-  const list = (businesses.data ?? []) as {
+    : { data: [] };
+  type Row = {
     id: string;
     name: string;
     pro_verified_at: string | null;
-  }[];
+    pro_billing_key: string | null;
+    pro_paid_until: string | null;
+  };
+  const list = (businesses.data ?? []) as Row[];
   const verified = list.filter((b) => b.pro_verified_at).length;
   const ready = await c5Readiness(supabase, ids);
-  const unv = list.filter((b) => !b.pro_verified_at);
+  // Puente: verificados a mano por un tiempo porque su caja no manda
+  // comprobante (versión vieja o plan heredado). Cuentan como verificados
+  // para el corte, pero se listan para no olvidarlos.
+  const isBridge = (b: Row) =>
+    (b.pro_billing_key ?? "").startsWith("manual:puente");
+  const unv = list.filter((b) => !b.pro_verified_at || isBridge(b));
   const devs = unv.length
     ? await supabase
         .from("business_devices")
@@ -1985,6 +2016,8 @@ async function migrationHealth(supabase: ReturnType<typeof adminClient>) {
       .sort((x, y) => y.ping_date.localeCompare(x.ping_date))[0];
     return {
       name: b.name,
+      bridgeUntil:
+        isBridge(b) && b.pro_paid_until ? b.pro_paid_until.slice(0, 10) : null,
       caja: cajaUsage
         ? {
             platform: cajaUsage.platform ?? "?",
