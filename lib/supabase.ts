@@ -46,3 +46,40 @@ export async function fetchAll<T>(
     if (rows.length < PAGE) return { data: out, error: null };
   }
 }
+
+/// Como [fetchAll], pero pide las páginas [concurrency] a la vez en lugar de
+/// una tras otra. [make] crea la consulta (con un orden estable) para cada
+/// página; [total] es el conteo aproximado de filas. Se pide una página de más
+/// por si entraron filas entre el conteo y la lectura.
+export async function fetchAllParallel<T>(
+  make: () => RangeQuery<T>,
+  total: number,
+  concurrency = 8,
+): Promise<{ data: T[]; error: { message: string } | null }> {
+  const pages = Math.ceil(Math.max(0, total) / PAGE) + 1;
+  const results: T[][] = new Array(pages);
+  let next = 0;
+  let failure: { message: string } | null = null;
+  const worker = async () => {
+    while (next < pages && !failure) {
+      const i = next++;
+      const { data, error } = await make().range(i * PAGE, i * PAGE + PAGE - 1);
+      if (error) failure = error;
+      results[i] = data ?? [];
+    }
+  };
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, pages) }, worker),
+  );
+  if (failure) return { data: results.flat(), error: failure };
+  // Si la última página vino llena, todavía hay más: se sigue en orden.
+  const out = results.flat();
+  for (let from = pages * PAGE; results[pages - 1]?.length === PAGE; from += PAGE) {
+    const { data, error } = await make().range(from, from + PAGE - 1);
+    if (error) return { data: out, error };
+    out.push(...(data ?? []));
+    if ((data ?? []).length < PAGE) break;
+  }
+  return { data: out, error: null };
+}
+

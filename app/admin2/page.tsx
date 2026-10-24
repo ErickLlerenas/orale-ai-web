@@ -1,6 +1,6 @@
 import { unstable_noStore as noStore } from "next/cache";
 import Link from "next/link";
-import { adminClient, fetchAll } from "@/lib/supabase";
+import { adminClient, fetchAll, fetchAllParallel } from "@/lib/supabase";
 import {
   PING_COLUMNS,
   FREE_ORDER_LIMIT,
@@ -75,13 +75,20 @@ export default async function Admin2() {
   const today = mxDay(0);
 
   const supabase = adminClient();
+  // Todo el historial de uso, en páginas que se piden a la vez (antes iban
+  // una tras otra y era lo que más tardaba).
+  const { count: pingCount } = await supabase
+    .from("usage_pings")
+    .select("install_id", { count: "exact", head: true });
   const [pingsRes, rc, health] = await Promise.all([
-    fetchAll<PingRow>(
-      supabase
-        .from("usage_pings")
-        .select(PING_COLUMNS)
-        .order("ping_date")
-        .order("install_id"),
+    fetchAllParallel<PingRow>(
+      () =>
+        supabase
+          .from("usage_pings")
+          .select(PING_COLUMNS)
+          .order("ping_date")
+          .order("install_id"),
+      pingCount ?? 0,
     ),
     revenueCatOverview(),
     migrationHealth(supabase),
@@ -113,10 +120,26 @@ export default async function Admin2() {
   // (RevenueCat + Stripe); antes, de lo que reporta la app.
   // Mes en curso (se reinicia el día 1) y los mismos días del mes pasado.
   const month = monthWindow(today);
-  const storeSubs = await storeNewSubs(
-    supabase,
-    month.start < mxDay(1) ? month.start : mxDay(1),
-  );
+  // Lo que solo depende del historial va todo a la vez.
+  const userDays = dayRange(mxDay(13), today);
+  const recent = rows.filter((r) => r.ping_date >= userDays[0]);
+  const accountInstalls = new Map<string, Set<string>>();
+  for (const r of recent) {
+    const k = r.account_key ?? r.install_id;
+    if (!accountInstalls.has(k)) accountInstalls.set(k, new Set());
+    accountInstalls.get(k)!.add(r.install_id);
+  }
+  const [storeSubs, risk, userNames] = await Promise.all([
+    storeNewSubs(supabase, month.start < mxDay(1) ? month.start : mxDay(1)),
+    withoutActiveBusinesses(supabase, atRisk(rows, today), rows, mxDay(1)),
+    businessNames(
+      supabase,
+      [...accountInstalls].map(([key, ids]) => ({
+        key,
+        installIds: [...ids],
+      })),
+    ),
+  ]);
   const subsOn = (day: string): NewSub[] =>
     day >= STORE_SINCE
       ? storeSubs.filter((x) => x.day === day && x.kind !== "converted")
@@ -124,10 +147,13 @@ export default async function Admin2() {
   const convertedOn = (day: string) =>
     storeSubs.filter((x) => x.day === day && x.kind === "converted");
   const newSubs = [...subsOn(today), ...subsOn(mxDay(1))];
-  const newSubNames = await businessNames(
-    supabase,
-    newSubs.map((x) => ({ key: x.key, installIds: x.installIds ?? [] })),
-  );
+  const [newSubNames, riskNames] = await Promise.all([
+    businessNames(
+      supabase,
+      newSubs.map((x) => ({ key: x.key, installIds: x.installIds ?? [] })),
+    ),
+    businessNames(supabase, risk),
+  ]);
   const pulse = {
     today: dayPulse(rows, installs, subsList, today),
     yesterday: dayPulse(rows, installs, subsList, mxDay(1)),
@@ -170,29 +196,8 @@ export default async function Admin2() {
   const plans = planMix(rows, mxDay(7));
   // Quién se queda: pagaban hace 8–6 semanas, ¿siguen con plan los últimos 10 días?
   const ret = retention(rows, mxDay(56), mxDay(43), mxDay(9));
-  const lost = recentLost(rows, today);
-  const churn = await churnDetails(supabase, lost);
-  const risk = await withoutActiveBusinesses(
-    supabase,
-    atRisk(rows, today),
-    rows,
-    mxDay(1),
-  );
-  const riskNames = await businessNames(supabase, risk);
-  // Usuarios de los últimos 14 días (uno por aparato y día), con el nombre
-  // del negocio cuando lo tenemos (Pro).
-  const userDays = dayRange(mxDay(13), today);
-  const recent = rows.filter((r) => r.ping_date >= userDays[0]);
-  const accountInstalls = new Map<string, Set<string>>();
-  for (const r of recent) {
-    const k = r.account_key ?? r.install_id;
-    if (!accountInstalls.has(k)) accountInstalls.set(k, new Set());
-    accountInstalls.get(k)!.add(r.install_id);
-  }
-  const userNames = await businessNames(
-    supabase,
-    [...accountInstalls].map(([key, ids]) => ({ key, installIds: [...ids] })),
-  );
+  // Usuarios de los últimos 14 días (uno por aparato y día) y «podrían
+  // cancelar»: ya se pidieron arriba, junto con lo demás.
   // La versión «más nueva» es la publicada: la más alta que ya usan al menos
   // 10 aparatos (las de prueba no cuentan).
   const newestV =
