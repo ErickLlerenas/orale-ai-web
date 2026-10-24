@@ -486,15 +486,49 @@ function bump(c: Count, platform: string | null) {
 }
 
 /// Primera suscripción por cuenta de tienda (o aparato si no hay cuenta).
-export function firstSubscriptions(rows: PingRow[]) {
-  const first = new Map<string, { day: string; platform: string | null }>();
+export type FirstSub = {
+  key: string;
+  day: string;
+  platform: string | null;
+  /** monthly / yearly / pro_monthly / pro_yearly, según la app. */
+  plan: string | null;
+  installIds: string[];
+};
+
+/// Primera suscripción de cada cuenta, con el plan que agarró: el primer
+/// plan que reporta la app desde ese día.
+export function firstSubscriptions(rows: PingRow[]): FirstSub[] {
+  const first = new Map<string, FirstSub>();
+  const installs = new Map<string, Set<string>>();
   for (const r of rows) {
-    if (!r.subscribed_at) continue;
     const key = r.account_key ?? r.install_id;
+    if (!installs.has(key)) installs.set(key, new Set());
+    installs.get(key)!.add(r.install_id);
+    if (!r.subscribed_at) continue;
     const prev = first.get(key);
     if (!prev || r.subscribed_at < prev.day) {
-      first.set(key, { day: r.subscribed_at, platform: r.platform });
+      first.set(key, {
+        key,
+        day: r.subscribed_at,
+        platform: r.platform,
+        plan: null,
+        installIds: [],
+      });
     }
+  }
+  const planDay = new Map<string, string>();
+  for (const r of rows) {
+    const key = r.account_key ?? r.install_id;
+    const sub = first.get(key);
+    if (!sub || !r.plan || r.plan === "none" || r.ping_date < sub.day) continue;
+    const seen = planDay.get(key);
+    if (!seen || r.ping_date < seen) {
+      planDay.set(key, r.ping_date);
+      sub.plan = r.plan;
+    }
+  }
+  for (const sub of first.values()) {
+    sub.installIds = [...(installs.get(sub.key) ?? [])];
   }
   return [...first.values()];
 }

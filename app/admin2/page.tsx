@@ -11,6 +11,7 @@ import {
   downloadsByPlatform,
   downloadsDaily,
   firstSubscriptions,
+  type FirstSub,
   platformConversion,
   cmpVersion,
   newestVersion,
@@ -115,6 +116,11 @@ export default async function Admin2({
 
   // Hoy y ayer.
   const subsList = firstSubscriptions(rows);
+  // Quién se suscribió hoy y ayer, con su plan y su negocio.
+  const newSubs = subsList.filter(
+    (x) => x.day === today || x.day === mxDay(1),
+  );
+  const newSubNames = await businessNames(supabase, newSubs);
   const pulse = {
     today: dayPulse(rows, installs, subsList, today),
     yesterday: dayPulse(rows, installs, subsList, mxDay(1)),
@@ -178,28 +184,8 @@ export default async function Admin2({
               <p className={s.subtitle}>Actualizado a las {updated}</p>
             </div>
           </div>
-          <nav className={s.topLinks}>
-            <Link href="/admin">Panel de siempre</Link>
-          </nav>
         </header>
 
-        <nav className={s.jump}>
-          {[
-            ["hoy", "Hoy"],
-            ["meta", "Meta"],
-            ["descargas", "Descargas"],
-            ["cuello", "Cuello de botella"],
-            ["plataformas", "Plataformas"],
-            ["retencion", "Quién se queda"],
-            ["riesgo", "En riesgo"],
-            ["bajas", "Bajas"],
-            ["migracion", "Migración"],
-          ].map(([id, label]) => (
-            <a key={id} href={`#${id}`}>
-              {label}
-            </a>
-          ))}
-        </nav>
 
         {pingsRes.error ? (
           <div className={s.error}>
@@ -236,6 +222,12 @@ export default async function Admin2({
             before={pulse.yesterday.selling}
           />
         </section>
+
+        <NewSubs
+          today={newSubs.filter((x) => x.day === today)}
+          yesterday={newSubs.filter((x) => x.day !== today)}
+          names={newSubNames}
+        />
 
         {/* 1. Meta y suscripciones */}
         <section className={`${s.card} ${s.hero}`} id="meta">
@@ -996,6 +988,85 @@ function PulseTile({
       </div>
       <PlatformSplit c={now} />
     </div>
+  );
+}
+
+/// Quién se suscribió hoy y ayer: plan, negocio y plataforma.
+function NewSubs({
+  today,
+  yesterday,
+  names,
+}: {
+  today: FirstSub[];
+  yesterday: FirstSub[];
+  names: Map<string, string>;
+}) {
+  const col = (title: string, list: FirstSub[]) => {
+    const counts = new Map<string, number>();
+    for (const x of list) {
+      const k = x.plan ?? "?";
+      counts.set(k, (counts.get(k) ?? 0) + 1);
+    }
+    return (
+      <div className={s.subsCol}>
+        <div className={s.subsHead}>
+          <span className={s.subsWhen}>{title}</span>
+          <span className={s.subsChips}>
+            {list.length === 0 ? (
+              <span className={s.note} style={{ margin: 0 }}>
+                Nadie todavía
+              </span>
+            ) : (
+              PLAN_INFO.filter((p) => counts.get(p.key))
+                .map((p) => (
+                  <span key={p.key} className={s.subsChip}>
+                    <span className={s.dot} style={{ background: p.color }} />
+                    {counts.get(p.key)} {p.label}
+                  </span>
+                ))
+                .concat(
+                  counts.get("?")
+                    ? [
+                        <span key="?" className={s.subsChip}>
+                          {counts.get("?")} sin dato
+                        </span>,
+                      ]
+                    : [],
+                )
+            )}
+          </span>
+        </div>
+        {list.map((x) => {
+          const info = PLAN_INFO.find((p) => p.key === x.plan);
+          return (
+            <div key={x.key} className={s.subsRow}>
+              <span
+                className={s.subsPlan}
+                style={{ ["--plan" as string]: info?.color ?? "var(--mute)" }}
+              >
+                {info?.label ?? "Plan sin dato"}
+              </span>
+              <span className={s.subsName}>
+                {x.platform ? PLATFORM_LABEL[x.platform] ?? x.platform : ""}
+              </span>
+              {/* El nombre solo existe para negocios con Pro (en la nube). */}
+              {names.get(x.key) ? (
+                <span className={s.subsMeta}>{names.get(x.key)}</span>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+  return (
+    <section className={`${s.card} ${s.subsCard}`}>
+      <p className={s.eyebrow}>Nuevos suscriptores · según la app</p>
+      <div className={s.subsCols}>
+        {col("Hoy", today)}
+        {col("Ayer", yesterday)}
+      </div>
+    </section>
   );
 }
 
