@@ -26,10 +26,11 @@ export type PingRow = {
   plan: string | null;
   subscription_active: boolean | null;
   subscribed_at: string | null;
+  updated_at: string | null;
 };
 
 export const PING_COLUMNS =
-  "install_id, account_key, ping_date, platform, app_version, is_caja, inherited_access, onboarding_stage, menu_path, product_count, orders_total, orders_today, days_since_install, plan, subscription_active, subscribed_at";
+  "install_id, account_key, ping_date, platform, app_version, is_caja, inherited_access, onboarding_stage, menu_path, product_count, orders_total, orders_today, days_since_install, plan, subscription_active, subscribed_at, updated_at";
 
 /// Ventas gratis antes de pedir suscripción (subscription_provider.dart).
 export const FREE_ORDER_LIMIT = 10;

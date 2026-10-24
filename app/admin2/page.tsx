@@ -36,6 +36,7 @@ import {
   type WeekRow,
 } from "@/lib/admin2";
 import s from "./admin2.module.css";
+import Users, { type RiskUser, type UserRow } from "./Users";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -171,6 +172,65 @@ export default async function Admin2() {
   const churn = await churnDetails(supabase, lost);
   const risk = atRisk(rows, today);
   const riskNames = await businessNames(supabase, risk);
+  // Usuarios de los últimos 14 días (uno por aparato y día), con el nombre
+  // del negocio cuando lo tenemos (Pro).
+  const userDays = dayRange(mxDay(13), today);
+  const recent = rows.filter((r) => r.ping_date >= userDays[0]);
+  const accountInstalls = new Map<string, Set<string>>();
+  for (const r of recent) {
+    const k = r.account_key ?? r.install_id;
+    if (!accountInstalls.has(k)) accountInstalls.set(k, new Set());
+    accountInstalls.get(k)!.add(r.install_id);
+  }
+  const userNames = await businessNames(
+    supabase,
+    [...accountInstalls].map(([key, ids]) => ({ key, installIds: [...ids] })),
+  );
+  // La versión «más nueva» es la publicada: la más alta que ya usan al menos
+  // 10 aparatos (las de prueba no cuentan).
+  const newestV =
+    versions(rows, mxDay(7))
+      .filter((v) => v.total >= 10 && v.version !== "sin versión")
+      .map((v) => v.version)
+      .sort((a, b) => cmpVersion(b, a))[0] ?? null;
+  const versionTone = (v: string | null) => {
+    if (!v || !newestV) return "gray";
+    const gap = versionGap(v, newestV);
+    return gap === 0 ? "green" : gap <= 3 ? "gray" : gap <= 8 ? "yellow" : "red";
+  };
+  const userRows: UserRow[] = recent.map((r) => ({
+    day: r.ping_date,
+    id: r.install_id,
+    name: userNames.get(r.account_key ?? r.install_id) ?? null,
+    waiter: r.is_caja === false,
+    time: r.updated_at
+      ? new Date(r.updated_at).toLocaleTimeString("es-MX", {
+          timeZone: "America/Mexico_City",
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : "—",
+    tenure: r.days_since_install,
+    platform: r.platform,
+    version: r.app_version,
+    versionTone: versionTone(r.app_version),
+    products: r.product_count ?? 0,
+    orders: r.orders_total ?? 0,
+    plan: r.plan,
+    active: r.subscription_active === true,
+    inherited: r.inherited_access === true,
+  }));
+  const riskUsers: RiskUser[] = risk.slice(0, 40).map((r) => ({
+    id: r.key,
+    name: riskNames.get(r.key) ?? null,
+    platform: r.platform,
+    plan: r.plan,
+    version: r.version,
+    versionTone: versionTone(r.version),
+    quietDays: r.quietDays,
+    avgDaily: r.avgDaily,
+    activeDays: r.activeDays,
+  }));
   const netPerWeek =
     (series[series.length - 1].n - series[0].n) / (series.length - 1);
   // Mismo periodo para entradas y neto, si no las salidas salen chuecas.
@@ -449,34 +509,8 @@ export default async function Admin2() {
           </div>
         </section>
 
-        {/* 2c. En riesgo */}
-        <section className={s.card} id="riesgo">
-          <div className={s.cardHead}>
-            <div>
-              <p className={s.eyebrow}>Antes de que se vayan</p>
-              <h2 className={s.h2}>En riesgo ({risk.length})</h2>
-            </div>
-          </div>
-          <p className={s.note} style={{ marginTop: -4, marginBottom: 10 }}>
-            Todavía pagan y abrían la app casi diario, pero llevan de 3 a 6 días
-            sin abrirla: casi siempre es lo que pasa antes de cancelar. Primero
-            los que más vendían. Escríbeles hoy.
-          </p>
-          {risk.length === 0 ? (
-            <p className={s.note}>Nadie en riesgo ahorita.</p>
-          ) : (
-            <ShowMore
-              first={5}
-              items={risk.slice(0, 40).map((r) => (
-                <RiskRow
-                  key={r.key}
-                  risk={r}
-                  name={riskNames.get(r.key) ?? null}
-                />
-              ))}
-            />
-          )}
-        </section>
+        {/* 2c. Usuarios (y en riesgo) */}
+        <Users days={userDays} today={today} rows={userRows} risk={riskUsers} />
 
         {/* 2d. Bajas */}
         <section className={s.card} id="bajas">
@@ -587,65 +621,7 @@ export default async function Admin2() {
             </>
           )}
 
-          <p className={s.funnelTitle} style={{ marginTop: 22 }}>
-            Dejaron de tener plan · según la app, últimas 4 semanas (
-            {lost.length})
-          </p>
-          <p className={s.note} style={{ marginTop: -4, marginBottom: 10 }}>
-            Aproximado y sin motivo: cuentas que tenían plan y llevan una semana
-            sin aparecer con él. En los Pro sale el nombre del negocio.
-          </p>
-          {lost.length === 0 ? (
-            <p className={s.note}>Nadie en las últimas 4 semanas.</p>
-          ) : (
-            <>
-              <LostByPlan lost={lost} active={plans} />
-              <ShowMore
-                first={5}
-                items={lost.map((l) => (
-                  <LostRow
-                    key={l.key}
-                    lost={l}
-                    name={churn.names.get(l.key) ?? null}
-                    today={today}
-                  />
-                ))}
-              />
-            </>
-          )}
         </section>
-
-        {/* 3. Semanas y versiones */}
-        <details className={s.moreBig}>
-          <summary>Semana a semana y versiones en uso</summary>
-        <div className={s.split}>
-          <section className={s.card}>
-            <div className={s.cardHead}>
-              <div>
-                <p className={s.eyebrow}>Semana a semana</p>
-                <h2 className={s.h2}>Negocios nuevos y suscripciones</h2>
-              </div>
-              <Legend />
-            </div>
-            <Weeks weeks={weeks} />
-            <p className={s.note}>
-              La barra es cuántos dueños nuevos llegaron cada semana. El número
-              amarillo es cuántos se suscribieron por primera vez.
-            </p>
-          </section>
-
-          <section className={s.card}>
-            <div className={s.cardHead}>
-              <div>
-                <p className={s.eyebrow}>Últimos 7 días</p>
-                <h2 className={s.h2}>Versiones en uso</h2>
-              </div>
-            </div>
-            <Versions list={vers} />
-          </section>
-        </div>
-
-        </details>
 
         {/* 4. Migración */}
         <details className={s.moreBig}>
