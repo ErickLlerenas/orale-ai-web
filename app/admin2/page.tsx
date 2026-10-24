@@ -2305,10 +2305,8 @@ function Journey({
       <p className={s.eyebrow}>Negocios nuevos</p>
       <h2 className={s.h2}>¿Dónde se va la gente?</h2>
       <p className={s.note}>
-        Los {steps[0]?.n ?? 0} negocios que abrieron la app por primera vez
-        del {shortDay(from)} al {shortDay(to)}, y cuántos llegaron a cada paso.
-        A la derecha, qué parte del paso anterior siguió. (Solo cuentan las
-        versiones que reportan la bienvenida, desde la 3.0.93.)
+        Negocios nuevos del {shortDay(from)} al {shortDay(to)} (app 3.0.93 o
+        más nueva). El % es cuántos pasaron del paso anterior.
       </p>
       <div className={s.funnel}>
         {now.map((st, i) => row(st, i))}
