@@ -9,6 +9,8 @@ export type UserRow = {
   name: string | null;
   waiter: boolean;
   time: string;
+  /** Para ordenar: la hora de la última visita (ISO). */
+  at: string;
   tenure: number | null;
   platform: string | null;
   version: string | null;
@@ -19,6 +21,9 @@ export type UserRow = {
   plan: string | null;
   active: boolean;
   inherited: boolean;
+  /** Pantalla de la bienvenida a la que llegó (1–7), si la app la reporta. */
+  stage: number | null;
+  menuPath: string | null;
 };
 
 export type RiskUser = {
@@ -53,6 +58,54 @@ const PLAN_COLOR: Record<string, string> = {
   pro_monthly: "var(--amber)",
   pro_yearly: "#fde68a",
 };
+
+const STEPS = [
+  "Solo abrió",
+  "Puso el nombre",
+  "Creó su PIN",
+  "Terminó la bienvenida",
+  "Tiene menú",
+  "Ya vendió",
+];
+const MENU_PATH: Record<string, string> = {
+  ai_saved: "con IA",
+  sample: "de ejemplo",
+  photo_opened: "abrió la IA",
+  skipped: "se lo saltó",
+};
+
+/// Hasta qué paso llegó: 1 = solo abrió … 6 = ya vendió.
+function stepOf(r: UserRow) {
+  if (r.orders > 0) return 6;
+  if (r.products > 0) return 5;
+  const st = r.stage ?? 0;
+  if (st >= 7) return 4;
+  if (st >= 6) return 3;
+  if (st >= 2) return 2;
+  return 1;
+}
+
+function Progress({ r }: { r: UserRow }) {
+  const step = stepOf(r);
+  const tone = step === 6 ? s.dotGood : step >= 4 ? s.dotMid : s.dotLow;
+  const extra =
+    step === 5 && r.menuPath && MENU_PATH[r.menuPath]
+      ? ` ${MENU_PATH[r.menuPath]}`
+      : step === 6
+        ? ` (${r.orders})`
+        : "";
+  return (
+    <span className={s.uSteps} title={STEPS[step - 1]}>
+      <span className={s.uDots}>
+        {STEPS.map((_, i) => (
+          <span key={i} className={i < step ? tone : s.dotOff} />
+        ))}
+      </span>
+      {STEPS[step - 1]}
+      {extra}
+    </span>
+  );
+}
 
 function tenureLabel(d: number | null) {
   if (d == null) return "—";
@@ -109,16 +162,22 @@ export default function Users({
   risk: RiskUser[];
 }) {
   const [tab, setTab] = useState<"day" | "risk">("day");
+  const [onlyNew, setOnlyNew] = useState(false);
   const [day, setDay] = useState(days[days.length - 1]);
   const idx = days.indexOf(day);
-  const list = rows
+  const all = rows
     .filter((r) => r.day === day)
-    .sort((a, b) => b.time.localeCompare(a.time));
-  const waiters = list.filter((r) => r.waiter).length;
+    .sort((a, b) => b.at.localeCompare(a.at));
+  const newCount = all.filter((r) => r.tenure === 0 && !r.waiter).length;
+  const list = onlyNew
+    ? all.filter((r) => r.tenure === 0 && !r.waiter)
+    : all;
+  const waiters = all.filter((r) => r.waiter).length;
   const versions = new Map<string, number>();
-  for (const r of list) {
+  for (const r of all) {
     if (r.version) versions.set(r.version, (versions.get(r.version) ?? 0) + 1);
   }
+  const toneOf = new Map(all.map((r) => [r.version ?? "", r.versionTone]));
   const topVersions = [...versions.entries()]
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5);
@@ -170,11 +229,40 @@ export default function Users({
 
       {tab === "day" ? (
         <>
-          <p className={s.note}>
-            <b>{list.length}</b> abrieron la app ({waiters} meseros) · versiones
-            más usadas:{" "}
-            {topVersions.map(([v, n]) => `${v} (${n})`).join(" · ")}
-          </p>
+          <div className={s.uBar}>
+            <div className={s.uStats}>
+              <div className={s.uStat}>
+                <b>{all.length}</b>
+                <span>abrieron la app</span>
+              </div>
+              <div className={s.uStat}>
+                <b>{newCount}</b>
+                <span>nuevos</span>
+              </div>
+              <div className={s.uStat}>
+                <b>{waiters}</b>
+                <span>meseros</span>
+              </div>
+              <div className={s.uStatVer}>
+                <span>Versiones</span>
+                <div>
+                  {topVersions.map(([v, n]) => (
+                    <span key={v} className={s.uVerChip}>
+                      <Version v={v} tone={toneOf.get(v) ?? "gray"} />
+                      <b>{n}</b>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              className={onlyNew ? s.uTabOn : s.uTab}
+              onClick={() => setOnlyNew(!onlyNew)}
+            >
+              Solo nuevos ({newCount})
+            </button>
+          </div>
           <div className={s.uWrap}>
             <table className={s.uTable}>
               <thead>
@@ -182,6 +270,7 @@ export default function Users({
                   <th>Negocio</th>
                   <th>Última visita</th>
                   <th>Antigüedad</th>
+                  <th>Avance</th>
                   <th>Plataforma</th>
                   <th>Versión</th>
                   <th>Productos</th>
@@ -193,13 +282,25 @@ export default function Users({
                 {list.map((r) => {
                   const hot = r.orders > 25 && !r.active && !r.inherited;
                   return (
-                    <tr key={r.id}>
+                    <tr
+                      key={r.id}
+                      className={r.tenure === 0 && !r.waiter ? s.uRowNew : undefined}
+                    >
                       <td>
                         {r.name ?? <span className={s.uMuted}>{r.id.slice(0, 8)}</span>}
                         {r.waiter ? <span className={s.uRole}>mesero</span> : null}
                       </td>
                       <td>{r.time}</td>
-                      <td>{tenureLabel(r.tenure)}</td>
+                      <td>
+                        {r.tenure === 0 ? (
+                          <span className={s.uNew}>Nuevo</span>
+                        ) : r.tenure != null && r.tenure < 7 ? (
+                          <span className={s.uNewSoft}>{tenureLabel(r.tenure)}</span>
+                        ) : (
+                          tenureLabel(r.tenure)
+                        )}
+                      </td>
+                      <td>{r.waiter ? <span className={s.uMuted}>—</span> : <Progress r={r} />}</td>
                       <td>{r.platform ? PLATFORM[r.platform] ?? r.platform : "—"}</td>
                       <td>
                         <Version v={r.version} tone={r.versionTone} />

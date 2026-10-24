@@ -216,6 +216,7 @@ export default async function Admin2() {
           minute: "2-digit",
         })
       : "—",
+    at: r.updated_at ?? "",
     tenure: r.days_since_install,
     platform: r.platform,
     version: r.app_version,
@@ -225,6 +226,8 @@ export default async function Admin2() {
     plan: r.plan,
     active: r.subscription_active === true,
     inherited: r.inherited_access === true,
+    stage: r.onboarding_stage,
+    menuPath: r.menu_path,
   }));
   // Antigüedad: desde el primer día que vimos cualquiera de sus aparatos.
   const firstSeen = new Map(installs.map((i) => [i.id, i.firstDay]));
