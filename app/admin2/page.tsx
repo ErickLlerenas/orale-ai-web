@@ -1589,7 +1589,7 @@ type CancelAnswer = {
 };
 
 const CANCEL_REASON: Record<string, string> = {
-  too_expensive: "Está muy caro",
+  too_expensive: "Quiero pagar menos",
   low_use: "Ya no la uso tanto",
   missing: "Me faltó una función",
   closed: "Cerré el negocio",
