@@ -2257,7 +2257,13 @@ function Journey({
   const worstSet = new Set(drops.map((d) => d.i));
   const row = (st: JourneyStep, i: number) => {
     const bad = worstSet.has(i);
-    const ofPrev = i > 0 && steps[i - 1].n ? st.n / steps[i - 1].n : 1;
+    // Lo que necesita días se compara contra todos los nuevos: «10 ventas» y
+    // «se suscribieron» no son el mismo grupo (hay quien paga antes).
+    const ofPrev = st.later
+      ? st.n / top
+      : i > 0 && steps[i - 1].n
+        ? st.n / steps[i - 1].n
+        : 1;
     const width = Math.max(6, per100(st.n));
     return (
       <div key={st.label} className={s.fRow}>
@@ -2287,7 +2293,11 @@ function Journey({
             <>
               {Math.round(ofPrev * 100)}%
               <span className={s.fPctNote}>
-                {i === 1 ? "siguió (el resto: curiosos)" : "del paso anterior"}
+                {i === 1
+                  ? "siguió (el resto: curiosos)"
+                  : st.later
+                    ? "de todos los nuevos"
+                    : "del paso anterior"}
               </span>
             </>
           )}
@@ -2317,24 +2327,33 @@ function Journey({
       </div>
       {shownPaths.length ? (
         <>
-          <p className={s.funnelTitle} style={{ marginTop: 14 }}>
-            ¿Cómo hicieron su menú? · de los que terminaron la bienvenida
+          <p className={s.funnelTitle} style={{ marginTop: 18 }}>
+            ¿Cómo hicieron su menú?
           </p>
-          <div className={s.paths}>
-            {shownPaths.map((p) => (
-              <div className={s.path} key={p.label}>
-                <div className={s.pathTop}>
-                  <span>{p.label}</span>
-                  <span className={s.pathN}>{p.n}</span>
-                </div>
-                <div className={s.pathBig}>{pct(p.sold, p.n)}</div>
-                <div className={s.pathSub}>
-                  ya vendieron · {pct(p.withMenu, p.n)} tiene menú ·{" "}
-                  {pct(p.subscribed, p.n)} ya paga
-                </div>
-              </div>
-            ))}
-          </div>
+          <table className={s.mTable}>
+            <thead>
+              <tr>
+                <th />
+                <th>Negocios</th>
+                <th>Tienen menú</th>
+                <th>Ya vendieron</th>
+                <th>Ya pagan</th>
+              </tr>
+            </thead>
+            <tbody>
+              {shownPaths.map((p) => (
+                <tr key={p.label}>
+                  <td>{p.label}</td>
+                  <td>{p.n}</td>
+                  <td>{pct(p.withMenu, p.n)}</td>
+                  <td>
+                    <b>{pct(p.sold, p.n)}</b>
+                  </td>
+                  <td>{pct(p.subscribed, p.n)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </>
       ) : null}
     </section>

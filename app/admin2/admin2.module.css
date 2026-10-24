@@ -1706,3 +1706,27 @@
 .heroTiles .tileValue {
   font-size: 36px;
 }
+
+/* ---- ¿Cómo hicieron su menú? ---- */
+.mTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+.mTable th {
+  text-align: right;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--mute);
+  padding: 6px 10px;
+}
+.mTable td {
+  text-align: right;
+  padding: 9px 10px;
+  border-top: 1px solid var(--line);
+}
+.mTable td:first-child,
+.mTable th:first-child {
+  text-align: left;
+  padding-left: 0;
+}

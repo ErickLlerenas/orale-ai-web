@@ -164,11 +164,11 @@ export function menuPaths(list: Install[]) {
     };
   };
   return [
-    row("Hicieron el menú con IA", (i) => i.menuPath === "ai_saved"),
-    row("Empezaron con el menú de ejemplo", (i) => i.menuPath === "sample"),
-    row("Abrieron la IA y no guardaron", (i) => i.menuPath === "photo_opened"),
+    row("Con IA", (i) => i.menuPath === "ai_saved"),
+    row("Menú de ejemplo", (i) => i.menuPath === "sample"),
+    row("Abrieron la IA, no guardaron", (i) => i.menuPath === "photo_opened"),
     row(
-      "Se saltaron el menú (antes de 3.0.97)",
+      "Se lo saltaron (antes de 3.0.97)",
       (i) => i.menuPath === "skipped",
     ),
     row("Sin dato (no llegaron)", (i) => i.menuPath == null),
