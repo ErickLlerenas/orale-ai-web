@@ -300,7 +300,13 @@ export default function Users({
                           tenureLabel(r.tenure)
                         )}
                       </td>
-                      <td>{r.waiter ? <span className={s.uMuted}>—</span> : <Progress r={r} />}</td>
+                      <td>
+                        {r.waiter ? (
+                          <span className={s.uMuted}>Mesero · usa el menú de la caja</span>
+                        ) : (
+                          <Progress r={r} />
+                        )}
+                      </td>
                       <td>{r.platform ? PLATFORM[r.platform] ?? r.platform : "—"}</td>
                       <td>
                         <Version v={r.version} tone={r.versionTone} />
