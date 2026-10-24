@@ -141,7 +141,7 @@ export default function Users({
               className={tab === "risk" ? s.uTabOn : s.uTab}
               onClick={() => setTab("risk")}
             >
-              En riesgo ({risk.length})
+              Podrían cancelar ({risk.length})
             </button>
           </div>
         </div>
@@ -227,8 +227,8 @@ export default function Users({
       ) : (
         <>
           <p className={s.note}>
-            Todavía pagan y abrían la app casi diario, pero llevan de 3 a 6 días
-            sin abrirla. Casi siempre es lo que pasa antes de cancelar.
+            Clientes que pagan y abrían la app casi diario, pero llevan de 3 a 6
+            días sin abrirla. Casi siempre es lo que pasa antes de cancelar.
           </p>
           <div className={s.uWrap}>
             <table className={s.uTable}>
