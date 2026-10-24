@@ -1427,3 +1427,8 @@
   font-size: 12px;
   flex-shrink: 0;
 }
+.subsSource {
+  margin-left: auto;
+  color: var(--mute);
+  font-size: 11px;
+}

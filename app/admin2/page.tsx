@@ -11,7 +11,6 @@ import {
   downloadsByPlatform,
   downloadsDaily,
   firstSubscriptions,
-  type FirstSub,
   platformConversion,
   cmpVersion,
   newestVersion,
@@ -116,15 +115,26 @@ export default async function Admin2({
 
   // Hoy y ayer.
   const subsList = firstSubscriptions(rows);
-  // Quién se suscribió hoy y ayer, con su plan y su negocio.
-  const newSubs = subsList.filter(
-    (x) => x.day === today || x.day === mxDay(1),
+  // Quién se suscribió hoy y ayer. Desde que hay webhook, de la tienda
+  // (RevenueCat + Stripe); antes, de lo que reporta la app.
+  const storeSubs = await storeNewSubs(supabase, mxDay(1));
+  const subsOn = (day: string): NewSub[] =>
+    day >= STORE_SINCE
+      ? storeSubs.filter((x) => x.day === day && x.kind !== "converted")
+      : subsList.filter((x) => x.day === day);
+  const convertedOn = (day: string) =>
+    storeSubs.filter((x) => x.day === day && x.kind === "converted");
+  const newSubs = [...subsOn(today), ...subsOn(mxDay(1))];
+  const newSubNames = await businessNames(
+    supabase,
+    newSubs.map((x) => ({ key: x.key, installIds: x.installIds ?? [] })),
   );
-  const newSubNames = await businessNames(supabase, newSubs);
   const pulse = {
     today: dayPulse(rows, installs, subsList, today),
     yesterday: dayPulse(rows, installs, subsList, mxDay(1)),
   };
+  pulse.today.subscribed = countSubs(subsOn(today));
+  pulse.yesterday.subscribed = countSubs(subsOn(mxDay(1)));
   // Descargas: 30 días contra los 30 anteriores.
   const dlDays = downloadsDaily(installs, mxDay(29), today);
   const dlNow = downloadsByPlatform(installs, mxDay(29), today);
@@ -207,7 +217,7 @@ export default async function Admin2({
             tone="amber"
             now={pulse.today.subscribed}
             before={pulse.yesterday.subscribed}
-            hint="según la app"
+            hint={today >= STORE_SINCE ? "según la tienda" : "según la app"}
           />
           <PulseTile
             label="Abrieron la app"
@@ -224,8 +234,15 @@ export default async function Admin2({
         </section>
 
         <NewSubs
-          today={newSubs.filter((x) => x.day === today)}
-          yesterday={newSubs.filter((x) => x.day !== today)}
+          days={[
+            { title: "Hoy", day: today },
+            { title: "Ayer", day: mxDay(1) },
+          ].map((d) => ({
+            ...d,
+            list: subsOn(d.day),
+            converted: convertedOn(d.day),
+            store: d.day >= STORE_SINCE,
+          }))}
           names={newSubNames}
         />
 
@@ -991,80 +1008,98 @@ function PulseTile({
   );
 }
 
-/// Quién se suscribió hoy y ayer: plan, negocio y plataforma.
+/// Quién se suscribió hoy y ayer: plan, plataforma y (si es Pro) negocio.
 function NewSubs({
-  today,
-  yesterday,
+  days,
   names,
 }: {
-  today: FirstSub[];
-  yesterday: FirstSub[];
+  days: {
+    title: string;
+    day: string;
+    list: NewSub[];
+    converted: NewSub[];
+    store: boolean;
+  }[];
   names: Map<string, string>;
 }) {
-  const col = (title: string, list: FirstSub[]) => {
-    const counts = new Map<string, number>();
-    for (const x of list) {
-      const k = x.plan ?? "?";
-      counts.set(k, (counts.get(k) ?? 0) + 1);
-    }
+  const row = (x: NewSub, tag?: string) => {
+    const info = PLAN_INFO.find((p) => p.key === x.plan);
     return (
-      <div className={s.subsCol}>
-        <div className={s.subsHead}>
-          <span className={s.subsWhen}>{title}</span>
-          <span className={s.subsChips}>
-            {list.length === 0 ? (
-              <span className={s.note} style={{ margin: 0 }}>
-                Nadie todavía
-              </span>
-            ) : (
-              PLAN_INFO.filter((p) => counts.get(p.key))
-                .map((p) => (
-                  <span key={p.key} className={s.subsChip}>
-                    <span className={s.dot} style={{ background: p.color }} />
-                    {counts.get(p.key)} {p.label}
-                  </span>
-                ))
-                .concat(
-                  counts.get("?")
-                    ? [
-                        <span key="?" className={s.subsChip}>
-                          {counts.get("?")} sin dato
-                        </span>,
-                      ]
-                    : [],
-                )
-            )}
-          </span>
-        </div>
-        {list.map((x) => {
-          const info = PLAN_INFO.find((p) => p.key === x.plan);
-          return (
-            <div key={x.key} className={s.subsRow}>
-              <span
-                className={s.subsPlan}
-                style={{ ["--plan" as string]: info?.color ?? "var(--mute)" }}
-              >
-                {info?.label ?? "Plan sin dato"}
-              </span>
-              <span className={s.subsName}>
-                {x.platform ? PLATFORM_LABEL[x.platform] ?? x.platform : ""}
-              </span>
-              {/* El nombre solo existe para negocios con Pro (en la nube). */}
-              {names.get(x.key) ? (
-                <span className={s.subsMeta}>{names.get(x.key)}</span>
-              ) : null}
-            </div>
-          );
-        })}
+      <div key={`${x.key}-${x.kind ?? ""}`} className={s.subsRow}>
+        <span
+          className={s.subsPlan}
+          style={{ ["--plan" as string]: info?.color ?? "var(--mute)" }}
+        >
+          {x.label ?? info?.label ?? "Plan sin dato"}
+        </span>
+        <span className={s.subsName}>
+          {x.platform ? PLATFORM_LABEL[x.platform] ?? x.platform : ""}
+          {names.get(x.key) ? ` · ${names.get(x.key)}` : ""}
+        </span>
+        {tag ? <span className={s.subsMeta}>{tag}</span> : null}
       </div>
     );
   };
   return (
     <section className={`${s.card} ${s.subsCard}`}>
-      <p className={s.eyebrow}>Nuevos suscriptores · según la app</p>
+      <p className={s.eyebrow}>Nuevos suscriptores</p>
       <div className={s.subsCols}>
-        {col("Hoy", today)}
-        {col("Ayer", yesterday)}
+        {days.map((d) => {
+          const counts = new Map<string, number>();
+          for (const x of d.list) {
+            const k = x.plan ?? "?";
+            counts.set(k, (counts.get(k) ?? 0) + 1);
+          }
+          return (
+            <div key={d.day} className={s.subsCol}>
+              <div className={s.subsHead}>
+                <span className={s.subsWhen}>{d.title}</span>
+                <span className={s.subsChips}>
+                  {PLAN_INFO.filter((p) => counts.get(p.key)).map((p) => (
+                    <span key={p.key} className={s.subsChip}>
+                      <span
+                        className={s.dot}
+                        style={{ background: p.color }}
+                      />
+                      {counts.get(p.key)} {p.label}
+                    </span>
+                  ))}
+                  {counts.get("?") ? (
+                    <span className={s.subsChip}>
+                      {counts.get("?")} sin dato
+                    </span>
+                  ) : null}
+                </span>
+                <span className={s.subsSource}>
+                  {d.store ? "según la tienda" : "según la app"}
+                </span>
+              </div>
+              {d.list.length === 0 ? (
+                <span className={s.note} style={{ margin: 0 }}>
+                  Nadie todavía
+                </span>
+              ) : null}
+              {d.list.map((x) =>
+                row(
+                  x,
+                  x.kind === "trial"
+                    ? "Prueba gratis"
+                    : x.kind === "paid"
+                      ? "Pagó"
+                      : undefined,
+                ),
+              )}
+              {d.converted.length ? (
+                <>
+                  <span className={s.subsWhen} style={{ marginTop: 6 }}>
+                    Pagaron al terminar su prueba
+                  </span>
+                  {d.converted.map((x) => row(x, "Pagó"))}
+                </>
+              ) : null}
+            </div>
+          );
+        })}
       </div>
     </section>
   );
@@ -1583,6 +1618,116 @@ async function businessNames(
     if (key && name && !names.has(key)) names.set(key, name);
   }
   return names;
+}
+
+/// Desde este día (México) los nuevos suscriptores salen de la tienda: el
+/// webhook de RevenueCat empezó la noche del 23 de octubre de 2026.
+const STORE_SINCE = "2026-10-24";
+
+type NewSub = {
+  key: string;
+  day: string;
+  platform: string | null;
+  /** monthly / yearly / pro_monthly / pro_yearly */
+  plan: string | null;
+  /** Nombre exacto del producto (p. ej. «Mensual $99»), si viene de la tienda. */
+  label?: string;
+  /** trial = empezó prueba gratis · paid = pagó de una · converted = pagó al terminar la prueba */
+  kind?: "trial" | "paid" | "converted";
+  installIds?: string[];
+};
+
+const PLAN_OF_PRODUCT: Record<string, string> = {
+  orale_monthly: "monthly",
+  orale_monthly_99: "monthly",
+  orale_yearly: "yearly",
+  orale_pro_monthly: "pro_monthly",
+  orale_pro_monthly_199: "pro_monthly",
+  orale_pro_yearly: "pro_yearly",
+};
+
+/// Día en México de un timestamp.
+function mxDateOf(iso: string) {
+  return new Date(iso).toLocaleDateString("en-CA", {
+    timeZone: "America/Mexico_City",
+  });
+}
+
+/// Altas de la tienda desde [fromDay]: compras nuevas y pruebas que se
+/// cobraron (RevenueCat, iPhone/Android) y suscripciones de Windows (Stripe).
+async function storeNewSubs(
+  supabase: ReturnType<typeof adminClient>,
+  fromDay: string,
+): Promise<NewSub[]> {
+  const since = new Date(`${fromDay}T00:00:00-06:00`).toISOString();
+  const out: NewSub[] = [];
+  const rc = await supabase
+    .from("revenuecat_events")
+    .select(
+      "type, store, product_id, period_type, event_at, app_user_id, original_app_user_id, raw",
+    )
+    .eq("environment", "PRODUCTION")
+    .in("type", ["INITIAL_PURCHASE", "RENEWAL"])
+    .gte("event_at", since);
+  for (const e of (rc.data ?? []) as {
+    type: string;
+    store: string | null;
+    product_id: string | null;
+    period_type: string | null;
+    event_at: string;
+    app_user_id: string | null;
+    original_app_user_id: string | null;
+    raw: { is_trial_conversion?: boolean } | null;
+  }[]) {
+    const converted = e.type === "RENEWAL" && e.raw?.is_trial_conversion;
+    if (e.type === "RENEWAL" && !converted) continue;
+    const base = (e.product_id ?? "").split(":")[0];
+    out.push({
+      key: e.original_app_user_id ?? e.app_user_id ?? base,
+      day: mxDateOf(e.event_at),
+      platform:
+        e.store === "APP_STORE"
+          ? "ios"
+          : e.store === "PLAY_STORE"
+            ? "android"
+            : e.store,
+      plan: PLAN_OF_PRODUCT[base] ?? null,
+      label: PRODUCT_LABEL[base],
+      kind: converted
+        ? "converted"
+        : e.period_type === "TRIAL"
+          ? "trial"
+          : "paid",
+    });
+  }
+  const st = await supabase
+    .from("subscriptions")
+    .select("user_id, plan, subscribed_at")
+    .gte("subscribed_at", fromDay);
+  for (const r of (st.data ?? []) as {
+    user_id: string;
+    plan: string | null;
+    subscribed_at: string;
+  }[]) {
+    if (!r.plan || r.plan === "unknown") continue;
+    out.push({
+      key: r.user_id,
+      day: r.subscribed_at,
+      platform: "windows",
+      plan: r.plan,
+      kind: "paid",
+    });
+  }
+  return out;
+}
+
+function countSubs(list: NewSub[]): Count {
+  const byPlatform: Record<string, number> = {};
+  for (const p of PLATFORMS) byPlatform[p] = 0;
+  for (const x of list) {
+    if (x.platform) byPlatform[x.platform] = (byPlatform[x.platform] ?? 0) + 1;
+  }
+  return { total: list.length, byPlatform };
 }
 
 type CancelAnswer = {
