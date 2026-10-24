@@ -2255,28 +2255,39 @@ function Journey({
     .sort((a, b) => b.lost - a.lost)
     .slice(0, 1);
   const worstSet = new Set(drops.map((d) => d.i));
-  const tile = (st: JourneyStep, i: number) => {
+  const row = (st: JourneyStep, i: number) => {
     const bad = worstSet.has(i);
-    const lost = i > 0 ? per100(steps[i - 1].n) - per100(st.n) : 0;
-    const ofArrived =
-      i > 0 && steps[i - 1].n ? 1 - st.n / steps[i - 1].n : 0;
+    const ofPrev = i > 0 && steps[i - 1].n ? st.n / steps[i - 1].n : 1;
+    const width = Math.max(6, per100(st.n));
     return (
-      <div key={st.label} className={bad ? s.jStepBad : s.jStep}>
-        <div className={s.jBig}>{per100(st.n)}</div>
-        <div className={s.jLabel}>{st.label}</div>
-        <div className={s.jCount}>
-          {st.n.toLocaleString("es-MX")} negocios
-          {st.hint ? ` · ${st.hint}` : ""}
+      <div key={st.label} className={s.fRow}>
+        <div className={s.fLabel}>
+          <b>{st.label}</b>
+          <span>
+            {st.n.toLocaleString("es-MX")} negocios
+            {st.hint ? ` · ${st.hint}` : ""}
+          </span>
         </div>
-        {i === 1 ? (
-          <div className={s.jLost}>
-            −{lost} se fueron sin empezar (curiosos)
+        <div className={s.fTrack}>
+          <div
+            className={bad ? s.fBarBad : st.later ? s.fBarLater : s.fBar}
+            style={{ width: `${width}%` }}
+          >
+            {per100(st.n)}
           </div>
-        ) : i > 1 && !st.later ? (
-          <div className={bad ? s.jLostBad : s.jLost}>
-            −{lost} aquí · {Math.round(ofArrived * 100)}% de los que llegaron
-          </div>
-        ) : null}
+        </div>
+        <div className={bad ? s.fPctBad : s.fPct}>
+          {i === 0 ? (
+            <span className={s.fPctNote}>de cada 100</span>
+          ) : (
+            <>
+              {Math.round(ofPrev * 100)}%
+              <span className={s.fPctNote}>
+                {i === 1 ? "siguió (el resto: curiosos)" : "del paso anterior"}
+              </span>
+            </>
+          )}
+        </div>
       </div>
     );
   };
@@ -2310,12 +2321,12 @@ function Journey({
           </div>
         </div>
       ) : null}
-      <div className={s.journey}>{now.map((st, i) => tile(st, i))}</div>
-      <p className={s.funnelTitle} style={{ marginTop: 14 }}>
-        Necesitan unos días (los que llegaron hace poco todavía no alcanzan)
-      </p>
-      <div className={s.journeyLater}>
-        {later.map((st) => tile(st, steps.indexOf(st)))}
+      <div className={s.funnel}>
+        {now.map((st, i) => row(st, i))}
+        <p className={s.fDivider}>
+          Necesitan unos días · los que llegaron hace poco todavía no alcanzan
+        </p>
+        {later.map((st) => row(st, steps.indexOf(st)))}
       </div>
       {shownPaths.length ? (
         <>
