@@ -1432,3 +1432,156 @@
   color: var(--mute);
   font-size: 11px;
 }
+
+/* ---- ¿Dónde se va la gente? (de cada 100) ---- */
+.journey {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 10px;
+  margin-top: 14px;
+}
+@media (max-width: 1000px) {
+  .journey {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+@media (max-width: 560px) {
+  .journey {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+.jStep {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px 12px 10px;
+  background: rgba(255, 255, 255, 0.03);
+}
+.jStepBad {
+  composes: jStep;
+  border-color: rgba(248, 113, 113, 0.55);
+  background: rgba(248, 113, 113, 0.08);
+}
+.jBig {
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 1;
+}
+.jStepBad .jBig {
+  color: var(--red);
+}
+.jLabel {
+  margin-top: 6px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.jCount {
+  margin-top: 2px;
+  font-size: 11.5px;
+  color: var(--mute);
+}
+.jWhy {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--red);
+  font-weight: 600;
+}
+
+/* ---- Ver más / secciones plegables ---- */
+.more {
+  margin-top: 8px;
+}
+.more > summary,
+.moreBig > summary {
+  cursor: pointer;
+  list-style: none;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--soft);
+  padding: 8px 12px;
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  text-align: center;
+}
+.more > summary::-webkit-details-marker,
+.moreBig > summary::-webkit-details-marker {
+  display: none;
+}
+.more[open] > summary,
+.moreBig[open] > summary {
+  margin-bottom: 10px;
+}
+.moreBig > summary {
+  padding: 14px 16px;
+  border-style: solid;
+  background: linear-gradient(180deg, var(--card-2), var(--card));
+  border-radius: 18px;
+  text-align: left;
+  font-size: 14px;
+}
+.moreBig > summary::after {
+  content: " ▾";
+  color: var(--mute);
+}
+
+/* ---- Hallazgos de retención ---- */
+.insights {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin: 6px 0 4px;
+}
+@media (max-width: 720px) {
+  .insights {
+    grid-template-columns: 1fr;
+  }
+}
+.insight {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 14px;
+}
+.insightBad,
+.insightGood {
+  min-width: 56px;
+  font-size: 22px;
+  font-weight: 800;
+}
+.insightBad {
+  color: var(--red);
+}
+.insightGood {
+  color: var(--green);
+}
+.insightGroup {
+  color: var(--mute);
+  font-size: 12px;
+}
+
+/* ---- Bajas por plan ---- */
+.lostPlans {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.lostPlan {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  padding: 6px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.03);
+}
+.lostPlan span:last-child {
+  color: var(--soft);
+}
+.lostPlanBad {
+  composes: lostPlan;
+  border-color: rgba(248, 113, 113, 0.55);
+  background: rgba(248, 113, 113, 0.08);
+}

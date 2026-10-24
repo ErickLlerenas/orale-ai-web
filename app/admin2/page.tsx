@@ -3,22 +3,19 @@ import Link from "next/link";
 import { adminClient, fetchAll } from "@/lib/supabase";
 import {
   PING_COLUMNS,
+  FREE_ORDER_LIMIT,
   PLATFORMS,
-  activationFunnel,
   activeSeries,
-  baseOf,
   dayPulse,
   downloadsByPlatform,
+  dayRange,
   downloadsDaily,
   firstSubscriptions,
-  platformConversion,
   cmpVersion,
   newestVersion,
   avgWeeklySubs,
-  menuPaths,
   mxDay,
   newOwners,
-  onboardingFunnel,
   pct,
   recentLost,
   atRisk,
@@ -29,13 +26,12 @@ import {
   toInstalls,
   versions,
   weekly,
-  worstDrop,
   type Count,
   type DayRow,
+  type Install,
   type LostAccount,
   type PingRow,
   type RetRow,
-  type Step,
   type WeekRow,
 } from "@/lib/admin2";
 import s from "./admin2.module.css";
@@ -66,25 +62,13 @@ const RC_LABEL: Record<string, string> = {
   active_subscriptions: "Suscripciones activas",
   active_trials: "En prueba gratis",
   mrr: "Ingreso mensual (MRR)",
-  revenue: "Ingresos últimos 28 días",
-  new_customers: "Usuarios nuevos en RevenueCat (28 días)",
+  new_customers: "Usuarios nuevos (28 días)",
 };
 const RC_ORDER = Object.keys(RC_LABEL);
 
-export default async function Admin2({
-  searchParams,
-}: {
-  searchParams: { days?: string; platform?: string };
-}) {
+export default async function Admin2() {
   noStore();
-  const days = searchParams.days === "30" ? 30 : 7;
-  const platform = PLATFORMS.includes(searchParams.platform as never)
-    ? (searchParams.platform as string)
-    : "todas";
   const today = mxDay(0);
-  // Hoy no cuenta: los aparatos de hoy todavía no tuvieron tiempo de avanzar.
-  const from = mxDay(days);
-  const to = mxDay(1);
 
   const supabase = adminClient();
   const [pingsRes, rc, health] = await Promise.all([
@@ -100,24 +84,27 @@ export default async function Admin2({
   ]);
   const rows = pingsRes.data;
   const installs = toInstalls(rows);
-  const cohortAll = newOwners(installs, from, to);
-  const cohort =
-    platform === "todas"
-      ? cohortAll
-      : cohortAll.filter((i) => i.platform === platform);
-  const onboarding = onboardingFunnel(cohort);
-  const activation = activationFunnel(cohort);
-  const paths = menuPaths(cohort);
+  // El camino de un negocio nuevo: dueños que llegaron en los últimos 30
+  // días (sin hoy), todas las plataformas, apps que reportan la bienvenida.
+  const journeyFrom = mxDay(30);
+  const journeyTo = mxDay(1);
+  const journey = journeySteps(
+    newOwners(installs, journeyFrom, journeyTo).filter((i) => i.stage != null),
+  );
   const weeks = weekly(installs, rows, 8, today);
   const vers = versions(rows, mxDay(7));
-  const worst = worstDrop(onboarding) ?? worstDrop(activation);
   const newest = newestVersion(rows, mxDay(7));
 
   // Hoy y ayer.
   const subsList = firstSubscriptions(rows);
   // Quién se suscribió hoy y ayer. Desde que hay webhook, de la tienda
   // (RevenueCat + Stripe); antes, de lo que reporta la app.
-  const storeSubs = await storeNewSubs(supabase, mxDay(1));
+  // Mes en curso (se reinicia el día 1) y los mismos días del mes pasado.
+  const month = monthWindow(today);
+  const storeSubs = await storeNewSubs(
+    supabase,
+    month.start < mxDay(1) ? month.start : mxDay(1),
+  );
   const subsOn = (day: string): NewSub[] =>
     day >= STORE_SINCE
       ? storeSubs.filter((x) => x.day === day && x.kind !== "converted")
@@ -135,14 +122,22 @@ export default async function Admin2({
   };
   pulse.today.subscribed = countSubs(subsOn(today));
   pulse.yesterday.subscribed = countSubs(subsOn(mxDay(1)));
-  // Descargas: 30 días contra los 30 anteriores.
-  const dlDays = downloadsDaily(installs, mxDay(29), today);
-  const dlNow = downloadsByPlatform(installs, mxDay(29), today);
-  const dlPrev = downloadsByPlatform(installs, mxDay(59), mxDay(30));
+  // Descargas del mes contra los mismos días del mes pasado.
+  const dlDays = downloadsDaily(installs, month.start, month.end);
+  const dlNow = downloadsByPlatform(installs, month.start, today);
+  const dlPrev = downloadsByPlatform(installs, month.prevStart, month.prevTo);
+  // Suscripciones del mes (misma fuente que «Se suscribieron»).
+  const subDays: DayRow[] = dayRange(month.start, month.end).map((day) => ({
+    day,
+    ...countSubs(day <= today ? subsOn(day) : []),
+  }));
+  const subsMonth = dayRange(month.start, today).flatMap((d) => subsOn(d));
+  const subsPrevTotal = dayRange(month.prevStart, month.prevTo).reduce(
+    (a, d) => a + subsOn(d).length,
+    0,
+  );
   const dlTotal = dlNow.reduce((a, p) => a + p.total, 0);
   const dlPrevTotal = dlPrev.reduce((a, p) => a + p.total, 0);
-  // Embudo por plataforma: 30 días para que alcancen a pagar.
-  const conv = platformConversion(newOwners(installs, mxDay(30), mxDay(1)));
   const cutoffDays = Math.round(
     (Date.parse(LEGACY_CUTOFF) - Date.parse(today)) / 86_400_000,
   );
@@ -175,8 +170,6 @@ export default async function Admin2({
   const weeksLeft =
     netPerWeek > 0 ? Math.ceil(Math.max(0, GOAL - active) / netPerWeek) : null;
 
-  const href = (q: Record<string, string>) =>
-    `/admin2?${new URLSearchParams({ days: String(days), platform, ...q })}`;
   const updated = new Date().toLocaleTimeString("es-MX", {
     timeZone: "America/Mexico_City",
     hour: "2-digit",
@@ -302,7 +295,6 @@ export default async function Admin2({
                     value: formatMetric(m.value, m.unit),
                     label: RC_LABEL[m.id] ?? m.name,
                   }))
-                  .concat(derivedTiles(metric("mrr"), active, perWeek))
                   .map((t) => (
                     <div className={s.tile} key={t.key}>
                       <div className={s.tileValue}>{t.value}</div>
@@ -336,7 +328,7 @@ export default async function Admin2({
         <section className={s.card} id="descargas">
           <div className={s.cardHead}>
             <div>
-              <p className={s.eyebrow}>Descargas · últimos 30 días</p>
+              <p className={s.eyebrow}>Descargas · {month.name}</p>
               <h2 className={s.h2}>
                 {dlTotal.toLocaleString("es-MX")}{" "}
                 <Delta now={dlTotal} before={dlPrevTotal} />
@@ -344,14 +336,13 @@ export default async function Admin2({
               <p className={s.note}>
                 Aparatos que abrieron la app por primera vez (dueños y meseros).
                 No cuenta reinstalaciones ni cambios de celular. La flecha
-                compara con los 30 días anteriores.
+                compara con los mismos días de {month.prevName}.
               </p>
             </div>
             <Legend subs={false} />
           </div>
           <div className={s.platTiles}>
             {dlNow.map((p, i) => {
-              const c = conv.find((x) => x.platform === p.platform)!;
               return (
                 <div className={s.platTile} key={p.platform}>
                   <div className={s.platHead}>
@@ -369,10 +360,6 @@ export default async function Admin2({
                     {pct(p.total, dlTotal)} del total · {p.owners} dueños ·{" "}
                     {p.waiters} meseros
                   </div>
-                  <div className={s.platPay}>
-                    <strong>{pct(c.paid, c.n)}</strong> de los dueños nuevos
-                    termina pagando
-                  </div>
                 </div>
               );
             })}
@@ -380,99 +367,40 @@ export default async function Admin2({
           <DailyBars days={dlDays} today={today} />
         </section>
 
-        {/* 2. Dónde se va la gente */}
-        <section className={s.card} id="cuello">
+        {/* 1c. Suscripciones del mes */}
+        <section className={s.card} id="suscripciones-mes">
           <div className={s.cardHead}>
             <div>
-              <p className={s.eyebrow}>Negocios nuevos</p>
-              <h2 className={s.h2}>¿Dónde se va la gente?</h2>
+              <p className={s.eyebrow}>Suscripciones · {month.name}</p>
+              <h2 className={s.h2}>
+                {subsMonth.length.toLocaleString("es-MX")}{" "}
+                <Delta now={subsMonth.length} before={subsPrevTotal} />
+              </h2>
               <p className={s.note}>
-                {cohort.length} dueños nuevos del {shortDay(from)} al{" "}
-                {shortDay(to)}, y hasta dónde llegó cada uno. No cuenta meseros.
+                Clientes que se suscribieron por primera vez. Desde el 24 de
+                octubre sale de la tienda (RevenueCat y Stripe); antes, de la
+                app. La flecha compara con los mismos días de{" "}
+                {month.prevName}.
               </p>
             </div>
-            <div className={s.pills}>
-              <Pill on={days === 7} href={href({ days: "7" })}>
-                7 días
-              </Pill>
-              <Pill on={days === 30} href={href({ days: "30" })}>
-                30 días
-              </Pill>
-              <span className={s.pillGap} />
-              {["todas", ...PLATFORMS].map((p) => (
-                <Pill key={p} on={platform === p} href={href({ platform: p })}>
-                  {p === "todas" ? "Todas" : PLATFORM_LABEL[p]}
-                </Pill>
-              ))}
-            </div>
+            <Legend subs={false} />
           </div>
-
-          {worst ? (
-            <div className={s.callout}>
-              <div className={s.calloutBig}>
-                −{Math.round(worst.lostPct * 100)}%
-              </div>
-              <div className={s.calloutText}>
-                Aquí se pierde más gente: entre «{worst.from.label}» y «
-                {worst.to.label}»
-                <span>
-                  De {worst.from.n} que llegaron, {worst.lost} ya no siguieron.
-                  Mejorar este paso es lo que más suscripciones te daría.
+          <div className={s.subsChips} style={{ marginBottom: 12 }}>
+            {PLAN_INFO.map((p) => {
+              const n = subsMonth.filter((x) => x.plan === p.key).length;
+              return n ? (
+                <span key={p.key} className={s.subsChip}>
+                  <span className={s.dot} style={{ background: p.color }} />
+                  {n} {p.label}
                 </span>
-              </div>
-            </div>
-          ) : null}
-
-          <div className={s.funnels}>
-            <div>
-              <p className={s.funnelTitle}>
-                Paso a paso en la bienvenida (app 3.0.89 o más nueva)
-              </p>
-              <Funnel steps={onboarding} />
-            </div>
-            <div>
-              <p className={s.funnelTitle}>
-                Del primer día hasta pagar (todas las versiones)
-              </p>
-              <Funnel steps={activation} />
-            </div>
+              ) : null;
+            })}
           </div>
-
-          <div className={s.paths}>
-            {paths
-              // Sin dato no dice nada; un camino sin nadie (p. ej. el menú de
-              // ejemplo antes de que salga la 3.0.97) solo estorba.
-              .filter((p) => p.label !== "Sin dato (no llegaron)" && p.n > 0)
-              .map((p) => (
-                <div className={s.path} key={p.label}>
-                  <div className={s.pathTop}>
-                    <span>{p.label}</span>
-                    <span className={s.pathN}>{p.n}</span>
-                  </div>
-                  <div className={s.pathBig}>{pct(p.sold, p.n)}</div>
-                  <div className={s.pathSub}>
-                    ya vendieron · {pct(p.withMenu, p.n)} tiene menú ·{" "}
-                    {pct(p.subscribed, p.n)} ya paga
-                  </div>
-                </div>
-              ))}
-          </div>
+          <DailyBars days={subDays} today={today} />
         </section>
 
-        {/* 2b. Por plataforma */}
-        <section className={s.card} id="plataformas">
-          <div className={s.cardHead}>
-            <div>
-              <p className={s.eyebrow}>Negocios nuevos · últimos 30 días</p>
-              <h2 className={s.h2}>¿Qué plataforma convierte mejor?</h2>
-              <p className={s.note}>
-                De cada 100 dueños nuevos del último mes, cuántos llegan a cada
-                paso. Color más fuerte = mejor.
-              </p>
-            </div>
-          </div>
-          <HeatTable rows={conv} />
-        </section>
+        {/* 2. Dónde se va la gente */}
+        <Journey steps={journey} from={journeyFrom} to={journeyTo} />
 
         {/* 2c. Quién se queda */}
         <section className={s.card} id="retencion">
@@ -494,6 +422,12 @@ export default async function Admin2({
               <span className={s.retTotalL}>se fue en 6 semanas</span>
             </div>
           </div>
+          <RetInsights
+            groups={ret.groups}
+            avg={ret.total.gone / Math.max(1, ret.total.n)}
+          />
+          <details className={s.more}>
+            <summary>Ver todos los grupos</summary>
           <div className={s.retLegend}>
             <span>
               <span className={s.retSwatchStay} /> Siguen pagando
@@ -518,6 +452,7 @@ export default async function Admin2({
               />
             ))}
           </div>
+          </details>
         </section>
 
         {/* 2c. En riesgo */}
@@ -536,15 +471,16 @@ export default async function Admin2({
           {risk.length === 0 ? (
             <p className={s.note}>Nadie en riesgo ahorita.</p>
           ) : (
-            <div className={s.bizList}>
-              {risk.slice(0, 40).map((r) => (
+            <ShowMore
+              first={5}
+              items={risk.slice(0, 40).map((r) => (
                 <RiskRow
                   key={r.key}
                   risk={r}
                   name={riskNames.get(r.key) ?? null}
                 />
               ))}
-            </div>
+            />
           )}
         </section>
 
@@ -668,20 +604,26 @@ export default async function Admin2({
           {lost.length === 0 ? (
             <p className={s.note}>Nadie en las últimas 4 semanas.</p>
           ) : (
-            <div className={s.bizList}>
-              {lost.slice(0, 40).map((l) => (
-                <LostRow
-                  key={l.key}
-                  lost={l}
-                  name={churn.names.get(l.key) ?? null}
-                  today={today}
-                />
-              ))}
-            </div>
+            <>
+              <LostByPlan lost={lost} active={plans} />
+              <ShowMore
+                first={5}
+                items={lost.map((l) => (
+                  <LostRow
+                    key={l.key}
+                    lost={l}
+                    name={churn.names.get(l.key) ?? null}
+                    today={today}
+                  />
+                ))}
+              />
+            </>
           )}
         </section>
 
         {/* 3. Semanas y versiones */}
+        <details className={s.moreBig}>
+          <summary>Semana a semana y versiones en uso</summary>
         <div className={s.split}>
           <section className={s.card}>
             <div className={s.cardHead}>
@@ -709,7 +651,11 @@ export default async function Admin2({
           </section>
         </div>
 
+        </details>
+
         {/* 4. Migración */}
+        <details className={s.moreBig}>
+          <summary>Migración del sync (técnico)</summary>
         <section className={s.card} id="migracion">
           <div className={s.cardHead}>
             <div>
@@ -873,6 +819,7 @@ export default async function Admin2({
             </>
           ) : null}
         </section>
+        </details>
       </div>
     </main>
   );
@@ -1143,9 +1090,10 @@ function Delta({ now, before }: { now: number; before: number }) {
 
 function DailyBars({ days, today }: { days: DayRow[]; today: string }) {
   const max = Math.max(1, ...days.map((d) => d.total));
-  const avg =
-    days.slice(0, -1).reduce((a, d) => a + d.total, 0) /
-    Math.max(1, days.length - 1);
+  // Promedio de los días ya terminados (hoy va a la mitad; los que faltan
+  // del mes todavía no pasan).
+  const done = days.filter((d) => d.day < today);
+  const avg = done.reduce((a, d) => a + d.total, 0) / Math.max(1, done.length);
   return (
     <div className={s.daysWrap}>
       <div
@@ -1185,6 +1133,7 @@ function DailyBars({ days, today }: { days: DayRow[]; today: string }) {
                 className={
                   dow === 0 || dow === 6 ? s.dayLabelWeekend : s.dayLabel
                 }
+                style={d.day > today ? { opacity: 0.35 } : undefined}
               >
                 {d.day === today ? "hoy" : Number(d.day.slice(8))}
               </span>
@@ -1192,75 +1141,6 @@ function DailyBars({ days, today }: { days: DayRow[]; today: string }) {
           );
         })}
       </div>
-    </div>
-  );
-}
-
-function HeatTable({
-  rows,
-}: {
-  rows: {
-    platform: string;
-    n: number;
-    menu: number;
-    sold: number;
-    limit: number;
-    paid: number;
-  }[];
-}) {
-  const cols = [
-    { key: "menu", label: "Hicieron menú" },
-    { key: "sold", label: "Vendieron" },
-    { key: "limit", label: `Llegaron a 10 ventas` },
-    { key: "paid", label: "Pagaron" },
-  ] as const;
-  // Cada columna se colorea contra su mejor plataforma.
-  const best = Object.fromEntries(
-    cols.map((c) => [
-      c.key,
-      Math.max(0.0001, ...rows.map((r) => (r.n ? r[c.key] / r.n : 0))),
-    ]),
-  );
-  return (
-    <div className={s.heat}>
-      <div className={s.heatHead}>
-        <span>Plataforma</span>
-        <span>Nuevos</span>
-        {cols.map((c) => (
-          <span key={c.key}>{c.label}</span>
-        ))}
-      </div>
-      {rows.map((r) => (
-        <div className={s.heatRow} key={r.platform}>
-          <span className={s.heatName}>
-            <span
-              className={s.dot}
-              style={{ background: PLATFORM_COLOR[r.platform] }}
-            />
-            {PLATFORM_LABEL[r.platform]}
-          </span>
-          <span className={s.heatN}>{r.n}</span>
-          {cols.map((c) => {
-            const share = r.n ? r[c.key] / r.n : 0;
-            const strength = share / best[c.key];
-            return (
-              <span
-                key={c.key}
-                className={s.heatCell}
-                style={{
-                  background: `rgba(241, 90, 41, ${0.08 + strength * 0.5})`,
-                  borderColor:
-                    strength === 1 ? "var(--orange-2)" : "transparent",
-                }}
-                title={`${r[c.key]} de ${r.n}`}
-              >
-                <strong>{pct(r[c.key], r.n)}</strong>
-                <small>{r[c.key]}</small>
-              </span>
-            );
-          })}
-        </div>
-      ))}
     </div>
   );
 }
@@ -1412,6 +1292,109 @@ function Plans({ counts }: { counts: Record<string, number> }) {
           </span>
         ))}
       </div>
+    </div>
+  );
+}
+
+/// Lista con los primeros [first] a la vista y el resto en «Ver más».
+function ShowMore({ first, items }: { first: number; items: JSX.Element[] }) {
+  return (
+    <div className={s.bizList}>
+      {items.slice(0, first)}
+      {items.length > first ? (
+        <details className={s.more}>
+          <summary>Ver los otros {items.length - first}</summary>
+          <div className={s.bizList}>{items.slice(first)}</div>
+        </details>
+      ) : null}
+    </div>
+  );
+}
+
+/// Lo que más se sale del promedio en «¿Quién se queda?», en una frase cada
+/// uno: así se ve de un vistazo dónde está el hueco (p. ej. Pro mensual).
+function RetInsights({
+  groups,
+  avg,
+}: {
+  groups: { title: string; rows: RetRow[] }[];
+  avg: number;
+}) {
+  const all = groups.flatMap((g) =>
+    g.rows
+      .filter((r) => r.n >= 15)
+      .map((r) => ({ group: g.title, ...r, rate: r.gone / r.n })),
+  );
+  const bad = all
+    .filter((r) => r.rate - avg >= 0.1)
+    .sort((a, b) => b.rate - a.rate)
+    .slice(0, 4);
+  const good = all
+    .filter((r) => avg - r.rate >= 0.15)
+    .sort((a, b) => a.rate - b.rate)
+    .slice(0, 4);
+  if (!bad.length && !good.length) return null;
+  const line = (r: (typeof all)[number], tone: "bad" | "good") => (
+    <div key={`${r.group}-${r.label}`} className={s.insight}>
+      <span className={tone === "bad" ? s.insightBad : s.insightGood}>
+        {Math.round(r.rate * 100)}%
+      </span>
+      <span>
+        <b>{r.label}</b>{" "}
+        <span className={s.insightGroup}>· {r.group.replace(/[¿?]/g, "")}</span>
+        <br />
+        <span className={s.insightGroup}>
+          se fueron {r.gone} de {r.n}
+        </span>
+      </span>
+    </div>
+  );
+  return (
+    <div className={s.insights}>
+      {bad.length ? (
+        <div>
+          <p className={s.funnelTitle}>Se van más que el promedio</p>
+          {bad.map((r) => line(r, "bad"))}
+        </div>
+      ) : null}
+      {good.length ? (
+        <div>
+          <p className={s.funnelTitle}>Se quedan más</p>
+          {good.map((r) => line(r, "good"))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/// Bajas por plan contra cuántos tienen ese plan hoy: qué plan sangra más.
+function LostByPlan({
+  lost,
+  active,
+}: {
+  lost: LostAccount[];
+  active: Record<string, number>;
+}) {
+  const rows = PLAN_INFO.map((p) => {
+    const n = lost.filter((l) => l.plan === p.key).length;
+    const base = n + (active[p.key] ?? 0);
+    return { ...p, n, rate: base ? n / base : 0 };
+  }).filter((r) => r.n > 0);
+  const worst = Math.max(...rows.map((r) => r.rate));
+  return (
+    <div className={s.lostPlans}>
+      {rows.map((r) => (
+        <div
+          key={r.key}
+          className={r.rate === worst && rows.length > 1 ? s.lostPlanBad : s.lostPlan}
+        >
+          <span className={s.dot} style={{ background: r.color }} />
+          <b>{r.label}</b>
+          <span>
+            {r.n} se fueron · {Math.round(r.rate * 100)}% de ese plan
+          </span>
+        </div>
+      ))}
     </div>
   );
 }
@@ -1876,22 +1859,6 @@ async function churnDetails(
   return { names, events, answers };
 }
 
-function Pill({
-  on,
-  href,
-  children,
-}: {
-  on: boolean;
-  href: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <Link className={on ? s.pillOn : s.pill} href={href}>
-      {children}
-    </Link>
-  );
-}
-
 function Ring({ value, goal }: { value: number; goal: number }) {
   const r = 90;
   const c = 2 * Math.PI * r;
@@ -1931,63 +1898,6 @@ function Ring({ value, goal }: { value: number; goal: number }) {
           de {goal.toLocaleString("es-MX")} · {pct(value, goal)}
         </div>
       </div>
-    </div>
-  );
-}
-
-function Funnel({ steps }: { steps: Step[] }) {
-  const top = Math.max(1, steps[0]?.n ?? 1);
-  const worst = worstDrop(steps);
-  return (
-    <div className={s.steps}>
-      {steps.map((step, i) => {
-        const prev = i === 0 ? step.n : baseOf(steps, i).n;
-        const kept = prev ? step.n / prev : 0;
-        const isWorst = worst?.to === step;
-        const firstAfter = step.after && !steps[i - 1]?.after;
-        return (
-          <div key={step.label}>
-            {firstAfter ? (
-              <p className={s.afterLabel}>
-                De los {baseOf(steps, i).n} que ya vendieron. En 7 días casi
-                nadie alcanza a pagar: mira 30 días.
-              </p>
-            ) : null}
-            <div className={s.step}>
-              <div className={s.track}>
-                <div
-                  className={isWorst ? s.fillWorst : s.fill}
-                  style={{ width: `${Math.max(3, (step.n / top) * 100)}%` }}
-                />
-                <div className={s.stepText}>
-                  <span className={s.stepN}>{step.n}</span>
-                  <span>{step.label}</span>
-                  {step.hint ? (
-                    <span className={s.stepHint}>{step.hint}</span>
-                  ) : null}
-                </div>
-              </div>
-              {i === 0 ? (
-                <span className={s.conv}>100%</span>
-              ) : (
-                <span
-                  className={
-                    step.after
-                      ? s.conv
-                      : isWorst || kept < 0.6
-                        ? s.convBad
-                        : kept >= 0.85
-                          ? s.convGood
-                          : s.conv
-                  }
-                >
-                  {pct(step.n, prev)}
-                </span>
-              )}
-            </div>
-          </div>
-        );
-      })}
     </div>
   );
 }
@@ -2237,42 +2147,110 @@ async function migrationHealth(supabase: ReturnType<typeof adminClient>) {
 }
 
 /// «2026-10-15» → «15 oct».
+type JourneyStep = { label: string; n: number; hint?: string };
+
+/// El camino de un dueño nuevo, de abrir la app a pagar.
+function journeySteps(list: Install[]): JourneyStep[] {
+  const c = (f: (i: Install) => boolean) => list.filter(f).length;
+  return [
+    { label: "Abrieron la app", n: list.length },
+    { label: "Terminaron la bienvenida", n: c((i) => (i.stage ?? 0) >= 7) },
+    { label: "Tienen menú", n: c((i) => i.products > 0) },
+    { label: "Hicieron su primera venta", n: c((i) => i.orders > 0) },
+    {
+      label: `Llegaron a ${FREE_ORDER_LIMIT} ventas`,
+      n: c((i) => i.orders >= FREE_ORDER_LIMIT),
+      hint: "aquí se les pide pagar",
+    },
+    { label: "Se suscribieron", n: c((i) => i.subscribed) },
+  ];
+}
+
+/// ¿Dónde se va la gente? De cada 100 que abren la app, cuántos llegan a
+/// cada paso. El paso donde más se pierde va en rojo.
+function Journey({
+  steps,
+  from,
+  to,
+}: {
+  steps: JourneyStep[];
+  from: string;
+  to: string;
+}) {
+  const top = Math.max(1, steps[0]?.n ?? 1);
+  let worst = -1;
+  let worstLost = 0;
+  for (let i = 1; i < steps.length; i++) {
+    const prev = steps[i - 1].n;
+    if (prev < 10) continue;
+    const lost = (prev - steps[i].n) / prev;
+    if (lost > worstLost) {
+      worstLost = lost;
+      worst = i;
+    }
+  }
+  return (
+    <section className={s.card} id="cuello">
+      <p className={s.eyebrow}>Negocios nuevos</p>
+      <h2 className={s.h2}>¿Dónde se va la gente?</h2>
+      <p className={s.note}>
+        De cada 100 dueños que abrieron la app por primera vez (del{" "}
+        {shortDay(from)} al {shortDay(to)}), cuántos llegan a cada paso.
+      </p>
+      <div className={s.journey}>
+        {steps.map((st, i) => {
+          const of100 = Math.round((st.n / top) * 100);
+          const bad = i === worst;
+          return (
+            <div key={st.label} className={bad ? s.jStepBad : s.jStep}>
+              <div className={s.jBig}>{of100}</div>
+              <div className={s.jLabel}>{st.label}</div>
+              <div className={s.jCount}>
+                {st.n.toLocaleString("es-MX")} negocios
+                {st.hint ? ` · ${st.hint}` : ""}
+              </div>
+              {bad ? (
+                <div className={s.jWhy}>
+                  Aquí se pierde más: {Math.round(worstLost * 100)}% no pasa
+                  de «{steps[i - 1].label.toLowerCase()}»
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+/// Mes en curso de [today] (México) y los mismos días del mes anterior.
+function monthWindow(today: string) {
+  const [y, m, d] = today.split("-").map(Number);
+  const iso = (yy: number, mm: number, dd: number) =>
+    `${yy}-${String(mm).padStart(2, "0")}-${String(dd).padStart(2, "0")}`;
+  const lastDay = (yy: number, mm: number) =>
+    new Date(Date.UTC(yy, mm, 0)).getUTCDate();
+  const py = m === 1 ? y - 1 : y;
+  const pm = m === 1 ? 12 : m - 1;
+  const name = (yy: number, mm: number) =>
+    new Date(Date.UTC(yy, mm - 1, 15)).toLocaleDateString("es-MX", {
+      month: "long",
+      timeZone: "UTC",
+    });
+  return {
+    start: iso(y, m, 1),
+    end: iso(y, m, lastDay(y, m)),
+    prevStart: iso(py, pm, 1),
+    prevTo: iso(py, pm, Math.min(d, lastDay(py, pm))),
+    name: name(y, m),
+    prevName: name(py, pm),
+  };
+}
+
 function shortDay(day: string) {
   const months = "ene feb mar abr may jun jul ago sep oct nov dic".split(" ");
   const [, m, d] = day.split("-").map(Number);
   return `${d} ${months[m - 1]}`;
-}
-
-/// Lo que se puede sacar de RevenueCat sin pedirle más: cuánto deja cada
-/// suscriptor y cuánto sería el MRR al llegar a la meta.
-function derivedTiles(
-  mrr: { value: number; unit?: string } | undefined,
-  active: number,
-  perWeek: number,
-) {
-  const tiles = [
-    {
-      key: "per_week",
-      value: perWeek.toFixed(0),
-      label: "Suscripciones nuevas por semana",
-    },
-  ];
-  if (mrr && active > 0) {
-    const each = mrr.value / active;
-    tiles.push(
-      {
-        key: "arpu",
-        value: formatMetric(each, mrr.unit, 2),
-        label: "Te deja cada cliente al mes",
-      },
-      {
-        key: "mrr_goal",
-        value: formatMetric(each * GOAL, mrr.unit),
-        label: `Ingreso al mes con ${GOAL.toLocaleString("es-MX")} clientes`,
-      },
-    );
-  }
-  return tiles;
 }
 
 /// Separa una lista larga para no armar URLs gigantes en los filtros `in`.
