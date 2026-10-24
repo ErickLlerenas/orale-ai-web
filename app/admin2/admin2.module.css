@@ -1651,7 +1651,7 @@
   font-weight: 800;
   font-size: 16px;
   color: #1a1408;
-  background: linear-gradient(90deg, var(--orange), var(--orange-2));
+  background: var(--orange);
   transition: width 0.3s;
 }
 .fBarBad {

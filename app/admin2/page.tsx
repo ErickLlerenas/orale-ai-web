@@ -2263,22 +2263,26 @@ function Journey({
       <div key={st.label} className={s.fRow}>
         <div className={s.fLabel}>
           <b>{st.label}</b>
-          <span>
-            {st.n.toLocaleString("es-MX")} negocios
-            {st.hint ? ` · ${st.hint}` : ""}
-          </span>
+          {st.hint ? <span>{st.hint}</span> : null}
         </div>
         <div className={s.fTrack}>
           <div
-            className={bad ? s.fBarBad : st.later ? s.fBarLater : s.fBar}
-            style={{ width: `${width}%` }}
+            className={st.later ? s.fBarLater : s.fBar}
+            style={{
+              width: `${width}%`,
+              // Color sólido: más rojo mientras más gente se pierde en este
+              // paso (la primera pantalla no cuenta: son curiosos).
+              background: st.later
+                ? undefined
+                : `color-mix(in srgb, #dc2626 ${i >= 2 ? Math.min(100, Math.round((1 - ofPrev) * 200)) : 0}%, #fdba74)`,
+            }}
           >
-            {per100(st.n)}
+            {st.n.toLocaleString("es-MX")}
           </div>
         </div>
         <div className={bad ? s.fPctBad : s.fPct}>
           {i === 0 ? (
-            <span className={s.fPctNote}>de cada 100</span>
+            <span className={s.fPctNote}>negocios nuevos</span>
           ) : (
             <>
               {Math.round(ofPrev * 100)}%
@@ -2301,10 +2305,10 @@ function Journey({
       <p className={s.eyebrow}>Negocios nuevos</p>
       <h2 className={s.h2}>¿Dónde se va la gente?</h2>
       <p className={s.note}>
-        De cada 100 dueños nuevos, cuántos llegan a cada paso. Son{" "}
-        {steps[0]?.n ?? 0} negocios que abrieron la app del {shortDay(from)} al{" "}
-        {shortDay(to)} (solo cuentan las versiones que reportan la
-        bienvenida, desde la 3.0.93).
+        Los {steps[0]?.n ?? 0} negocios que abrieron la app por primera vez
+        del {shortDay(from)} al {shortDay(to)}, y cuántos llegaron a cada paso.
+        A la derecha, qué parte del paso anterior siguió. (Solo cuentan las
+        versiones que reportan la bienvenida, desde la 3.0.93.)
       </p>
       {drops.length ? (
         <div className={s.callout}>
