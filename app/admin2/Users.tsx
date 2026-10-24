@@ -23,6 +23,8 @@ export type UserRow = {
 
 export type RiskUser = {
   id: string;
+  /** Días desde que empezó a usar la app. */
+  tenure: number;
   name: string | null;
   platform: string | null;
   plan: string | null;
@@ -234,6 +236,7 @@ export default function Users({
                 <tr>
                   <th>Negocio</th>
                   <th>Sin abrir</th>
+                  <th>Antigüedad</th>
                   <th>Vendía al día</th>
                   <th>Abría (de 14 días)</th>
                   <th>Plataforma</th>
@@ -250,6 +253,7 @@ export default function Users({
                         {r.quietDays} días
                       </span>
                     </td>
+                    <td>{tenureLabel(r.tenure)}</td>
                     <td>~{r.avgDaily}</td>
                     <td>{r.activeDays}</td>
                     <td>{r.platform ? PLATFORM[r.platform] ?? r.platform : "—"}</td>

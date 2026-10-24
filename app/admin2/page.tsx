@@ -220,7 +220,16 @@ export default async function Admin2() {
     active: r.subscription_active === true,
     inherited: r.inherited_access === true,
   }));
+  // Antigüedad: desde el primer día que vimos cualquiera de sus aparatos.
+  const firstSeen = new Map(installs.map((i) => [i.id, i.firstDay]));
+  const daysSince = (day: string) =>
+    Math.round((Date.parse(today) - Date.parse(day)) / 86_400_000);
   const riskUsers: RiskUser[] = risk.slice(0, 40).map((r) => ({
+    tenure: daysSince(
+      r.installIds
+        .map((id) => firstSeen.get(id) ?? today)
+        .reduce((a, b) => (b < a ? b : a), today),
+    ),
     id: r.key,
     name: riskNames.get(r.key) ?? null,
     platform: r.platform,
