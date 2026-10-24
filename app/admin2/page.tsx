@@ -529,8 +529,6 @@ export default async function Admin2() {
 
 
         {/* 4. Migración */}
-        <details className={s.moreBig}>
-          <summary>Migración del sync (técnico)</summary>
         <section className={s.card} id="migracion">
           <div className={s.cardHead}>
             <div>
@@ -694,7 +692,6 @@ export default async function Admin2() {
             </>
           ) : null}
         </section>
-        </details>
       </div>
     </main>
   );
