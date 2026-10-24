@@ -63,7 +63,7 @@ const RC_LABEL: Record<string, string> = {
   active_subscriptions: "Suscripciones activas",
   active_trials: "En prueba gratis",
   mrr: "Ingreso mensual (MRR)",
-  new_customers: "Usuarios nuevos (28 días)",
+  new_customers: "Nuevos en 28 días",
 };
 const RC_ORDER = Object.keys(RC_LABEL);
 
@@ -289,13 +289,13 @@ export default async function Admin2() {
               los que cancelaron.
             </p>
           </div>
-          <div>
+          <div className={s.heroSide}>
             <p className={s.eyebrow}>Suscripciones</p>
             <h2 className={s.h2}>
               {rc.ok ? "Según RevenueCat" : "Según la app"}
               {rc.ok ? null : <span className={s.badge}>aproximado</span>}
             </h2>
-            <div className={s.tiles} style={{ marginTop: 14 }}>
+            <div className={s.heroTiles}>
               {rc.ok ? (
                 RC_ORDER.map((id) => metric(id))
                   .filter((m): m is NonNullable<typeof m> => !!m)

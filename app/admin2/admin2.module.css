@@ -1686,3 +1686,23 @@
   border-top: 1px dashed var(--line);
   padding-top: 10px;
 }
+
+/* Columna de suscripciones: llena el alto de la meta, sin hueco abajo. */
+.heroSide {
+  display: flex;
+  flex-direction: column;
+}
+.heroTiles {
+  composes: tiles;
+  flex: 1;
+  margin-top: 14px;
+  grid-auto-rows: 1fr;
+}
+.heroTiles .tile {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.heroTiles .tileValue {
+  font-size: 36px;
+}
