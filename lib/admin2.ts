@@ -189,7 +189,7 @@ export function menuPaths(list: Install[]) {
     row("Menú de ejemplo", (i) => i.menuPath === "sample"),
     row("Abrieron la IA, no guardaron", (i) => i.menuPath === "photo_opened"),
     row(
-      "Se lo saltaron (antes de 3.0.97)",
+      "Se lo saltaron (antes de 3.0.98)",
       (i) => i.menuPath === "skipped",
     ),
     row("Sin dato (no llegaron)", (i) => i.menuPath == null),
