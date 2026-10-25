@@ -13,12 +13,16 @@ function lanIp() {
 }
 
 const port = process.env.PORT || "3000";
-const ip = lanIp();
+const localAdmin = process.argv.includes("--admin-local");
+const host = localAdmin ? "127.0.0.1" : "0.0.0.0";
+const ip = localAdmin ? null : lanIp();
 
 console.log("");
 console.log("  ▲ Órale AI web");
 console.log(`  - Local:    http://localhost:${port}`);
-if (ip) {
+if (localAdmin) {
+  console.log(`  - Admin:    http://localhost:${port}/admin (sin clave, solo local)`);
+} else if (ip) {
   console.log(`  - Celular:  http://${ip}:${port}`);
 } else {
   console.log("  - Celular:  (no hay IP de red)");
@@ -27,8 +31,8 @@ console.log("");
 
 const child = spawn(
   "npx",
-  ["next", "dev", "-H", "0.0.0.0", "-p", String(port)],
-  { stdio: "inherit", shell: true },
+  ["next", "dev", "-H", host, "-p", String(port)],
+  { stdio: "inherit", shell: true, env: { ...process.env, ORALE_LOCAL_ADMIN: localAdmin ? "1" : "0" } },
 );
 
 child.on("exit", (code) => process.exit(code ?? 0));

@@ -1432,6 +1432,14 @@
   color: var(--mute);
   font-size: 11px;
 }
+.subsRow {
+  flex-wrap: wrap;
+}
+.subsTenure {
+  flex-basis: 100%;
+  color: var(--soft);
+  font-size: 12px;
+}
 
 /* ---- ¿Dónde se va la gente? (de cada 100) ---- */
 .journey {

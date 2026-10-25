@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import s from "./admin2.module.css";
+import { tenureLabel } from "@/lib/admin-tenure";
+import s from "./admin.module.css";
 
 export type UserRow = {
   day: string;
@@ -121,14 +122,6 @@ function Progress({ r }: { r: UserRow }) {
       {extra}
     </span>
   );
-}
-
-function tenureLabel(d: number | null) {
-  if (d == null) return "—";
-  if (d < 1) return "hoy";
-  if (d < 30) return `${d} ${d === 1 ? "día" : "días"}`;
-  const m = Math.floor(d / 30);
-  return `${m} ${m === 1 ? "mes" : "meses"}`;
 }
 
 function yesterdayOf(day: string) {

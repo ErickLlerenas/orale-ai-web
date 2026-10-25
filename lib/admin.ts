@@ -1,13 +1,8 @@
 import "server-only";
 
-/// Panel /admin2: cálculos sobre usage_pings y la nube de comandas.
-///
-/// /admin cuenta por mes con todos los equipos que abrieron la app (nuevos y
-/// viejos), así que sirve para ver uso y versiones pero no para saber dónde se
-/// pierde la gente nueva ni cuántos pagan de verdad. Aquí:
-/// - Suscripciones: las da RevenueCat (la única fuente de verdad de pagos).
-/// - Embudos: solo negocios NUEVOS (primera vez que se ve el aparato), sin
-///   meseros ni cambios de aparato, seguidos desde que abrieron.
+/// Panel /admin: cálculos sobre usage_pings y la nube de comandas.
+/// - Suscripciones: eventos de RevenueCat y Stripe; la app cubre el histórico.
+/// - Embudos: solo negocios nuevos, sin meseros ni cambios de aparato.
 
 export type PingRow = {
   install_id: string;

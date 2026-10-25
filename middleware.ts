@@ -33,12 +33,29 @@ export async function middleware(req: NextRequest) {
     return response;
   }
   if (!pathname.startsWith("/admin")) return NextResponse.next();
-  // /admin2 en local (yarn dev) entra sin clave para probarlo. En Vercel sigue
-  // pidiendo la misma clave que /admin.
-  if (process.env.NODE_ENV === "development" && pathname.startsWith("/admin2")) {
+  const adminResponse = () => {
+    if (pathname === "/admin2" || pathname === "/admin2/") {
+      const url = req.nextUrl.clone();
+      url.pathname = "/admin";
+      return NextResponse.redirect(url, 308);
+    }
     return NextResponse.next();
+  };
+  // dev:admin habilita esta marca y liga el servidor a 127.0.0.1.
+  // NODE_ENV y la marca son del proceso: un Host o una URL no bastan.
+  // La excepción es solo para las páginas; no abre posibles APIs admin.
+  const localHost = /^(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/i;
+  const localPage = ["/admin", "/admin/", "/admin2", "/admin2/"].includes(pathname);
+  if (
+    process.env.NODE_ENV === "development" &&
+    process.env.ORALE_LOCAL_ADMIN === "1" &&
+    !process.env.VERCEL &&
+    localPage &&
+    localHost.test(req.headers.get("host") ?? "") &&
+    localHost.test(req.nextUrl.host)
+  ) {
+    return adminResponse();
   }
-
   // Protege /admin con Basic Auth (un solo dueño). Credenciales por env.
   const auth = req.headers.get("authorization");
   const user = process.env.ADMIN_USER ?? "admin";
@@ -48,7 +65,8 @@ export async function middleware(req: NextRequest) {
     try {
       const [u, p] = atob(auth.slice(6)).split(":");
       if (pass !== "" && u === user && p === pass) {
-        return NextResponse.next();
+        // Los enlaces guardados al panel anterior llevan al único panel.
+        return adminResponse();
       }
     } catch {
       // cae al 401

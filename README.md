@@ -74,6 +74,29 @@ npm run dev
 por env). Es suficiente para un solo dueño. Si más adelante quieres algo más
 robusto, se puede cambiar a Supabase Auth.
 
+Es el único panel: los enlaces antiguos a `/admin2` redirigen a `/admin`.
+Para verlo sin credenciales en localhost: `npm run dev:admin`. Este modo de
+desarrollo escucha solo en `127.0.0.1`; la excepción requiere además una marca
+del proceso y una URL local. `npm run dev` conserva el acceso desde la red con
+contraseña. La excepción no se activa en build/producción ni en Vercel y solo
+se aplica a las páginas del panel, no a APIs administrativas.
+
+En **Nuevos suscriptores**, cada fila muestra directamente la misma
+antigüedad de **Usuarios**: `usage_pings.days_since_install` del dispositivo
+vinculado al evento, sin recalcularla al pagar. Ambas vistas comparten el
+formato de días/meses (`lib/admin-tenure.ts`). Se toma el reporte más reciente
+hasta el día mostrado (hoy/ayer), usando el historial completo del dispositivo
+aunque haya cambiado de compra o plan.
+
+iOS se enlaza por el hash de la transacción original, Android por la identidad
+de compra y sus alias verificados, y Windows por el hash del usuario. No se
+cruzan personas por plan, nombre o fechas cercanas. Un evento anónimo sin una
+identidad enlazada indica «Sin vínculo con dispositivo», distinto de un reporte
+que realmente no incluya antigüedad. Las renovaciones normales siguen excluidas
+de las altas y las conversiones de prueba conservan su sección de pago.
+
+Validación del panel: `node scripts/test-admin.mjs` y `npm run build`.
+
 
 ## Menú en línea y demo
 
