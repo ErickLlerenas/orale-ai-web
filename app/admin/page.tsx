@@ -1510,19 +1510,42 @@ async function cancelSurvey(supabase: ReturnType<typeof adminClient>) {
     .order("created_at", { ascending: false })
     .limit(500);
   if (r.error) return null;
-  const rows = (r.data ?? []) as CancelRow[];
+  // Una respuesta por aparato: la más reciente. Si contestó dos veces (por
+  // ejemplo, reinició la app y volvió a entrar), es la misma persona.
+  const seen = new Set<string>();
+  const rows = ((r.data ?? []) as CancelRow[]).filter((x) => {
+    if (seen.has(x.install_id)) return false;
+    seen.add(x.install_id);
+    return true;
+  });
+  // Abrir la tienda no es cancelar: las cancelaciones de verdad las avisa la
+  // tienda (RevenueCat), sin contar pruebas ni fallas de cobro.
+  const ev = await supabase
+    .from("revenuecat_events")
+    .select("app_user_id, environment")
+    .eq("type", "CANCELLATION")
+    .eq("cancel_reason", "UNSUBSCRIBE")
+    .gte("event_at", since)
+    .limit(1000);
+  const storeCancels = ev.error
+    ? null
+    : new Set(
+        ((ev.data ?? []) as { app_user_id: string | null; environment: string | null }[])
+          .filter((e) => e.environment !== "SANDBOX")
+          .map((e) => e.app_user_id ?? ""),
+      ).size;
   const names = await businessNames(
     supabase,
     rows.map((x) => ({ key: x.install_id, installIds: [x.install_id] })),
   );
-  return { rows, names };
+  return { rows, names, storeCancels };
 }
 
 /// Qué pasó con cada respuesta, en una palabra.
 function cancelOutcome(r: CancelRow): { text: string; tone: "good" | "bad" | "mid" } {
   if (r.offer_accepted) return { text: "Aceptó la oferta", tone: "good" };
   if (r.moment === "after") return { text: "Ya había cancelado", tone: "mid" };
-  if (r.went_to_store) return { text: "Fue a cancelar", tone: "bad" };
+  if (r.went_to_store) return { text: "Abrió la tienda", tone: "bad" };
   return { text: "Se quedó", tone: "good" };
 }
 
@@ -1542,7 +1565,7 @@ function Cancellations({
       </section>
     );
   }
-  const { rows, names } = data;
+  const { rows, names, storeCancels } = data;
   const before = rows.filter((r) => r.moment === "before");
   const after = rows.filter((r) => r.moment === "after");
   const stayed = before.filter((r) => !r.went_to_store);
@@ -1574,16 +1597,18 @@ function Cancellations({
           <p className={s.eyebrow}>Cancelaciones · últimos 30 días</p>
           <h2 className={s.h2}>¿Por qué se van?</h2>
           <p className={s.note}>
-            «Antes»: tocó Administrar suscripción › Cancelar (desde la 3.0.102)
-            y le preguntamos antes de mandarlo a la tienda. «Después»: canceló
-            directo en la tienda y contestó al volver a abrir la app.
+            Una respuesta por aparato (la más reciente). «Antes»: tocó Cancelar
+            en la app (desde la 3.0.102) y le preguntamos antes de mandarlo a la
+            tienda. «Después»: canceló directo en la tienda y contestó al volver
+            a abrir la app. Abrir la tienda no es cancelar: las cancelaciones de
+            verdad las dice la tienda.
           </p>
         </div>
       </div>
       <div className={s.tiles}>
         <div className={s.tile}>
           <div className={s.tileValue}>{before.length}</div>
-          <div className={s.tileLabel}>Quisieron cancelar desde la app</div>
+          <div className={s.tileLabel}>Tocaron Cancelar en la app</div>
         </div>
         <div className={s.tile}>
           <div className={s.tileValue}>
@@ -1592,7 +1617,7 @@ function Cancellations({
               <span className={s.tileLabel}> · {pct(stayed.length, before.length)}</span>
             ) : null}
           </div>
-          <div className={s.tileLabel}>Se quedaron (no siguieron a la tienda)</div>
+          <div className={s.tileLabel}>Se quedaron (no abrieron la tienda)</div>
         </div>
         <div className={s.tile}>
           <div className={s.tileValue}>
@@ -1602,8 +1627,12 @@ function Cancellations({
           <div className={s.tileLabel}>Aceptaron el precio de oferta</div>
         </div>
         <div className={s.tile}>
-          <div className={s.tileValue}>{after.length}</div>
-          <div className={s.tileLabel}>Cancelaron directo en la tienda</div>
+          <div className={s.tileValue}>
+            {storeCancels ?? "—"}
+          </div>
+          <div className={s.tileLabel}>
+            Cancelaron de verdad (según Apple y Google)
+          </div>
         </div>
       </div>
 
