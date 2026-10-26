@@ -141,7 +141,7 @@ export default async function Admin() {
     if (!accountInstalls.has(k)) accountInstalls.set(k, new Set());
     accountInstalls.get(k)!.add(r.install_id);
   }
-  const [storeSubs, risk, userNames] = await Promise.all([
+  const [storeSubs, risk, userNames, cancels] = await Promise.all([
     storeNewSubs(supabase, month.start < mxDay(1) ? month.start : mxDay(1)),
     withoutActiveBusinesses(supabase, atRisk(rows, today), rows, mxDay(1)),
     businessNames(
@@ -151,6 +151,7 @@ export default async function Admin() {
         installIds: [...ids],
       })),
     ),
+    cancelSurvey(supabase),
   ]);
   const subsOn = (day: string): NewSub[] =>
     day >= STORE_SINCE
@@ -558,6 +559,9 @@ export default async function Admin() {
               ))}
           </div>
         </section>
+
+        {/* 2d. Por qué se van */}
+        <Cancellations data={cancels} />
 
         {/* 2c. Usuarios (y en riesgo) */}
         <Users days={userDays} today={today} rows={userRows} risk={riskUsers} />
@@ -1477,6 +1481,197 @@ async function withoutActiveBusinesses(
     if (!biz) return true;
     return !(devices.get(biz) ?? []).some((i) => recent.has(i));
   });
+}
+
+/// «¿Por qué te vas?» de los últimos 30 días: antes de cancelar (Administrar
+/// suscripción › Cancelar, desde la 3.0.102) y después (abrió la app ya
+/// cancelada). La tabla no se lee desde la app: solo con service role.
+type CancelRow = {
+  id: string;
+  install_id: string;
+  product_id: string;
+  reason: string;
+  detail: string | null;
+  offer_shown: boolean;
+  offer_accepted: boolean;
+  moment: "before" | "after";
+  went_to_store: boolean;
+  created_at: string;
+};
+
+async function cancelSurvey(supabase: ReturnType<typeof adminClient>) {
+  const since = new Date(Date.now() - 30 * 86_400_000).toISOString();
+  const r = await supabase
+    .from("cancel_survey_answers")
+    .select(
+      "id, install_id, product_id, reason, detail, offer_shown, offer_accepted, moment, went_to_store, created_at",
+    )
+    .gte("created_at", since)
+    .order("created_at", { ascending: false })
+    .limit(500);
+  if (r.error) return null;
+  const rows = (r.data ?? []) as CancelRow[];
+  const names = await businessNames(
+    supabase,
+    rows.map((x) => ({ key: x.install_id, installIds: [x.install_id] })),
+  );
+  return { rows, names };
+}
+
+/// Qué pasó con cada respuesta, en una palabra.
+function cancelOutcome(r: CancelRow): { text: string; tone: "good" | "bad" | "mid" } {
+  if (r.offer_accepted) return { text: "Aceptó la oferta", tone: "good" };
+  if (r.moment === "after") return { text: "Ya había cancelado", tone: "mid" };
+  if (r.went_to_store) return { text: "Fue a cancelar", tone: "bad" };
+  return { text: "Se quedó", tone: "good" };
+}
+
+function Cancellations({
+  data,
+}: {
+  data: Awaited<ReturnType<typeof cancelSurvey>>;
+}) {
+  if (!data) {
+    return (
+      <section className={s.card} id="cancelaciones">
+        <p className={s.eyebrow}>Cancelaciones</p>
+        <h2 className={s.h2}>¿Por qué se van?</h2>
+        <p className={s.error} style={{ marginTop: 12 }}>
+          No se pudieron leer las respuestas.
+        </p>
+      </section>
+    );
+  }
+  const { rows, names } = data;
+  const before = rows.filter((r) => r.moment === "before");
+  const after = rows.filter((r) => r.moment === "after");
+  const stayed = before.filter((r) => !r.went_to_store);
+  const shown = rows.filter((r) => r.offer_shown);
+  const accepted = rows.filter((r) => r.offer_accepted);
+  const reasons = Object.keys(CANCEL_REASON).map((code) => ({
+    code,
+    before: before.filter((r) => r.reason === code).length,
+    after: after.filter((r) => r.reason === code).length,
+  }));
+  const maxReason = Math.max(1, ...reasons.map((x) => x.before + x.after));
+  const when = (iso: string) =>
+    new Date(iso).toLocaleString("es-MX", {
+      timeZone: "America/Mexico_City",
+      day: "numeric",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  const toneStyle = {
+    good: s.ver,
+    mid: s.verMid,
+    bad: s.verBad,
+  } as const;
+  return (
+    <section className={s.card} id="cancelaciones">
+      <div className={s.cardHead}>
+        <div>
+          <p className={s.eyebrow}>Cancelaciones · últimos 30 días</p>
+          <h2 className={s.h2}>¿Por qué se van?</h2>
+          <p className={s.note}>
+            «Antes»: tocó Administrar suscripción › Cancelar (desde la 3.0.102)
+            y le preguntamos antes de mandarlo a la tienda. «Después»: canceló
+            directo en la tienda y contestó al volver a abrir la app.
+          </p>
+        </div>
+      </div>
+      <div className={s.tiles}>
+        <div className={s.tile}>
+          <div className={s.tileValue}>{before.length}</div>
+          <div className={s.tileLabel}>Quisieron cancelar desde la app</div>
+        </div>
+        <div className={s.tile}>
+          <div className={s.tileValue}>
+            {stayed.length}
+            {before.length ? (
+              <span className={s.tileLabel}> · {pct(stayed.length, before.length)}</span>
+            ) : null}
+          </div>
+          <div className={s.tileLabel}>Se quedaron (no siguieron a la tienda)</div>
+        </div>
+        <div className={s.tile}>
+          <div className={s.tileValue}>
+            {accepted.length}
+            <span className={s.tileLabel}> de {shown.length}</span>
+          </div>
+          <div className={s.tileLabel}>Aceptaron el precio de oferta</div>
+        </div>
+        <div className={s.tile}>
+          <div className={s.tileValue}>{after.length}</div>
+          <div className={s.tileLabel}>Cancelaron directo en la tienda</div>
+        </div>
+      </div>
+
+      <p className={s.funnelTitle} style={{ marginTop: 22 }}>
+        Motivos
+      </p>
+      <div className={s.bars}>
+        {reasons.map((x) => (
+          <div className={s.bar} key={x.code} style={{ gridTemplateColumns: "150px 1fr 64px" }}>
+            <span className={s.barName}>{CANCEL_REASON[x.code]}</span>
+            <div
+              className={s.barTrack}
+              style={{ width: `${((x.before + x.after) / maxReason) * 100}%` }}
+            >
+              <div style={{ background: "var(--orange)", flex: x.before }} />
+              <div style={{ background: "var(--soft)", flex: x.after }} />
+            </div>
+            <span className={s.barN}>{x.before + x.after}</span>
+          </div>
+        ))}
+      </div>
+      <div className={s.legend} style={{ marginTop: 10 }}>
+        <span>
+          <i className={s.dot} style={{ background: "var(--orange)" }} /> Antes
+          de cancelar
+        </span>
+        <span>
+          <i className={s.dot} style={{ background: "var(--soft)" }} /> Después
+        </span>
+      </div>
+
+      {rows.length ? (
+        <>
+          <p className={s.funnelTitle} style={{ marginTop: 22 }}>
+            Las más recientes
+          </p>
+          <div className={s.bizList}>
+            {rows.slice(0, 15).map((r) => {
+              const o = cancelOutcome(r);
+              return (
+                <div className={s.biz} key={r.id}>
+                  <div className={s.bizBody}>
+                    <div className={s.bizName}>
+                      {names.get(r.install_id) ?? "Sin nombre"} ·{" "}
+                      {CANCEL_REASON[r.reason] ?? r.reason}
+                    </div>
+                    <div className={s.bizMeta}>
+                      {productLabel(r.product_id)} ·{" "}
+                      {r.moment === "before" ? "antes" : "después"} ·{" "}
+                      {when(r.created_at)}
+                      {r.detail ? <> · «{r.detail}»</> : null}
+                    </div>
+                  </div>
+                  <div className={s.bizRight}>
+                    <span className={toneStyle[o.tone]}>{o.text}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      ) : (
+        <p className={s.note} style={{ marginTop: 16 }}>
+          Todavía no hay respuestas en los últimos 30 días.
+        </p>
+      )}
+    </section>
+  );
 }
 
 async function businessNames(
