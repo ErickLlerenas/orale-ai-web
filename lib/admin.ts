@@ -251,6 +251,16 @@ export type RcOverview =
     }
   | { ok: false; reason: string };
 
+/// Métricas del resumen que se toman de su gráfica. El resumen de la API
+/// (metrics/overview) todavía usa el cálculo viejo de RevenueCat y daba
+/// otras cifras que el tablero con Charts v3 (27 oct: 312 activas contra
+/// 316); las gráficas ya usan el nuevo.
+const RC_CHART_FOR: Record<string, string> = {
+  active_subscriptions: "actives",
+  active_trials: "trials",
+  mrr: "mrr",
+};
+
 /// Métricas generales del proyecto en RevenueCat (API v2, solo lectura).
 /// Necesita REVENUECAT_V2_SECRET_KEY y REVENUECAT_PROJECT_ID en el entorno.
 export async function revenueCatOverview(): Promise<RcOverview> {
@@ -264,31 +274,66 @@ export async function revenueCatOverview(): Promise<RcOverview> {
         : "Falta REVENUECAT_V2_SECRET_KEY o REVENUECAT_PROJECT_ID en .env.local.",
     };
   }
+  const base = `https://api.revenuecat.com/v2/projects/${encodeURIComponent(project)}`;
+  const init = {
+    headers: { Authorization: `Bearer ${key}` },
+    cache: "no-store" as const,
+  };
   try {
-    const res = await fetch(
-      `https://api.revenuecat.com/v2/projects/${encodeURIComponent(project)}/metrics/overview`,
-      {
-        headers: { Authorization: `Bearer ${key}` },
-        cache: "no-store",
-      },
-    );
+    const [res, charts] = await Promise.all([
+      fetch(`${base}/metrics/overview`, init),
+      Promise.all(
+        Object.entries(RC_CHART_FOR).map(
+          async ([id, chart]) => [id, await rcChartToday(base, chart, init)] as const,
+        ),
+      ),
+    ]);
     if (!res.ok) {
       return { ok: false, reason: `RevenueCat contestó ${res.status}.` };
     }
     const json = (await res.json()) as {
       metrics?: { id?: string; name?: string; value?: number; unit?: string }[];
     };
+    const fromChart = new Map(charts);
     const metrics = (json.metrics ?? [])
       .filter((m) => typeof m.id === "string" && typeof m.value === "number")
       .map((m) => ({
         id: m.id as string,
         name: m.name ?? (m.id as string),
-        value: m.value as number,
+        // Si la gráfica falla, queda la cifra del resumen.
+        value: fromChart.get(m.id as string) ?? (m.value as number),
         unit: m.unit,
       }));
     return { ok: true, metrics };
   } catch {
     return { ok: false, reason: "No se pudo conectar con RevenueCat." };
+  }
+}
+
+/// Último valor (el de hoy, aunque el día no haya cerrado) de una gráfica
+/// diaria de RevenueCat, o null si no se pudo leer.
+async function rcChartToday(
+  base: string,
+  chart: string,
+  init: RequestInit,
+): Promise<number | null> {
+  const day = (ago: number) =>
+    new Date(Date.now() - ago * 86_400_000).toISOString().slice(0, 10);
+  try {
+    const res = await fetch(
+      `${base}/charts/${chart}?resolution=day&start_date=${day(2)}&end_date=${day(0)}`,
+      init,
+    );
+    if (!res.ok) return null;
+    const json = (await res.json()) as {
+      values?: { measure?: number; value?: number }[];
+    };
+    const values = (json.values ?? []).filter(
+      (v) => (v.measure ?? 0) === 0 && typeof v.value === "number",
+    );
+    return values.length ? (values[values.length - 1].value as number) : null;
+  } catch {
+    return null;
   }
 }
 
