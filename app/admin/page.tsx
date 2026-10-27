@@ -92,7 +92,11 @@ export default async function Admin() {
   const { count: pingCount } = await supabase
     .from("usage_pings")
     .select("install_id", { count: "exact", head: true });
-  const [pingsRes, rc, health] = await Promise.all([
+  // La salud de la migración no depende del historial: corre mientras se
+  // arma todo lo demás y se espera hasta el final.
+  const healthP = migrationHealth(supabase);
+  healthP.catch(() => undefined);
+  const [pingsRes, rc] = await Promise.all([
     fetchAllParallel<PingRow>(
       () =>
         supabase
@@ -103,7 +107,6 @@ export default async function Admin() {
       pingCount ?? 0,
     ),
     revenueCatOverview(),
-    migrationHealth(supabase),
   ]);
   const rows = fillAccountKeys(pingsRes.data);
   const installs = toInstalls(rows);
@@ -176,6 +179,7 @@ export default async function Admin() {
     ),
     businessNames(supabase, risk),
   ]);
+  const health = await healthP;
   const pulse = {
     today: dayPulse(rows, installs, subsList, today),
     yesterday: dayPulse(rows, installs, subsList, mxDay(1)),
@@ -1784,12 +1788,17 @@ async function businessNames(
     for (const i of l.installIds) installToKey.set(i, l.key);
   const installIds = [...installToKey.keys()];
   const bizByInstall = new Map<string, string>();
-  for (let i = 0; i < installIds.length; i += 150) {
-    const r = await supabase
-      .from("business_devices")
-      .select("install_id, business_id")
-      .eq("role", "owner")
-      .in("install_id", installIds.slice(i, i + 150));
+  // Los grupos de 150 se piden a la vez: uno tras otro tardaba 3 segundos.
+  const deviceParts = await Promise.all(
+    chunks(installIds).map((part) =>
+      supabase
+        .from("business_devices")
+        .select("install_id, business_id")
+        .eq("role", "owner")
+        .in("install_id", part),
+    ),
+  );
+  for (const r of deviceParts) {
     for (const d of (r.data ?? []) as {
       install_id: string;
       business_id: string;
@@ -1819,12 +1828,16 @@ async function businessNames(
     const key = installToKey.get(i);
     return key && !names.has(key);
   });
-  for (let i = 0; i < missing.length; i += 150) {
-    const r = await supabase
-      .from("install_profiles")
-      .select("install_id, business_name")
-      .not("business_name", "is", null)
-      .in("install_id", missing.slice(i, i + 150));
+  const profileParts = await Promise.all(
+    chunks(missing).map((part) =>
+      supabase
+        .from("install_profiles")
+        .select("install_id, business_name")
+        .not("business_name", "is", null)
+        .in("install_id", part),
+    ),
+  );
+  for (const r of profileParts) {
     for (const p of (r.data ?? []) as {
       install_id: string;
       business_name: string;
@@ -2204,13 +2217,25 @@ function formatMetric(value: number, unit?: string, decimals = 0) {
 
 async function migrationHealth(supabase: ReturnType<typeof adminClient>) {
   const since7 = new Date(Date.now() - 7 * 86_400_000).toISOString();
+  type Row = {
+    id: string;
+    name: string;
+    pro_verified_at: string | null;
+    pro_billing_key: string | null;
+    pro_paid_until: string | null;
+  };
   const [mm, active, parity, ops, v2] = await Promise.all([
     supabase.rpc("shared_order_lines_mismatches", { p_since: C2_SINCE }),
-    fetchAll<{ business_id: string }>(
+    // Los negocios con alguna orden en 7 días, directo: antes se bajaban
+    // todas las órdenes de la semana (10 mil+) para sacar ~80 negocios.
+    fetchAll<Row>(
       supabase
-        .from("shared_orders")
-        .select("business_id")
-        .gte("updated_at", since7)
+        .from("businesses")
+        .select(
+          "id, name, pro_verified_at, pro_billing_key, pro_paid_until, shared_orders!inner(id)",
+        )
+        .gte("shared_orders.updated_at", since7)
+        .limit(1, { referencedTable: "shared_orders" })
         .order("id"),
     ),
     supabase.from("revenuecat_parity").select("outcome"),
@@ -2221,21 +2246,8 @@ async function migrationHealth(supabase: ReturnType<typeof adminClient>) {
       .select("id", { count: "exact", head: true })
       .eq("sync_v2", true),
   ]);
-  const ids = [...new Set(active.data.map((r) => r.business_id))];
-  const businesses = ids.length
-    ? await supabase
-        .from("businesses")
-        .select("id, name, pro_verified_at, pro_billing_key, pro_paid_until")
-        .in("id", ids)
-    : { data: [] };
-  type Row = {
-    id: string;
-    name: string;
-    pro_verified_at: string | null;
-    pro_billing_key: string | null;
-    pro_paid_until: string | null;
-  };
-  const list = (businesses.data ?? []) as Row[];
+  const list = active.data;
+  const ids = list.map((b) => b.id);
   const verified = list.filter((b) => b.pro_verified_at).length;
   const ready = await c5Readiness(supabase, ids);
   // Puente: verificados a mano por un tiempo porque su caja no manda
@@ -2547,14 +2559,19 @@ async function c5Readiness(
   supabase: ReturnType<typeof adminClient>,
   businessIds: string[],
 ) {
-  const devices: { business_id: string; install_id: string | null }[] = [];
-  for (const part of chunks(businessIds)) {
-    const r = await supabase
-      .from("business_devices")
-      .select("business_id, install_id")
-      .in("business_id", part);
-    devices.push(...((r.data ?? []) as typeof devices));
-  }
+  // Los grupos se piden a la vez (uno tras otro era lo que tardaba).
+  const devices = (
+    await Promise.all(
+      chunks(businessIds).map((part) =>
+        supabase
+          .from("business_devices")
+          .select("business_id, install_id")
+          .in("business_id", part),
+      ),
+    )
+  ).flatMap(
+    (r) => (r.data ?? []) as { business_id: string; install_id: string | null }[],
+  );
   const installIds = [
     ...new Set(
       devices.map((d) => d.install_id).filter((x): x is string => !!x),
@@ -2564,11 +2581,15 @@ async function c5Readiness(
     string,
     { platform: string | null; app_version: string | null; ping_date: string }
   >();
-  for (const part of chunks(installIds)) {
-    const r = await supabase
-      .from("latest_usage")
-      .select("install_id, platform, app_version, ping_date")
-      .in("install_id", part);
+  const usageParts = await Promise.all(
+    chunks(installIds).map((part) =>
+      supabase
+        .from("latest_usage")
+        .select("install_id, platform, app_version, ping_date")
+        .in("install_id", part),
+    ),
+  );
+  for (const r of usageParts) {
     for (const u of (r.data ?? []) as {
       install_id: string;
       platform: string | null;
