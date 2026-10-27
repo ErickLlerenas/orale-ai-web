@@ -2339,14 +2339,14 @@ function journeySteps(list: Install[]): JourneyStep[] {
   return [
     { label: "Abrieron la app", n: list.length },
     {
-      label: "Pusieron el nombre del negocio",
+      label: "Pasaron la primera pregunta",
       n: c((i) => (i.stage ?? 0) >= 2),
-      hint: "pantalla 1",
+      hint: "antes: nombre del negocio · ahora: nombre del dueño",
     },
     {
       label: "Crearon su PIN",
       n: c((i) => (i.stage ?? 0) >= 6),
-      hint: "pantallas 2 a 5",
+      hint: "preguntas 2 a 5",
     },
     {
       label: "Terminaron la bienvenida",
