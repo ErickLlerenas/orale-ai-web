@@ -141,14 +141,14 @@ export function onboardingFunnel(list: Install[]): Step[] {
   return [
     { label: "Abrieron la app", n: m.length },
     {
-      label: "Pasaron el nombre del negocio",
+      label: "Pasaron la primera pregunta",
       n: c((i) => (i.stage ?? 0) >= 2),
-      hint: "Pantalla 1",
+      hint: "Antes: nombre del negocio · Ahora: nombre del dueño",
     },
     {
       label: "Crearon su PIN",
       n: c((i) => (i.stage ?? 0) >= 6),
-      hint: "Pantallas 2 a 5",
+      hint: "Preguntas 2 a 5",
     },
     { label: "Terminaron la bienvenida", n: c((i) => (i.stage ?? 0) >= 7) },
     {
