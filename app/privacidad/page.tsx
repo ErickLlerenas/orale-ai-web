@@ -14,7 +14,7 @@ export default function Privacy() {
 
       <main className="prose">
         <h1>Aviso de privacidad</h1>
-        <p className="muted">Última actualización: julio 2026</p>
+        <p className="muted">Última actualización: octubre 2026</p>
 
         <p>
           Órale AI es un punto de venta para iPhone/iPad, Android, Windows y Mac.
@@ -66,13 +66,17 @@ export default function Privacy() {
           seguir disponibles mediante sus enlaces.
         </p>
         <p>
-          <strong>Analítica de uso (anónima):</strong> para mejorar la app
-          recopilamos métricas <strong>agregadas y anónimas</strong>: un
-          identificador aleatorio de instalación (sin tu nombre ni correo),
-          número de ventas y monto del día, número de productos, versión de la
-          app, plataforma y si estás en prueba o suscrito. <strong>Nunca</strong>{" "}
-          recopilamos los detalles de tus ventas ni datos de tus clientes
-          finales con fines de analítica.
+          <strong>Analítica de uso y soporte:</strong> para mejorar la app y
+          poder ayudarte cuando nos escribes, recopilamos una vez al día: un
+          identificador aleatorio de instalación, el{" "}
+          <strong>nombre de tu negocio</strong> (el que pones en Ajustes para
+          el ticket), el identificador de tu compra en la tienda, número de
+          ventas y rango del monto del día, número de productos, versión de la
+          app, plataforma y si estás en prueba o suscrito. No recopilamos tu
+          correo, tu teléfono ni tu ubicación con este fin.{" "}
+          <strong>Nunca</strong> recopilamos los detalles de tus ventas ni datos
+          de tus clientes finales con fines de analítica, y no usamos estos
+          datos para publicidad ni los vendemos.
         </p>
         <p>
           <strong>Funciones con IA:</strong> cuando usas el armado de menú con
@@ -108,17 +112,27 @@ export default function Privacy() {
             <tr>
               <td>ID de instalación (aleatorio)</td>
               <td>Analítica de uso, medir adopción</td>
-              <td>No</td>
+              <td>Sí</td>
             </tr>
             <tr>
-              <td>Datos de uso agregados</td>
+              <td>Nombre del negocio</td>
+              <td>Analítica y soporte</td>
+              <td>Sí</td>
+            </tr>
+            <tr>
+              <td>ID de compra en la tienda</td>
+              <td>Analítica de suscripciones y soporte</td>
+              <td>Sí</td>
+            </tr>
+            <tr>
+              <td>Datos de uso (ventas del día, productos)</td>
               <td>Mejorar el producto</td>
-              <td>No</td>
+              <td>Sí</td>
             </tr>
             <tr>
               <td>Diagnóstico (versión, plataforma)</td>
               <td>Estabilidad y compatibilidad</td>
-              <td>No</td>
+              <td>Sí</td>
             </tr>
             <tr>
               <td>Contenido del negocio (plan Órale AI)</td>
@@ -158,8 +172,9 @@ export default function Privacy() {
         <h2>4. Tus opciones</h2>
         <p>
           En el plan Órale AI, como la información vive en tu dispositivo, puedes
-          eliminarla desinstalando la app. La analítica es anónima y no permite
-          identificarte personalmente.
+          eliminarla desinstalando la app. La analítica incluye el nombre de tu
+          negocio para darte soporte; puedes pedirnos que borremos esos datos
+          escribiéndonos por WhatsApp.
         </p>
         <p>
           Si usas <strong>Órale AI Pro</strong>, puedes dejar de sincronizar

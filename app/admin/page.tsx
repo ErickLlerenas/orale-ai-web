@@ -1486,6 +1486,15 @@ async function withoutActiveBusinesses(
 /// «¿Por qué te vas?» de los últimos 30 días: antes de cancelar (Administrar
 /// suscripción › Cancelar, desde la 3.0.102) y después (abrió la app ya
 /// cancelada). La tabla no se lee desde la app: solo con service role.
+type StoreCancel = {
+  user: string;
+  store: string | null;
+  productId: string | null;
+  at: string;
+  /** Nombre del negocio, si su app ya lo reporta (3.0.107+). */
+  name: string | null;
+};
+
 type CancelRow = {
   id: string;
   install_id: string;
@@ -1522,18 +1531,57 @@ async function cancelSurvey(supabase: ReturnType<typeof adminClient>) {
   // tienda (RevenueCat), sin contar pruebas ni fallas de cobro.
   const ev = await supabase
     .from("revenuecat_events")
-    .select("app_user_id, environment")
+    .select("app_user_id, environment, store, product_id, event_at")
     .eq("type", "CANCELLATION")
     .eq("cancel_reason", "UNSUBSCRIBE")
     .gte("event_at", since)
+    .order("event_at", { ascending: false })
     .limit(1000);
-  const storeCancels = ev.error
-    ? null
-    : new Set(
-        ((ev.data ?? []) as { app_user_id: string | null; environment: string | null }[])
-          .filter((e) => e.environment !== "SANDBOX")
-          .map((e) => e.app_user_id ?? ""),
-      ).size;
+  let storeCancels: StoreCancel[] | null = null;
+  if (!ev.error) {
+    const seenUser = new Set<string>();
+    storeCancels = [];
+    for (const e of (ev.data ?? []) as {
+      app_user_id: string | null;
+      environment: string | null;
+      store: string | null;
+      product_id: string | null;
+      event_at: string;
+    }[]) {
+      const user = e.app_user_id ?? "";
+      if (e.environment === "SANDBOX" || seenUser.has(user)) continue;
+      seenUser.add(user);
+      storeCancels.push({
+        user,
+        store: e.store,
+        productId: e.product_id,
+        at: e.event_at,
+        name: null,
+      });
+    }
+    // Quién es: la compra la manda el reporte diario (app 3.0.107+).
+    const purchases = storeCancels
+      .map((c) => c.user)
+      .filter((u) => u.startsWith("orale_purchase_"));
+    if (purchases.length) {
+      const p = await supabase
+        .from("install_profiles")
+        .select("purchase_id, business_name, updated_at")
+        .in("purchase_id", purchases)
+        .not("business_name", "is", null)
+        .order("updated_at", { ascending: false });
+      const byPurchase = new Map<string, string>();
+      for (const x of (p.data ?? []) as {
+        purchase_id: string;
+        business_name: string;
+      }[]) {
+        if (!byPurchase.has(x.purchase_id)) {
+          byPurchase.set(x.purchase_id, x.business_name);
+        }
+      }
+      for (const c of storeCancels) c.name = byPurchase.get(c.user) ?? null;
+    }
+  }
   const names = await businessNames(
     supabase,
     rows.map((x) => ({ key: x.install_id, installIds: [x.install_id] })),
@@ -1628,7 +1676,7 @@ function Cancellations({
         </div>
         <div className={s.tile}>
           <div className={s.tileValue}>
-            {storeCancels ?? "—"}
+            {storeCancels?.length ?? "—"}
           </div>
           <div className={s.tileLabel}>
             Cancelaron de verdad (según Apple y Google)
@@ -1664,10 +1712,33 @@ function Cancellations({
         </span>
       </div>
 
+      {storeCancels?.length ? (
+        <>
+          <p className={s.funnelTitle} style={{ marginTop: 22 }}>
+            Cancelaron en la tienda
+          </p>
+          <div className={s.bizList}>
+            {storeCancels.slice(0, 15).map((c) => (
+              <div className={s.biz} key={c.user}>
+                <div className={s.bizBody}>
+                  <div className={s.bizName}>
+                    {c.name ?? "Sin nombre (app anterior a 3.0.107)"}
+                  </div>
+                  <div className={s.bizMeta}>
+                    {productLabel(c.productId)} · {storeLabel(c.store)} ·{" "}
+                    {when(c.at)}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      ) : null}
+
       {rows.length ? (
         <>
           <p className={s.funnelTitle} style={{ marginTop: 22 }}>
-            Las más recientes
+            Respuestas más recientes
           </p>
           <div className={s.bizList}>
             {rows.slice(0, 15).map((r) => {
@@ -1741,6 +1812,26 @@ async function businessNames(
     const key = installToKey.get(install);
     const name = bizName.get(biz);
     if (key && name && !names.has(key)) names.set(key, name);
+  }
+  // Sin Pro el negocio no existe en el servidor: el nombre lo manda el reporte
+  // diario (app 3.0.107+) en install_profiles.
+  const missing = installIds.filter((i) => {
+    const key = installToKey.get(i);
+    return key && !names.has(key);
+  });
+  for (let i = 0; i < missing.length; i += 150) {
+    const r = await supabase
+      .from("install_profiles")
+      .select("install_id, business_name")
+      .not("business_name", "is", null)
+      .in("install_id", missing.slice(i, i + 150));
+    for (const p of (r.data ?? []) as {
+      install_id: string;
+      business_name: string;
+    }[]) {
+      const key = installToKey.get(p.install_id);
+      if (key && !names.has(key)) names.set(key, p.business_name);
+    }
   }
   return names;
 }
