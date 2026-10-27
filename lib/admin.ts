@@ -129,43 +129,6 @@ export function newOwners(installs: Install[], from: string, to: string) {
   );
 }
 
-/// [after]: pasos que no van en cadena (alguien puede suscribirse sin llegar
-/// a 10 ventas). Se comparan contra «Primera venta» y no cuentan como cuello
-/// de botella, porque una semana es poco tiempo para pagar.
-export type Step = { label: string; n: number; hint?: string; after?: boolean };
-
-/// Embudo de la bienvenida (apps 3.0.89+: las que mandan la pantalla).
-export function onboardingFunnel(list: Install[]): Step[] {
-  const m = list.filter((i) => i.stage != null);
-  const c = (f: (i: Install) => boolean) => m.filter(f).length;
-  return [
-    { label: "Abrieron la app", n: m.length },
-    {
-      label: "Pasaron la primera pregunta",
-      n: c((i) => (i.stage ?? 0) >= 2),
-      hint: "Antes: nombre del negocio · Ahora: nombre del dueño",
-    },
-    {
-      label: "Crearon su PIN",
-      n: c((i) => (i.stage ?? 0) >= 6),
-      hint: "Preguntas 2 a 5",
-    },
-    { label: "Terminaron la bienvenida", n: c((i) => (i.stage ?? 0) >= 7) },
-    {
-      label: "Menú listo (IA, a mano o de ejemplo)",
-      n: c((i) => i.products > 0),
-    },
-    { label: "Primera venta", n: c((i) => i.orders > 0) },
-    {
-      label: `Llegaron a ${FREE_ORDER_LIMIT} ventas`,
-      after: true,
-      n: c((i) => i.orders >= FREE_ORDER_LIMIT),
-      hint: "Aquí sale el pago",
-    },
-    { label: "Se suscribieron", n: c((i) => i.subscribed), after: true },
-  ];
-}
-
 /// Cómo armaron el menú en la bienvenida y qué pasó después.
 export function menuPaths(list: Install[]) {
   const m = list.filter((i) => i.stage != null && (i.stage ?? 0) >= 6);
@@ -188,23 +151,6 @@ export function menuPaths(list: Install[]) {
       (i) => i.menuPath === "skipped",
     ),
     row("Sin dato (no llegaron)", (i) => i.menuPath == null),
-  ];
-}
-
-/// Activación de todos los negocios nuevos (incluye apps sin el dato de
-/// pantalla): abrieron → menú → venta → 10 ventas → pagó.
-export function activationFunnel(list: Install[]): Step[] {
-  const c = (f: (i: Install) => boolean) => list.filter(f).length;
-  return [
-    { label: "Abrieron la app", n: list.length },
-    { label: "Con menú", n: c((i) => i.products > 0) },
-    { label: "Primera venta", n: c((i) => i.orders > 0) },
-    {
-      label: `${FREE_ORDER_LIMIT} ventas`,
-      after: true,
-      n: c((i) => i.orders >= FREE_ORDER_LIMIT),
-    },
-    { label: "Suscritos", n: c((i) => i.subscribed), after: true },
   ];
 }
 
@@ -346,31 +292,6 @@ export async function revenueCatOverview(): Promise<RcOverview> {
   }
 }
 
-/// El paso donde más gente se va (proporcionalmente). Con pocos datos un
-/// paso de 3 a 1 parecería el peor, así que se piden al menos 10 personas.
-/// Contra qué paso se compara [i]: el anterior, o el último paso en cadena
-/// si es un paso [after].
-export function baseOf(steps: Step[], i: number): Step {
-  if (!steps[i].after) return steps[Math.max(0, i - 1)];
-  for (let j = i - 1; j >= 0; j--) if (!steps[j].after) return steps[j];
-  return steps[0];
-}
-
-export function worstDrop(steps: Step[]) {
-  let worst: { from: Step; to: Step; lostPct: number; lost: number } | null =
-    null;
-  const chain = steps.filter((st) => !st.after);
-  for (let i = 1; i < chain.length; i++) {
-    const from = chain[i - 1];
-    const to = chain[i];
-    if (from.n < 10) continue;
-    const lost = from.n - to.n;
-    const lostPct = lost / from.n;
-    if (!worst || lostPct > worst.lostPct) worst = { from, to, lostPct, lost };
-  }
-  return worst;
-}
-
 /// Promedio de primeras suscripciones por semana en las últimas [n] semanas
 /// completas (sin la semana en curso).
 export function avgWeeklySubs(weeks: WeekRow[], n = 4): number {
@@ -469,22 +390,6 @@ export function downloadsByPlatform(
       total: list.length,
       owners: list.filter((i) => i.owner).length,
       waiters: list.filter((i) => !i.owner).length,
-    };
-  });
-}
-
-/// Mismo embudo de activación, una fila por plataforma.
-export function platformConversion(cohort: Install[]) {
-  return PLATFORMS.map((p) => {
-    const list = cohort.filter((i) => i.platform === p);
-    const c = (f: (i: Install) => boolean) => list.filter(f).length;
-    return {
-      platform: p as string,
-      n: list.length,
-      menu: c((i) => i.products > 0),
-      sold: c((i) => i.orders > 0),
-      limit: c((i) => i.orders >= FREE_ORDER_LIMIT),
-      paid: c((i) => i.subscribed),
     };
   });
 }
