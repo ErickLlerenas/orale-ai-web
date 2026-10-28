@@ -14,6 +14,8 @@ export type NewSub = {
   customerIds?: string[];
   tenure?: number | null;
   matchedInstallId?: string;
+  /** La antigüedad salió por día y plan, no por la compra (ver abajo). */
+  guessed?: boolean;
 };
 
 export type StoreEvent = {
@@ -106,7 +108,7 @@ export function enrichSubscriberTenure(
       byIdentity.get(id)!.push(row);
     }
   }
-  return subs.map((sub) => {
+  const linked = subs.map((sub) => {
     const ids = [sub.key, ...(sub.customerIds ?? []), ...(sub.accountKeys ?? []), ...(sub.installIds ?? [])];
     const linked = [...new Set(ids.flatMap((id) => byIdentity.get(id) ?? []))];
     // El account_key puede cambiar al cambiar de compra/plan. Una vez resuelto
@@ -123,4 +125,38 @@ export function enrichSubscriberTenure(
       tenure: tenure != null && Number.isSafeInteger(tenure) && tenure >= 0 ? tenure : null,
     };
   });
+  return linked.map((sub) => guessTenure(sub, linked, rows));
+}
+
+/// Compras de Android que RevenueCat dejó anónimas: no traen nada que las una
+/// al aparato. Si ese día UN solo aparato Android empezó a reportar ese plan
+/// (y no es de otra compra ya unida), es ese. Con dos o más se deja sin dato.
+function guessTenure(sub: NewSub, all: NewSub[], rows: PingRow[]): NewSub {
+  const anonymous = sub.customerIds?.some((id) => id.startsWith("$RCAnonymousID"));
+  if (sub.matchedInstallId || !anonymous || sub.platform !== "android" || !sub.plan) {
+    return sub;
+  }
+  const taken = new Set(all.map((x) => x.matchedInstallId).filter(Boolean));
+  const candidates = new Map<string, PingRow>();
+  for (const r of rows) {
+    if (
+      r.platform === "android" && r.is_caja !== false && r.plan === sub.plan &&
+      r.subscribed_at === sub.day && r.ping_date >= sub.day && !taken.has(r.install_id)
+    ) {
+      const prev = candidates.get(r.install_id);
+      // La fila del día de la compra (o la primera después).
+      if (!prev || r.ping_date < prev.ping_date) candidates.set(r.install_id, r);
+    }
+  }
+  if (candidates.size !== 1) return sub;
+  const [row] = candidates.values();
+  const tenure = row.days_since_install;
+  if (tenure == null || !Number.isSafeInteger(tenure) || tenure < 0) return sub;
+  return {
+    ...sub,
+    installIds: [row.install_id],
+    matchedInstallId: row.install_id,
+    tenure,
+    guessed: true,
+  };
 }

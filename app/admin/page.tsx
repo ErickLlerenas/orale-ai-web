@@ -988,6 +988,7 @@ function NewSubs({
         <span className={s.subsName}>{names.get(x.key) ?? platform}</span>
         {x.kind === "converted" ? <span className={s.subsMeta}>terminó su prueba</span> : null}
         <span className={s.subsTenure}>
+          {x.guessed ? "~" : ""}
           {x.tenure === 0
             ? "nuevo"
             : x.tenure != null
