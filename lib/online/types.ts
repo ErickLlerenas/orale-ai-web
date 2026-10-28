@@ -23,6 +23,8 @@ export type Catalog = {
   name: string;
   phone: string;
   address: string;
+  /** Logo del negocio (online-menu-photos), si la caja lo mandó. */
+  logoImage?: string;
   categories: { id: string; name: string }[];
   products: Product[];
   promotions: {

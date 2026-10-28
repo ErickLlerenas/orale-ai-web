@@ -12,6 +12,7 @@ const menu: Menu = {
     name: "Tacos de prueba",
     phone: "526641234567",
     address: "Vista local",
+    logoImage: "/logo.png",
     categories: [
       { id: "tacos", name: "Tacos" },
       { id: "bebidas", name: "Bebidas" },

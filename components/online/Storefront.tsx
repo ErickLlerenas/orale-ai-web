@@ -424,7 +424,12 @@ export default function Storefront({
       )}
       <header className={styles.header}>
         <div className={styles.eyebrow}>MENÚ EN LÍNEA</div>
-        <h1>{catalog.name}</h1>
+        <div className={styles.brand}>
+          {catalog.logoImage && (
+            <img className={styles.logo} src={catalog.logoImage} alt="" />
+          )}
+          <h1>{catalog.name}</h1>
+        </div>
         {catalog.address && <p>{catalog.address}</p>}
         <div className={styles.intro}>
           Elige tus productos y envía tu pedido por WhatsApp.
