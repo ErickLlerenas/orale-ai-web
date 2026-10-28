@@ -577,22 +577,36 @@ async function NewBusinesses({
   );
 }
 
-/// Primera versión con la bienvenida en plática con Órale (PR #210).
-const CHAT_WELCOME_APP = "3.0.108";
+/// Diseños de la bienvenida, cada uno desde su versión (el negocio cuenta con
+/// la versión con la que abrió la app por primera vez). Uno nuevo se agrega
+/// al final con la versión en que sale.
+const WELCOME_DESIGNS = [
+  { name: "Pantallas", from: "3.0.93", note: "primero el nombre del negocio" },
+  { name: "Plática", from: "3.0.108", note: "chat con Órale" },
+  { name: "Pantallas 2", from: "3.0.110", note: "primero mostrador o mesas" },
+];
 /// Con menos negocios que esto el % se mueve demasiado con 2 o 3 personas.
-const CHAT_WELCOME_ENOUGH = 50;
+const WELCOME_ENOUGH = 50;
 
-/// ¿La plática ayuda más que las pantallas? Mismos pasos, contados el día
-/// que llegó cada negocio: la plática es nueva y los de antes ya tuvieron
-/// días para avanzar.
+function welcomeDesign(i: Install) {
+  const v = i.firstVersion?.split("+")[0];
+  if (!v) return null;
+  let found: (typeof WELCOME_DESIGNS)[number] | null = null;
+  for (const d of WELCOME_DESIGNS) if (cmpVersion(v, d.from) >= 0) found = d;
+  return found;
+}
+
+/// ¿Qué bienvenida funciona mejor? Mismos pasos, contados el día que llegó
+/// cada negocio: los diseños nuevos llevan menos días y así se comparan parejo.
+/// En verde, el mejor de cada fila.
 function WelcomeCompare({ cohort }: { cohort: Install[] }) {
-  const chat = cohort.filter(
-    (i) => i.firstVersion && cmpVersion(i.firstVersion.split("+")[0], CHAT_WELCOME_APP) >= 0,
-  );
-  const screens = cohort.filter((i) => !chat.includes(i));
-  if (!chat.length) return null;
+  const groups = WELCOME_DESIGNS.map((d) => ({
+    ...d,
+    list: cohort.filter((i) => welcomeDesign(i) === d),
+  })).filter((g) => g.list.length > 0);
+  if (groups.length < 2) return null;
   const steps: { label: string; ok: (i: Install) => boolean }[] = [
-    { label: "Pasaron la primera pregunta", ok: (i) => i.day1.stage >= 2 },
+    { label: "Pasaron la primera pantalla", ok: (i) => i.day1.stage >= 2 },
     { label: "Crearon su PIN", ok: (i) => i.day1.stage >= 6 },
     { label: "Terminaron la bienvenida", ok: (i) => i.day1.stage >= 7 },
     { label: "Tienen menú", ok: (i) => i.day1.products > 0 },
@@ -600,37 +614,44 @@ function WelcomeCompare({ cohort }: { cohort: Install[] }) {
   ];
   const share = (list: Install[], ok: (i: Install) => boolean) =>
     list.length ? Math.round((list.filter(ok).length / list.length) * 100) : 0;
+  const few = groups.filter((g) => g.list.length < WELCOME_ENOUGH);
   return (
     <div className={s.compare}>
-      <p className={s.funnelTitle}>¿Plática o pantallas? · el primer día</p>
+      <p className={s.funnelTitle}>¿Qué bienvenida funciona mejor? · el primer día</p>
       <table className={s.mTable}>
         <thead>
           <tr>
             <th />
-            <th>Pantallas · {screens.length}</th>
-            <th>Plática · {chat.length}</th>
+            {groups.map((g) => (
+              <th key={g.name}>
+                {g.name} · {g.list.length}
+              </th>
+            ))}
           </tr>
         </thead>
         <tbody>
           {steps.map((st) => {
-            const a = share(screens, st.ok);
-            const b = share(chat, st.ok);
+            const values = groups.map((g) => share(g.list, st.ok));
+            const best = Math.max(...values);
             return (
               <tr key={st.label}>
                 <td>{st.label}</td>
-                <td>{a}%</td>
-                <td>
-                  <b className={b > a ? s.cmpUp : b < a ? s.cmpDown : undefined}>{b}%</b>
-                </td>
+                {values.map((v, i) => (
+                  <td key={groups[i].name}>
+                    <b className={v === best && values.some((x) => x !== best) ? s.cmpUp : undefined}>
+                      {v}%
+                    </b>
+                  </td>
+                ))}
               </tr>
             );
           })}
         </tbody>
       </table>
       <p className={s.note}>
-        Plática: los que llegaron con la {CHAT_WELCOME_APP} o más nueva.
-        {chat.length < CHAT_WELCOME_ENOUGH
-          ? ` Todavía son pocos (${chat.length}): con menos de ${CHAT_WELCOME_ENOUGH} el % cambia mucho con 2 o 3 personas.`
+        {groups.map((g) => `${g.name}: ${g.note}, desde la ${g.from}`).join(" · ")}.
+        {few.length
+          ? ` Todavía son pocos en ${few.map((g) => g.name).join(" y ")}: con menos de ${WELCOME_ENOUGH} el % cambia mucho con 2 o 3 personas.`
           : ""}
       </p>
     </div>
@@ -2574,7 +2595,7 @@ function journeySteps(list: Install[]): JourneyStep[] {
     {
       label: "Pasaron la primera pregunta",
       n: c((i) => (i.stage ?? 0) >= 2),
-      hint: "antes: nombre del negocio · ahora: nombre del dueño",
+      hint: "la primera pantalla de la bienvenida",
     },
     {
       label: "Crearon su PIN",
