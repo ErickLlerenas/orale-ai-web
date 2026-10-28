@@ -167,6 +167,54 @@ export function menuPaths(list: Install[]) {
   ];
 }
 
+/// yyyy-mm-dd más N días.
+export function dayPlus(day: string, n: number): string {
+  const d = new Date(`${day}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+/// Días de [from] a [to].
+export function daysBetween(from: string, to: string) {
+  return Math.round(
+    (Date.parse(`${to}T12:00:00Z`) - Date.parse(`${from}T12:00:00Z`)) /
+      86_400_000,
+  );
+}
+
+/// Lo que hizo un negocio contado desde el día que llegó (edad 0), para
+/// comparar grupos a la misma edad.
+export type Aged = {
+  install: Install;
+  /** Un registro por día que abrió la app. */
+  days: { age: number; orders: number; active: boolean }[];
+  /** Edad el día que pagó por primera vez. */
+  paidAge: number | null;
+};
+
+export function byAge(rows: PingRow[], list: Install[]): Aged[] {
+  const map = new Map<string, Aged>(
+    list.map((i) => [i.id, { install: i, days: [], paidAge: null }]),
+  );
+  for (const r of rows) {
+    const a = map.get(r.install_id);
+    if (!a) continue;
+    const age = daysBetween(a.install.firstDay, r.ping_date);
+    a.days.push({
+      age,
+      orders: r.orders_total ?? 0,
+      active: !!r.subscription_active,
+    });
+    const paid = r.subscribed_at
+      ? Math.max(0, daysBetween(a.install.firstDay, r.subscribed_at.slice(0, 10)))
+      : r.subscription_active
+        ? age
+        : null;
+    if (paid != null && (a.paidAge == null || paid < a.paidAge)) a.paidAge = paid;
+  }
+  return [...map.values()];
+}
+
 export const PLATFORMS = ["android", "ios", "windows"] as const;
 
 /// Semana que empieza en lunes (yyyy-mm-dd).

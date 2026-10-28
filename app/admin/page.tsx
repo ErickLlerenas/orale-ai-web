@@ -15,6 +15,9 @@ import {
   cmpVersion,
   newestVersion,
   avgWeeklySubs,
+  byAge,
+  dayPlus,
+  daysBetween,
   menuPaths,
   mxDay,
   newOwners,
@@ -29,6 +32,7 @@ import {
   versions,
   weekly,
   type Count,
+  type Aged,
   type DayRow,
   type Install,
   type LostAccount,
@@ -150,6 +154,9 @@ export default async function Admin({
           <Suspense fallback={<FoldLoading />}>
             <NewBusinesses installs={installs} month={month} today={today} />
           </Suspense>
+        </Fold>
+        <Fold title="Antes y después" hint="¿los nuevos se quedan más?" open>
+          <BeforeAfter rows={rows} installs={installs} today={today} />
         </Fold>
         <Fold title={`Cancelaciones · ${month.name}`} hint="¿por qué se van?">
           <Suspense fallback={<FoldLoading />}>
@@ -2588,6 +2595,144 @@ type JourneyStep = {
 
 /// El camino de un dueño nuevo: la bienvenida pantalla por pantalla, el
 /// menú, la primera venta y, aparte, lo que necesita tiempo.
+/// Grupos de negocios nuevos según el día que llegaron. Cada uno va hasta el
+/// día antes del siguiente. Para un corte nuevo, se agrega al final.
+const COHORTS = [
+  { name: "Octubre", from: "2026-10-01", note: "antes de los arreglos" },
+  {
+    name: "Desde Los Pocoyós",
+    from: "2026-10-28",
+    note: "arreglos en comandas y accesos, encuesta al cancelar, pantallas de bienvenida nuevas, promociones y plan anual, RevenueCat estable",
+  },
+];
+
+/// ¿Los nuevos se comportan mejor? Cada fila cuenta solo a los negocios que
+/// ya tienen esa edad: los de hoy no se comparan con los de hace un mes.
+function BeforeAfter({
+  rows,
+  installs,
+  today,
+}: {
+  rows: PingRow[];
+  installs: Install[];
+  today: string;
+}) {
+  const yesterday = dayPlus(today, -1);
+  const groups = COHORTS.map((c, k) => {
+    const next = COHORTS[k + 1];
+    const to = next ? dayPlus(next.from, -1) : today;
+    // Sin filtrar por paso de la bienvenida: antes del 20 oct la app no lo
+    // mandaba, pero esos negocios sí eran nuevos.
+    const list = newOwners(installs, c.from, to);
+    const lastFull = to < yesterday ? to : yesterday;
+    const fullDays = lastFull >= c.from ? daysBetween(c.from, lastFull) + 1 : 0;
+    const arrived = list.filter((i) => i.firstDay <= lastFull).length;
+    return { ...c, list, aged: byAge(rows, list), fullDays, arrived };
+  });
+
+  // La edad [age] ya terminó para este negocio (hoy no cuenta).
+  const old = (a: Aged, age: number) => dayPlus(a.install.firstDay, age) < today;
+  const ordersBy = (a: Aged, age: number) =>
+    Math.max(0, ...a.days.filter((d) => d.age <= age).map((d) => d.orders));
+  const opened = (a: Aged, from: number, to: number) =>
+    a.days.some((d) => d.age >= from && d.age <= to);
+  const steps: { label: string; base: (a: Aged) => boolean; ok: (a: Aged) => boolean }[] = [
+    { label: "Vendieron el primer día", base: (a) => old(a, 0), ok: (a) => ordersBy(a, 0) > 0 },
+    { label: "Volvieron en los días 1 a 3", base: (a) => old(a, 3), ok: (a) => opened(a, 1, 3) },
+    { label: "Siguen entrando: días 4 a 7", base: (a) => old(a, 7), ok: (a) => opened(a, 4, 7) },
+    {
+      label: `${FREE_ORDER_LIMIT} ventas en su primera semana`,
+      base: (a) => old(a, 6),
+      ok: (a) => ordersBy(a, 6) >= FREE_ORDER_LIMIT,
+    },
+    {
+      label: "Pagaron en su primera semana",
+      base: (a) => old(a, 6),
+      ok: (a) => a.paidAge != null && a.paidAge <= 6,
+    },
+    {
+      label: "Pagaron en sus primeras 2 semanas",
+      base: (a) => old(a, 13),
+      ok: (a) => a.paidAge != null && a.paidAge <= 13,
+    },
+    {
+      label: "Siguen pagando al mes de pagar",
+      base: (a) => a.paidAge != null && old(a, a.paidAge + 30),
+      ok: (a) => a.days.some((d) => d.age >= a.paidAge! + 30 && d.active),
+    },
+  ];
+
+  const few = groups.filter((g) => g.list.length < WELCOME_ENOUGH);
+  return (
+    <div>
+      <table className={s.mTable}>
+        <thead>
+          <tr>
+            <th />
+            {groups.map((g) => (
+              <th key={g.name}>
+                {g.name} · {g.list.length}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Llegan por día</td>
+            {groups.map((g) => (
+              <td key={g.name}>
+                {g.fullDays ? (
+                  <b>{(g.arrived / g.fullDays).toFixed(1)}</b>
+                ) : (
+                  <span className={s.note}>{g.list.length} en lo que va de hoy</span>
+                )}
+              </td>
+            ))}
+          </tr>
+          {steps.map((st) => {
+            const cells = groups.map((g) => {
+              const base = g.aged.filter(st.base);
+              const n = base.filter(st.ok).length;
+              return { n, of: base.length, v: base.length ? n / base.length : null };
+            });
+            const values = cells.flatMap((c) => (c.v == null ? [] : [c.v]));
+            const best = Math.max(...values);
+            const mark = values.length > 1 && values.some((x) => x !== best);
+            return (
+              <tr key={st.label}>
+                <td>{st.label}</td>
+                {cells.map((c, i) => (
+                  <td key={groups[i].name} title={c.of ? `${c.n} de ${c.of}` : "Todavía nadie tiene esa edad"}>
+                    {c.v == null ? (
+                      <span className={s.note}>faltan días</span>
+                    ) : (
+                      <>
+                        <b className={mark && c.v === best ? s.cmpUp : undefined}>{pct(c.n, c.of)}</b>{" "}
+                        <span className={s.note}>
+                          {c.n}/{c.of}
+                        </span>
+                      </>
+                    )}
+                  </td>
+                ))}
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      <p className={s.note}>
+        Cada fila cuenta solo a los negocios que ya cumplieron esos días, así los de hoy no se
+        comparan con los de hace un mes. «Siguen pagando» cuenta a quien la app vio con plan
+        activo 30 días o más después de pagar.{" "}
+        {groups.map((g) => `${g.name}: desde el ${shortDay(g.from)}, ${g.note}`).join(" · ")}.
+        {few.length
+          ? ` Todavía son pocos en ${few.map((g) => g.name).join(" y ")}: con menos de ${WELCOME_ENOUGH} el % cambia mucho con 2 o 3 personas.`
+          : ""}
+      </p>
+    </div>
+  );
+}
+
 function journeySteps(list: Install[]): JourneyStep[] {
   const c = (f: (i: Install) => boolean) => list.filter(f).length;
   return [
