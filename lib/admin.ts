@@ -255,10 +255,15 @@ export type RcOverview =
 /// (metrics/overview) todavía usa el cálculo viejo de RevenueCat y daba
 /// otras cifras que el tablero con Charts v3 (27 oct: 312 activas contra
 /// 316); las gráficas ya usan el nuevo.
+///
+/// El MRR NO sale de la gráfica: Charts v3 cuenta casi en $0 a los de Play
+/// que entraron antes del aumento del 1 sep (27 oct: 43 Básico mensual de
+/// agosto sumaban $455) y daba MX$39,359 cuando lo real andaba entre
+/// MX$45,400 y MX$48,500. El resumen viejo da MX$46,969. Si RevenueCat
+/// retira el cálculo viejo, revisar que el MRR no vuelva a caer.
 const RC_CHART_FOR: Record<string, string> = {
   active_subscriptions: "actives",
   active_trials: "trials",
-  mrr: "mrr",
 };
 
 /// Métricas generales del proyecto en RevenueCat (API v2, solo lectura).
@@ -281,7 +286,8 @@ export async function revenueCatOverview(): Promise<RcOverview> {
   };
   try {
     const [res, charts] = await Promise.all([
-      fetch(`${base}/metrics/overview`, init),
+      // En pesos, como el tablero de RevenueCat.
+      fetch(`${base}/metrics/overview?currency=MXN`, init),
       Promise.all(
         Object.entries(RC_CHART_FOR).map(
           async ([id, chart]) => [id, await rcChartToday(base, chart, init)] as const,
