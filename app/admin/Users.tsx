@@ -176,8 +176,8 @@ export default function Users({
 }) {
   const router = useRouter();
   const params = useSearchParams();
-  const [tab, setTab] = useState<"day" | "risk">("day");
-  const [onlyNew, setOnlyNew] = useState(false);
+  // «Nuevos» primero: los dueños que abrieron la app por primera vez ese día.
+  const [tab, setTab] = useState<"new" | "day" | "risk">("new");
   const setDay = (d: string) => {
     const next = new URLSearchParams(params.toString());
     next.set("dia", d);
@@ -187,10 +187,9 @@ export default function Users({
   const all = rows
     .filter((r) => r.day === day)
     .sort((a, b) => b.at.localeCompare(a.at));
-  const newCount = all.filter((r) => r.tenure === 0 && !r.waiter).length;
-  const list = onlyNew
-    ? all.filter((r) => r.tenure === 0 && !r.waiter)
-    : all;
+  const fresh = all.filter((r) => r.tenure === 0 && !r.waiter);
+  const newCount = fresh.length;
+  const list = tab === "new" ? fresh : all;
   const waiters = all.filter((r) => r.waiter).length;
   const versions = new Map<string, number>();
   for (const r of all) {
@@ -209,6 +208,13 @@ export default function Users({
           <div className={s.uTabs}>
             <button
               type="button"
+              className={tab === "new" ? s.uTabOn : s.uTab}
+              onClick={() => setTab("new")}
+            >
+              Nuevos ({newCount})
+            </button>
+            <button
+              type="button"
               className={tab === "day" ? s.uTabOn : s.uTab}
               onClick={() => setTab("day")}
             >
@@ -223,7 +229,7 @@ export default function Users({
             </button>
           </div>
         </div>
-        {tab === "day" ? (
+        {tab !== "risk" ? (
           <div className={s.uPager}>
             <button
               type="button"
@@ -246,7 +252,7 @@ export default function Users({
         ) : null}
       </div>
 
-      {tab === "day" ? (
+      {tab !== "risk" ? (
         <>
           <div className={s.uBar}>
             <div className={s.uStats}>
@@ -274,13 +280,6 @@ export default function Users({
                 </div>
               </div>
             </div>
-            <button
-              type="button"
-              className={onlyNew ? s.uTabOn : s.uTab}
-              onClick={() => setOnlyNew(!onlyNew)}
-            >
-              Solo nuevos ({newCount})
-            </button>
           </div>
           <div className={s.uWrap}>
             <table className={s.uTable}>
