@@ -1,5 +1,5 @@
+import { Suspense } from "react";
 import { unstable_noStore as noStore } from "next/cache";
-import Link from "next/link";
 import { adminClient, fetchAll, fetchAllParallel } from "@/lib/supabase";
 import {
   PING_COLUMNS,
@@ -38,6 +38,7 @@ import {
 } from "@/lib/admin";
 import s from "./admin.module.css";
 import Users, { type RiskUser, type UserRow } from "./Users";
+import MonthPicker from "./MonthPicker";
 import {
   enrichSubscriberTenure,
   revenueCatSub,
@@ -73,138 +74,204 @@ const PLATFORM_COLOR: Record<string, string> = {
   ios: "var(--ios)",
   windows: "var(--windows)",
 };
-/// Nombres en español de las métricas de RevenueCat que más importan.
+/// Nombres en español de las métricas de RevenueCat que más importan. Las
+/// activas ya salen en la meta.
 const RC_LABEL: Record<string, string> = {
-  active_subscriptions: "Suscripciones activas",
   active_trials: "En prueba gratis",
   mrr: "Ingreso mensual (MRR)",
-  new_customers: "Nuevos en 28 días",
 };
 const RC_ORDER = Object.keys(RC_LABEL);
 
-export default async function Admin() {
+export default async function Admin({
+  searchParams,
+}: {
+  searchParams?: { mes?: string; dia?: string };
+}) {
   noStore();
   const today = mxDay(0);
-
   const supabase = adminClient();
-  // Todo el historial de uso, en páginas que se piden a la vez (antes iban
-  // una tras otra y era lo que más tardaba).
-  const { count: pingCount } = await supabase
-    .from("usage_pings")
-    .select("install_id", { count: "exact", head: true });
-  // La salud de la migración no depende del historial: corre mientras se
-  // arma todo lo demás y se espera hasta el final.
-  const healthP = migrationHealth(supabase);
-  healthP.catch(() => undefined);
-  const [pingsRes, rc] = await Promise.all([
-    fetchAllParallel<PingRow>(
-      () =>
-        supabase
-          .from("usage_pings")
-          .select(PING_COLUMNS)
-          .order("ping_date")
-          .order("install_id"),
-      pingCount ?? 0,
-    ),
-    revenueCatOverview(),
+  const [pings, rc] = await Promise.all([
+    usageHistory(supabase),
+    memo("rc", revenueCatOverview),
   ]);
-  const rows = fillAccountKeys(pingsRes.data);
-  const installs = toInstalls(rows);
-  // El camino de un negocio nuevo: dueños que llegaron en los últimos 30
-  // días (sin hoy), todas las plataformas, apps que reportan la bienvenida.
-  const journeyFrom = mxDay(30);
-  const journeyTo = mxDay(1);
-  const journeyCohort = newOwners(installs, journeyFrom, journeyTo).filter(
-    (i) => i.stage != null,
-  );
-  const journey = journeySteps(journeyCohort);
-  // La bienvenida se reporta desde la 3.0.93: el periodo real empieza con el
-  // primer negocio que la reportó, no hace 30 días.
-  const journeyStart = journeyCohort.reduce(
-    (m, i) => (i.firstDay < m ? i.firstDay : m),
-    journeyTo,
-  );
-  const journeyPaths = menuPaths(journeyCohort);
-  const weeks = weekly(installs, rows, 8, today);
-  const vers = versions(rows, mxDay(7));
-  const newest = newestVersion(rows, mxDay(7));
-
-  // Hoy y ayer.
+  const { rows, installs, error: pingsError } = pings;
   const subsList = firstSubscriptions(rows);
-  // Quién se suscribió hoy y ayer. Desde que hay webhook, de la tienda
-  // (RevenueCat + Stripe); antes, de lo que reporta la app.
-  // Mes en curso (se reinicia el día 1) y los mismos días del mes pasado.
-  const month = monthWindow(today);
-  // Lo que solo depende del historial va todo a la vez.
-  const userDays = dayRange(mxDay(13), today);
-  const recent = rows.filter((r) => r.ping_date >= userDays[0]);
-  const accountInstalls = new Map<string, Set<string>>();
-  for (const r of recent) {
-    const k = r.account_key ?? r.install_id;
-    if (!accountInstalls.has(k)) accountInstalls.set(k, new Set());
-    accountInstalls.get(k)!.add(r.install_id);
+
+  // Todo lo del mes se mide desde el día 1: el 1 de noviembre empieza de cero.
+  const months = monthOptions(rows[0]?.ping_date ?? today, today);
+  const ym = months.some((m) => m.value === searchParams?.mes)
+    ? searchParams!.mes!
+    : today.slice(0, 7);
+  const month = monthWindow(today, ym);
+
+  const updated = new Date(pings.at).toLocaleTimeString("es-MX", {
+    timeZone: "America/Mexico_City",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  return (
+    <main className={s.page}>
+      <div className={s.wrap}>
+        <header className={s.top}>
+          <div className={s.brand}>
+            <img className={s.logo} src="/logo.png" alt="Órale AI" />
+            <div>
+              <h1 className={s.title}>Panel</h1>
+              <p className={s.subtitle}>Actualizado a las {updated}</p>
+            </div>
+          </div>
+          <MonthPicker value={ym} options={months} />
+        </header>
+
+        {pingsError ? (
+          <div className={s.error}>No se pudo leer usage_pings: {pingsError}</div>
+        ) : null}
+
+        <Today
+          supabase={supabase}
+          rows={rows}
+          installs={installs}
+          subsList={subsList}
+          rc={rc}
+          today={today}
+          month={month}
+        />
+
+        <MonthNumbers
+          supabase={supabase}
+          installs={installs}
+          subsList={subsList}
+          month={month}
+          today={today}
+        />
+
+        <Fold title={`Negocios nuevos · ${month.name}`} hint="¿dónde se va la gente?" open>
+          <Suspense fallback={<FoldLoading />}>
+            <NewBusinesses installs={installs} month={month} today={today} />
+          </Suspense>
+        </Fold>
+        <Fold title={`Cancelaciones · ${month.name}`} hint="¿por qué se van?">
+          <Suspense fallback={<FoldLoading />}>
+            <MonthCancels supabase={supabase} month={month} />
+          </Suspense>
+        </Fold>
+        <Fold title="Retención" hint="de los que pagaban hace 2 meses">
+          <Retention ret={retention(rows, mxDay(56), mxDay(43), mxDay(9))} />
+        </Fold>
+        <Fold title="Usuarios" hint="quién abrió la app" open={!!searchParams?.dia}>
+          <Suspense fallback={<FoldLoading />}>
+            <UsersTab
+              supabase={supabase}
+              rows={rows}
+              installs={installs}
+              today={today}
+              day={searchParams?.dia}
+            />
+          </Suspense>
+        </Fold>
+        <Fold title="Migración" hint="C5 y pagos">
+          <Suspense fallback={<FoldLoading />}>
+            <Migration supabase={supabase} rows={rows} today={today} />
+          </Suspense>
+        </Fold>
+      </div>
+    </main>
+  );
+}
+
+/// Cuentas con plan activo que la app vio en los 7 días que terminan en [day].
+function activeOn(rows: PingRow[], day: string) {
+  const from = new Date(Date.parse(`${day}T12:00:00Z`) - 7 * 86_400_000)
+    .toISOString()
+    .slice(0, 10);
+  const set = new Set<string>();
+  for (const r of rows) {
+    if (r.subscription_active && r.ping_date > from && r.ping_date <= day) {
+      set.add(r.account_key ?? r.install_id);
+    }
   }
-  const [storeSubs, risk, userNames, cancels] = await Promise.all([
-    storeNewSubs(supabase, month.start < mxDay(1) ? month.start : mxDay(1)),
-    withoutActiveBusinesses(supabase, atRisk(rows, today), rows, mxDay(1)),
-    businessNames(
-      supabase,
-      [...accountInstalls].map(([key, ids]) => ({
-        key,
-        installIds: [...ids],
-      })),
-    ),
-    cancelSurvey(supabase),
-  ]);
-  const subsOn = (day: string): NewSub[] =>
-    day >= STORE_SINCE
-      ? storeSubs.filter((x) => x.day === day && x.kind !== "converted")
-      : subsList.filter((x) => x.day === day);
-  const convertedOn = (day: string) =>
-    storeSubs.filter((x) => x.day === day && x.kind === "converted");
-  const newSubs = [
-    ...subsOn(today), ...subsOn(mxDay(1)),
-    ...convertedOn(today), ...convertedOn(mxDay(1)),
-  ];
-  const customerIds = [...new Set(newSubs.flatMap((x) => x.customerIds ?? []))];
-  const aliases = customerIds.length ? await fetchAll<BillingAlias>(
-    supabase.from("billing_purchase_aliases").select("key_hash, customer_id")
-      .in("customer_id", customerIds).order("key_hash"),
-  ) : { data: [] as BillingAlias[], error: null };
-  const detailedSubs = enrichSubscriberTenure(newSubs, rows, aliases.data);
-  const [newSubNames, riskNames] = await Promise.all([
-    businessNames(
+  return set.size;
+}
+
+/// Sección que se abre y se cierra; cerrada salvo que diga [open].
+function Fold({
+  title,
+  hint,
+  open,
+  children,
+}: {
+  title: string;
+  hint?: string;
+  open?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <details className={s.fold} open={open}>
+      <summary className={s.foldHead}>
+        <span className={s.foldTitle}>{title}</span>
+        {hint ? <span className={s.foldHint}>{hint}</span> : null}
+        <span className={s.foldChevron} aria-hidden>
+          ›
+        </span>
+      </summary>
+      <div className={s.foldBody}>{children}</div>
+    </details>
+  );
+}
+
+function FoldLoading() {
+  return <div className={s.skel} style={{ height: 160 }} />;
+}
+
+type Db = ReturnType<typeof adminClient>;
+type Rc = Awaited<ReturnType<typeof revenueCatOverview>>;
+
+/// Lo de hoy: cómo va el día, quién pagó, RevenueCat y la meta.
+async function Today({
+  supabase,
+  rows,
+  installs,
+  subsList,
+  rc,
+  today,
+  month,
+}: {
+  supabase: Db;
+  rows: PingRow[];
+  installs: Install[];
+  subsList: ReturnType<typeof firstSubscriptions>;
+  rc: Rc;
+  today: string;
+  /** El mes escogido: la meta usa su ritmo. */
+  month: ReturnType<typeof monthWindow>;
+}) {
+  const yesterday = mxDay(1);
+  // La meta se mide con el ritmo del mes escogido, desde su día 1 (lo mismo
+  // que pide «Descargas y suscripciones» del mes, para no pedirlo dos veces).
+  const from = month.prevStart < yesterday ? month.prevStart : yesterday;
+  const storeSubs = await memo(`subs:${from}`, () => storeNewSubs(supabase, from));
+  const subsOn = subsOnDay(storeSubs, subsList);
+  const newSubs = storeSubs.filter((x) => x.day === today || x.day === yesterday);
+  const { detailedSubs, names } = await memo(`hoy:${today}`, async () => {
+    const customerIds = [...new Set(newSubs.flatMap((x) => x.customerIds ?? []))];
+    const aliases = customerIds.length ? await fetchAll<BillingAlias>(
+      supabase.from("billing_purchase_aliases").select("key_hash, customer_id")
+        .in("customer_id", customerIds).order("key_hash"),
+    ) : { data: [] as BillingAlias[], error: null };
+    const detailedSubs = enrichSubscriberTenure(newSubs, rows, aliases.data);
+    const names = await businessNames(
       supabase,
       detailedSubs.map((x) => ({ key: x.key, installIds: x.installIds ?? [] })),
-    ),
-    businessNames(supabase, risk),
-  ]);
-  const health = await healthP;
+    );
+    return { detailedSubs, names };
+  });
   const pulse = {
     today: dayPulse(rows, installs, subsList, today),
-    yesterday: dayPulse(rows, installs, subsList, mxDay(1)),
+    yesterday: dayPulse(rows, installs, subsList, yesterday),
   };
   pulse.today.subscribed = countSubs(subsOn(today));
-  pulse.yesterday.subscribed = countSubs(subsOn(mxDay(1)));
-  // Descargas del mes contra los mismos días del mes pasado.
-  const dlDays = downloadsDaily(installs, month.start, month.end);
-  const dlNow = downloadsByPlatform(installs, month.start, today);
-  const dlPrev = downloadsByPlatform(installs, month.prevStart, month.prevTo);
-  // Suscripciones del mes (misma fuente que «Se suscribieron»).
-  const subDays: DayRow[] = dayRange(month.start, month.end).map((day) => ({
-    day,
-    ...countSubs(day <= today ? subsOn(day) : []),
-  }));
-  const subsMonth = dayRange(month.start, today).flatMap((d) => subsOn(d));
-  const subsPrevTotal = dayRange(month.prevStart, month.prevTo).reduce(
-    (a, d) => a + subsOn(d).length,
-    0,
-  );
-  const dlTotal = dlNow.reduce((a, p) => a + p.total, 0);
-  const dlPrevTotal = dlPrev.reduce((a, p) => a + p.total, 0);
-  const cutoffDays = Math.round(
-    (Date.parse(LEGACY_CUTOFF) - Date.parse(today)) / 86_400_000,
-  );
+  pulse.yesterday.subscribed = countSubs(subsOn(yesterday));
 
   const metric = (id: string) =>
     rc.ok ? rc.metrics.find((m) => m.id === id) : undefined;
@@ -214,16 +281,428 @@ export default async function Admin() {
       .filter((r) => r.ping_date >= mxDay(7) && r.subscription_active)
       .map((r) => r.account_key ?? r.install_id),
   ).size;
-  const active = metric("active_subscriptions")?.value ?? appActive;
-  const perWeek = avgWeeklySubs(weeks);
-  // Crecimiento NETO (entran menos las que se van), de las activas que ve la
-  // app semana a semana. Es lo que de verdad acerca a la meta.
-  const series = activeSeries(rows, today, 8);
+  const activeNow = metric("active_subscriptions")?.value ?? appActive;
+  // Mes pasado: la meta va con las activas al cerrar ese mes (las que vio la
+  // app); RevenueCat solo da las de hoy.
+  const active = month.current ? activeNow : activeOn(rows, month.to);
   const plans = planMix(rows, mxDay(7));
-  // Quién se queda: pagaban hace 8–6 semanas, ¿siguen con plan los últimos 10 días?
-  const ret = retention(rows, mxDay(56), mxDay(43), mxDay(9));
-  // Usuarios de los últimos 14 días (uno por aparato y día) y «podrían
-  // cancelar»: ya se pidieron arriba, junto con lo demás.
+  // Ritmo del mes en curso, por semana. Neto: activas hoy menos las que
+  // había al cerrar el mes anterior (las que ve la app). Entran: altas del
+  // mes. Se van: la diferencia. El 1 del mes empieza de cero.
+  const monthWeeks = Number(month.to.slice(8, 10)) / 7;
+  const lastOfPrev = new Date(Date.parse(`${month.start}T12:00:00Z`) - 86_400_000)
+    .toISOString()
+    .slice(0, 10);
+  const netPerWeek =
+    (activeOn(rows, month.to) - activeOn(rows, lastOfPrev)) / monthWeeks;
+  const inPerWeek =
+    dayRange(month.start, month.to).reduce((a, d) => a + subsOn(d).length, 0) /
+    monthWeeks;
+  const leavingPerWeek = Math.max(0, inPerWeek - netPerWeek);
+  const left = Math.max(0, GOAL - active);
+  const weeksLeft = netPerWeek > 0 ? Math.ceil(left / netPerWeek) : null;
+  const arrival =
+    weeksLeft != null
+      ? new Date(Date.parse(month.to) + weeksLeft * 7 * 86_400_000).toLocaleDateString(
+          "es-MX",
+          { month: "long", year: "numeric", timeZone: "UTC" },
+        )
+      : null;
+
+  return (
+    <>
+      <section className={s.pulse} id="hoy">
+        <PulseTile
+          label="Descargas"
+          tone="orange"
+          now={pulse.today.downloads}
+          before={pulse.yesterday.downloads}
+          hint={`+${pulse.today.reinstalled} reinstalaron`}
+        />
+        <PulseTile
+          label="Se suscribieron"
+          tone="amber"
+          now={pulse.today.subscribed}
+          before={pulse.yesterday.subscribed}
+        />
+        <PulseTile
+          label="Abrieron la app"
+          tone="blue"
+          now={pulse.today.opened}
+          before={pulse.yesterday.opened}
+        />
+        <PulseTile
+          label="Cobrando"
+          tone="green"
+          now={pulse.today.selling}
+          before={pulse.yesterday.selling}
+        />
+      </section>
+
+      <NewSubs
+        days={[
+          { title: "Hoy", day: today },
+          { title: "Ayer", day: yesterday },
+        ].map((d) => ({
+          ...d,
+          list: detailedSubs.filter((x) => x.day === d.day && x.kind !== "converted"),
+        }))}
+        names={names}
+      />
+
+      <div className={s.twoCols}>
+        <section className={`${s.card} ${s.rcCard}`}>
+          <p className={s.eyebrow}>
+            Suscripciones · {rc.ok ? "RevenueCat" : "según la app"}
+            {month.current ? "" : " · hoy"}
+          </p>
+          <div className={s.kpis}>
+            <div>
+              <div className={s.kpiValue}>{activeNow.toLocaleString("es-MX")}</div>
+              <div className={s.kpiLabel}>activas</div>
+            </div>
+            {RC_ORDER.map((id) => metric(id))
+              .filter((m): m is NonNullable<typeof m> => !!m)
+              .map((m) => (
+                <div key={m.id}>
+                  <div className={s.kpiValue}>{formatMetric(m.value, m.unit)}</div>
+                  <div className={s.kpiLabel}>{RC_LABEL[m.id] ?? m.name}</div>
+                </div>
+              ))}
+          </div>
+          <Plans counts={plans} />
+          {!rc.ok ? <div className={s.warn}>Sin RevenueCat: {rc.reason}</div> : null}
+        </section>
+
+        <section className={s.card} id="meta">
+          <p className={s.eyebrow}>
+            Meta · 1,000 clientes{month.current ? "" : ` · al cierre de ${month.name}`}
+          </p>
+          <div className={s.goalTop}>
+            <Ring value={active} goal={GOAL} />
+            <div className={s.goalWhen}>
+              {arrival ? (
+                <>
+                  <span>Llegas en</span>
+                  <b>{humanWeeks(weeksLeft!)}</b>
+                  <span>{arrival} a este ritmo</span>
+                </>
+              ) : (
+                <b>No estás creciendo neto</b>
+              )}
+              <span className={s.goalSub}>Faltan {left.toLocaleString("es-MX")}</span>
+            </div>
+          </div>
+          <div className={s.goalFlow}>
+            <div>
+              <b className={s.flowIn}>+{inPerWeek.toFixed(0)}</b>
+              <span>entran</span>
+            </div>
+            <div>
+              <b className={s.flowOut}>−{leavingPerWeek.toFixed(0)}</b>
+              <span>se van</span>
+            </div>
+            <div>
+              <b>
+                {netPerWeek >= 0 ? "+" : ""}
+                {netPerWeek.toFixed(1)}
+              </b>
+              <span>neto</span>
+            </div>
+          </div>
+          <p className={s.goalSub} style={{ textAlign: "center" }}>
+            por semana, promedio de {month.name}
+          </p>
+        </section>
+      </div>
+    </>
+  );
+}
+
+/// Descargas y suscripciones del mes, contra los mismos días del anterior.
+async function MonthNumbers({
+  supabase,
+  installs,
+  subsList,
+  month,
+  today,
+}: {
+  supabase: Db;
+  installs: Install[];
+  subsList: ReturnType<typeof firstSubscriptions>;
+  month: ReturnType<typeof monthWindow>;
+  today: string;
+}) {
+  const storeSubs = await memo(`subs:${month.prevStart}`, () =>
+    storeNewSubs(supabase, month.prevStart),
+  );
+  const subsOn = subsOnDay(storeSubs, subsList);
+  const dlDays = downloadsDaily(installs, month.start, month.end);
+  const dlNow = downloadsByPlatform(installs, month.start, month.to);
+  const dlPrev = downloadsByPlatform(installs, month.prevStart, month.prevTo);
+  const dlTotal = dlNow.reduce((a, p) => a + p.total, 0);
+  const dlPrevTotal = dlPrev.reduce((a, p) => a + p.total, 0);
+  const subDays: DayRow[] = dayRange(month.start, month.end).map((day) => ({
+    day,
+    ...countSubs(day <= today ? subsOn(day) : []),
+  }));
+  const subsMonth = dayRange(month.start, month.to).flatMap((d) => subsOn(d));
+  const subsPrevTotal = dayRange(month.prevStart, month.prevTo).reduce(
+    (a, d) => a + subsOn(d).length,
+    0,
+  );
+  const compare = month.current
+    ? `vs. los mismos días de ${month.prevName}`
+    : `vs. ${month.prevName}`;
+  return (
+    <div className={s.twoCols}>
+      <section className={s.card} id="descargas">
+        <p className={s.eyebrow}>Descargas · {month.name}</p>
+        <div className={s.monthHead}>
+          <span className={s.kpiValue}>{dlTotal.toLocaleString("es-MX")}</span>
+          <Delta now={dlTotal} before={dlPrevTotal} />
+        </div>
+        <p className={s.goalSub}>{compare}</p>
+        <div className={s.platChips}>
+          {dlNow.map((p) => (
+            <span key={p.platform}>
+              <i className={s.dot} style={{ background: PLATFORM_COLOR[p.platform] }} />
+              {PLATFORM_LABEL[p.platform]} <b>{p.total.toLocaleString("es-MX")}</b>
+            </span>
+          ))}
+        </div>
+        <MonthBars days={dlDays} today={today} />
+      </section>
+
+      <section className={s.card} id="suscripciones-mes">
+        <p className={s.eyebrow}>Suscripciones nuevas · {month.name}</p>
+        <div className={s.monthHead}>
+          <span className={s.kpiValue}>{subsMonth.length.toLocaleString("es-MX")}</span>
+          <Delta now={subsMonth.length} before={subsPrevTotal} />
+        </div>
+        <p className={s.goalSub}>{compare}</p>
+        <div className={s.platChips}>
+          {PLATFORMS.map((p) => (
+            <span key={p}>
+              <i className={s.dot} style={{ background: PLATFORM_COLOR[p] }} />
+              {PLATFORM_LABEL[p]}{" "}
+              <b>{subsMonth.filter((x) => x.platform === p).length}</b>
+            </span>
+          ))}
+        </div>
+        <div className={s.planLine}>
+          {PLAN_INFO.map((p) => {
+            const n = subsMonth.filter((x) => x.plan === p.key).length;
+            return n ? (
+              <span key={p.key}>
+                {p.label} <b>{n}</b>
+              </span>
+            ) : null;
+          })}
+        </div>
+        <MonthBars days={subDays} today={today} />
+      </section>
+    </div>
+  );
+}
+
+/// Barras por día del mes, apiladas por plataforma y sin números encima: el
+/// número del día sale al pasar el mouse; abajo solo cada 5 días.
+function MonthBars({ days, today }: { days: DayRow[]; today: string }) {
+  const max = Math.max(1, ...days.map((d) => d.total));
+  const done = days.filter((d) => d.day < today);
+  const avg = done.reduce((a, d) => a + d.total, 0) / Math.max(1, done.length);
+  return (
+    <div className={s.mBars}>
+      <div className={s.mBarsArea}>
+        <div className={s.mAvg} style={{ bottom: `${(avg / max) * 100}%` }}>
+          <span>{avg.toFixed(0)}/día</span>
+        </div>
+        {days.map((d) => (
+          <div
+            key={d.day}
+            className={s.mBar}
+            title={`${shortDay(d.day)}: ${d.total} · ${PLATFORMS.map((p) => `${PLATFORM_LABEL[p]} ${d.byPlatform[p]}`).join(" · ")}`}
+          >
+            <div
+              className={s.mStack}
+              style={{
+                height: `${(d.total / max) * 100}%`,
+                opacity: d.day === today ? 0.55 : 1,
+              }}
+            >
+              {PLATFORMS.map((p) =>
+                d.byPlatform[p] ? (
+                  <div
+                    key={p}
+                    style={{ flex: d.byPlatform[p], background: PLATFORM_COLOR[p] }}
+                  />
+                ) : null,
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className={s.mAxis}>
+        {days.map((d) => {
+          const n = Number(d.day.slice(8));
+          return (
+            <span key={d.day}>
+              {d.day === today ? "hoy" : n === 1 || n % 5 === 0 ? n : ""}
+            </span>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+async function NewBusinesses({
+  installs,
+  month,
+  today,
+}: {
+  installs: Install[];
+  month: ReturnType<typeof monthWindow>;
+  today: string;
+}) {
+  // Los que llegaron en el mes (hoy no cuenta: no ha terminado).
+  const to = month.to < today ? month.to : mxDay(1);
+  const cohort = newOwners(installs, month.start, to).filter((i) => i.stage != null);
+  return (
+    <>
+      <Journey steps={journeySteps(cohort)} paths={menuPaths(cohort)} />
+      <WelcomeCompare cohort={cohort} />
+    </>
+  );
+}
+
+/// Primera versión con la bienvenida en plática con Órale (PR #210).
+const CHAT_WELCOME_APP = "3.0.108";
+/// Con menos negocios que esto el % se mueve demasiado con 2 o 3 personas.
+const CHAT_WELCOME_ENOUGH = 50;
+
+/// ¿La plática ayuda más que las pantallas? Mismos pasos, contados el día
+/// que llegó cada negocio: la plática es nueva y los de antes ya tuvieron
+/// días para avanzar.
+function WelcomeCompare({ cohort }: { cohort: Install[] }) {
+  const chat = cohort.filter(
+    (i) => i.firstVersion && cmpVersion(i.firstVersion.split("+")[0], CHAT_WELCOME_APP) >= 0,
+  );
+  const screens = cohort.filter((i) => !chat.includes(i));
+  if (!chat.length) return null;
+  const steps: { label: string; ok: (i: Install) => boolean }[] = [
+    { label: "Pasaron la primera pregunta", ok: (i) => i.day1.stage >= 2 },
+    { label: "Crearon su PIN", ok: (i) => i.day1.stage >= 6 },
+    { label: "Terminaron la bienvenida", ok: (i) => i.day1.stage >= 7 },
+    { label: "Tienen menú", ok: (i) => i.day1.products > 0 },
+    { label: "Primera venta", ok: (i) => i.day1.orders > 0 },
+  ];
+  const share = (list: Install[], ok: (i: Install) => boolean) =>
+    list.length ? Math.round((list.filter(ok).length / list.length) * 100) : 0;
+  return (
+    <div className={s.compare}>
+      <p className={s.funnelTitle}>¿Plática o pantallas? · el primer día</p>
+      <table className={s.mTable}>
+        <thead>
+          <tr>
+            <th />
+            <th>Pantallas · {screens.length}</th>
+            <th>Plática · {chat.length}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {steps.map((st) => {
+            const a = share(screens, st.ok);
+            const b = share(chat, st.ok);
+            return (
+              <tr key={st.label}>
+                <td>{st.label}</td>
+                <td>{a}%</td>
+                <td>
+                  <b className={b > a ? s.cmpUp : b < a ? s.cmpDown : undefined}>{b}%</b>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      <p className={s.note}>
+        Plática: los que llegaron con la {CHAT_WELCOME_APP} o más nueva.
+        {chat.length < CHAT_WELCOME_ENOUGH
+          ? ` Todavía son pocos (${chat.length}): con menos de ${CHAT_WELCOME_ENOUGH} el % cambia mucho con 2 o 3 personas.`
+          : ""}
+      </p>
+    </div>
+  );
+}
+
+async function MonthCancels({
+  supabase,
+  month,
+}: {
+  supabase: Db;
+  month: ReturnType<typeof monthWindow>;
+}) {
+  const data = await memo(`cancel:${month.start}:${month.to}`, () =>
+    cancelSurvey(supabase, month.start, month.to),
+  );
+  return <Cancellations data={data} />;
+}
+
+async function Migration({
+  supabase,
+  rows,
+  today,
+}: {
+  supabase: Db;
+  rows: PingRow[];
+  today: string;
+}) {
+  const health = await memo("health", () => migrationHealth(supabase));
+  return (
+    <MigrationTab health={health} newest={newestVersion(rows, mxDay(7))} today={today} />
+  );
+}
+
+/// Usuarios de los últimos 14 días y los que podrían cancelar.
+async function UsersTab({
+  supabase,
+  rows,
+  installs,
+  today,
+  day,
+}: {
+  supabase: Db;
+  rows: PingRow[];
+  installs: Install[];
+  today: string;
+  day?: string;
+}) {
+  const userDays = dayRange(mxDay(13), today);
+  // Solo viaja el día que se ve: los 14 días juntos eran ~2 MB de página.
+  const shown = day && userDays.includes(day) ? day : today;
+  const recent = rows.filter((r) => r.ping_date === shown);
+  const accountInstalls = new Map<string, Set<string>>();
+  for (const r of recent) {
+    const k = r.account_key ?? r.install_id;
+    if (!accountInstalls.has(k)) accountInstalls.set(k, new Set());
+    accountInstalls.get(k)!.add(r.install_id);
+  }
+  const [userNames, { risk, riskNames }] = await Promise.all([
+    memo(`names:${shown}`, () =>
+      businessNames(
+        supabase,
+        [...accountInstalls].map(([key, ids]) => ({ key, installIds: [...ids] })),
+      ),
+    ),
+    memo(`risk:${today}`, async () => {
+      const risk = await withoutActiveBusinesses(
+        supabase, atRisk(rows, today), rows, mxDay(1),
+      );
+      return { risk, riskNames: await businessNames(supabase, risk) };
+    }),
+  ]);
   // La versión «más nueva» es la publicada: la más alta que ya usan al menos
   // 10 aparatos (las de prueba no cuentan).
   const newestV =
@@ -286,489 +765,263 @@ export default async function Admin() {
     avgDaily: r.avgDaily,
     activeDays: r.activeDays,
   }));
-  const netPerWeek =
-    (series[series.length - 1].n - series[0].n) / (series.length - 1);
-  // Mismo periodo para entradas y neto, si no las salidas salen chuecas.
-  const inPerWeek = avgWeeklySubs(weeks, 7);
-  const leavingPerWeek = Math.max(0, inPerWeek - netPerWeek);
-  const weeksLeft =
-    netPerWeek > 0 ? Math.ceil(Math.max(0, GOAL - active) / netPerWeek) : null;
-
-  const updated = new Date().toLocaleTimeString("es-MX", {
-    timeZone: "America/Mexico_City",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-
   return (
-    <main className={s.page}>
-      <div className={s.wrap}>
-        <header className={s.top}>
-          <div className={s.brand}>
-            <div className={s.logo}>Ó</div>
-            <div>
-              <h1 className={s.title}>Órale AI · Panel</h1>
-              <p className={s.subtitle}>Actualizado a las {updated}</p>
-            </div>
-          </div>
-        </header>
-
-
-        {pingsRes.error ? (
-          <div className={s.error}>
-            No se pudo leer usage_pings: {pingsRes.error.message}
-          </div>
-        ) : null}
-
-        {/* 0. Hoy y ayer */}
-        <section className={s.pulse} id="hoy">
-          <PulseTile
-            label="Descargas"
-            tone="orange"
-            now={pulse.today.downloads}
-            before={pulse.yesterday.downloads}
-            hint={`+${pulse.today.reinstalled} reinstalaron`}
-          />
-          <PulseTile
-            label="Se suscribieron"
-            tone="amber"
-            now={pulse.today.subscribed}
-            before={pulse.yesterday.subscribed}
-            hint={today >= STORE_SINCE ? "según la tienda" : "según la app"}
-          />
-          <PulseTile
-            label="Abrieron la app"
-            tone="blue"
-            now={pulse.today.opened}
-            before={pulse.yesterday.opened}
-          />
-          <PulseTile
-            label="Cobrando"
-            tone="green"
-            now={pulse.today.selling}
-            before={pulse.yesterday.selling}
-          />
-        </section>
-
-        <NewSubs
-          days={[
-            { title: "Hoy", day: today },
-            { title: "Ayer", day: mxDay(1) },
-          ].map((d) => ({
-            ...d,
-            list: detailedSubs.filter((x) => x.day === d.day && x.kind !== "converted"),
-            converted: detailedSubs.filter((x) => x.day === d.day && x.kind === "converted"),
-            store: d.day >= STORE_SINCE,
-          }))}
-          names={newSubNames}
-        />
-
-        {/* 1. Meta y suscripciones */}
-        <section className={`${s.card} ${s.hero}`} id="meta">
-          <div className={s.goal}>
-            <p className={s.eyebrow}>Meta</p>
-            <Ring value={active} goal={GOAL} />
-            <div className={s.goalLine}>
-              Faltan{" "}
-              <strong>
-                {Math.max(0, GOAL - active).toLocaleString("es-MX")}
-              </strong>{" "}
-              ·{" "}
-              {weeksLeft != null ? (
-                <>
-                  a este ritmo, <strong>{humanWeeks(weeksLeft)}</strong>
-                </>
-              ) : (
-                <strong>no estás creciendo neto</strong>
-              )}
-            </div>
-            <div className={s.flow}>
-              <span>
-                <b className={s.flowIn}>+{inPerWeek.toFixed(0)}</b> entran
-              </span>
-              <span>
-                <b className={s.flowOut}>−{leavingPerWeek.toFixed(0)}</b> se van
-              </span>
-              <span>
-                <b>
-                  {netPerWeek >= 0 ? "+" : ""}
-                  {netPerWeek.toFixed(1)}
-                </b>{" "}
-                crecimiento real
-              </span>
-              <span className={s.flowUnit}>por semana</span>
-            </div>
-            <Sparkline points={series} />
-            <p className={s.note}>
-              Clientes con plan activo cada semana (últimas 8). Ya se descuentan
-              los que cancelaron.
-            </p>
-          </div>
-          <div className={s.heroSide}>
-            <p className={s.eyebrow}>Suscripciones</p>
-            <h2 className={s.h2}>
-              {rc.ok ? "Según RevenueCat" : "Según la app"}
-              {rc.ok ? null : <span className={s.badge}>aproximado</span>}
-            </h2>
-            <div className={s.heroTiles}>
-              {rc.ok ? (
-                RC_ORDER.map((id) => metric(id))
-                  .filter((m): m is NonNullable<typeof m> => !!m)
-                  .map((m) => ({
-                    key: m.id,
-                    value: formatMetric(m.value, m.unit),
-                    label: RC_LABEL[m.id] ?? m.name,
-                  }))
-                  .map((t) => (
-                    <div className={s.tile} key={t.key}>
-                      <div className={s.tileValue}>{t.value}</div>
-                      <div className={s.tileLabel}>{t.label}</div>
-                    </div>
-                  ))
-              ) : (
-                <>
-                  <div className={s.tile}>
-                    <div className={s.tileValue}>{appActive}</div>
-                    <div className={s.tileLabel}>Con plan activo (7 días)</div>
-                  </div>
-                  <div className={s.tile}>
-                    <div className={s.tileValue}>{perWeek.toFixed(1)}</div>
-                    <div className={s.tileLabel}>Nuevas por semana</div>
-                  </div>
-                </>
-              )}
-            </div>
-            <Plans counts={plans} />
-            {rc.ok ? null : (
-              <div className={s.warn}>
-                Sin RevenueCat: {rc.reason} Con la llave aquí salen activas,
-                pruebas, MRR e ingresos reales.
-              </div>
-            )}
-          </div>
-        </section>
-
-        {/* 1b. Descargas */}
-        <section className={s.card} id="descargas">
-          <div className={s.cardHead}>
-            <div>
-              <p className={s.eyebrow}>Descargas · {month.name}</p>
-              <h2 className={s.h2}>
-                {dlTotal.toLocaleString("es-MX")}{" "}
-                <Delta now={dlTotal} before={dlPrevTotal} />
-              </h2>
-              <p className={s.note}>
-                Aparatos que abrieron la app por primera vez (dueños y meseros).
-                No cuenta reinstalaciones ni cambios de celular. La flecha
-                compara con los mismos días de {month.prevName}.
-              </p>
-            </div>
-            <Legend subs={false} />
-          </div>
-          <div className={s.platTiles}>
-            {dlNow.map((p, i) => {
-              return (
-                <div className={s.platTile} key={p.platform}>
-                  <div className={s.platHead}>
-                    <span
-                      className={s.dot}
-                      style={{ background: PLATFORM_COLOR[p.platform] }}
-                    />
-                    {PLATFORM_LABEL[p.platform]}
-                    <Delta now={p.total} before={dlPrev[i].total} />
-                  </div>
-                  <div className={s.platValue}>
-                    {p.total.toLocaleString("es-MX")}
-                  </div>
-                  <div className={s.platSub}>
-                    {pct(p.total, dlTotal)} del total · {p.owners} dueños ·{" "}
-                    {p.waiters} meseros
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          <DailyBars days={dlDays} today={today} />
-        </section>
-
-        {/* 1c. Suscripciones del mes */}
-        <section className={s.card} id="suscripciones-mes">
-          <div className={s.cardHead}>
-            <div>
-              <p className={s.eyebrow}>Suscripciones · {month.name}</p>
-              <h2 className={s.h2}>
-                {subsMonth.length.toLocaleString("es-MX")}{" "}
-                <Delta now={subsMonth.length} before={subsPrevTotal} />
-              </h2>
-              <p className={s.note}>
-                Clientes que se suscribieron por primera vez. Desde el 24 de
-                octubre sale de la tienda (RevenueCat y Stripe); antes, de la
-                app. La flecha compara con los mismos días de{" "}
-                {month.prevName}.
-              </p>
-            </div>
-            <Legend subs={false} />
-          </div>
-          <div className={s.subsChips} style={{ marginBottom: 12 }}>
-            {PLAN_INFO.map((p) => {
-              const n = subsMonth.filter((x) => x.plan === p.key).length;
-              return n ? (
-                <span key={p.key} className={s.subsChip}>
-                  <span className={s.dot} style={{ background: p.color }} />
-                  {n} {p.label}
-                </span>
-              ) : null;
-            })}
-          </div>
-          <DailyBars days={subDays} today={today} />
-        </section>
-
-        {/* 2. Dónde se va la gente */}
-        <Journey
-          steps={journey}
-          paths={journeyPaths}
-          from={journeyStart}
-          to={journeyTo}
-        />
-
-        {/* 2c. Quién se queda */}
-        <section className={s.card} id="retencion">
-          <div className={s.cardHead}>
-            <div>
-              <p className={s.eyebrow}>Retención</p>
-              <h2 className={s.h2}>¿Quién se queda?</h2>
-              <p className={s.note}>
-                De los {ret.total.n} clientes que pagaban hace 2 meses, ¿cuántos
-                ya dejaron de usar la app con su plan? Entre más rojo, más se
-                van.
-              </p>
-            </div>
-            <div className={s.retTotal}>
-              <span className={s.retTotalN}>
-                {pct(ret.total.gone, ret.total.n)}
-              </span>
-              <span className={s.retTotalL}>se fue (promedio)</span>
-            </div>
-          </div>
-          <div className={s.retGrid}>
-            {/* El plan primero: es el que más dice (p. ej. Pro mensual). */}
-            {[...ret.groups]
-              .sort(
-                (a, b) =>
-                  Number(b.title.includes("plan")) -
-                  Number(a.title.includes("plan")),
-              )
-              .map((g) => (
-                <RetGroup key={g.title} title={g.title} rows={g.rows} />
-              ))}
-          </div>
-        </section>
-
-        {/* 2d. Por qué se van */}
-        <Cancellations data={cancels} />
-
-        {/* 2c. Usuarios (y en riesgo) */}
-        <Users days={userDays} today={today} rows={userRows} risk={riskUsers} />
-
-
-        {/* 4. Migración */}
-        <section className={s.card} id="migracion">
-          <div className={s.cardHead}>
-            <div>
-              <p className={s.eyebrow}>Migración</p>
-              <h2 className={s.h2}>
-                {health.mismatches === 0 &&
-                health.proVerifiedPct >= 90 &&
-                health.rcRemoves === 0
-                  ? `Vamos en ${health.syncV2 === null ? "C4" : "C5"} · todo en verde`
-                  : `Vamos en ${health.syncV2 === null ? "C4" : "C5"} · hay algo que revisar`}
-              </h2>
-            </div>
-          </div>
-          <Stepper
-            steps={[
-              {
-                id: "C1",
-                name: "Líneas canceladas no regresan",
-                state: "done",
-              },
-              {
-                id: "C2",
-                name: "Tabla de líneas en sombra",
-                state: "done",
-                sub: health.mismatches === 0 ? "0 diferencias" : undefined,
-              },
-              {
-                id: "C3",
-                name: "order-ops y order-changes",
-                state: "done",
-                sub: "en prod, sin usarse",
-              },
-              {
-                id: "C4",
-                name: `Interruptor + app ${C4_APP}`,
-                state: health.syncV2 === null ? "now" : "done",
-                sub: health.syncV2 === null ? "falta el servidor" : "listo",
-              },
-              {
-                id: "C5",
-                name: "Prender negocio por negocio",
-                state: health.syncV2 ? "now" : "next",
-                sub: `${health.ready.businesses} de ${health.proWithOrders} listos`,
-              },
-              {
-                id: "C6",
-                name: "Limpieza",
-                state: "next",
-                sub: "cuando <5% use versiones viejas",
-              },
-            ]}
-          />
-
-          <div className={s.readyGrid}>
-            <div className={s.readyCard}>
-              <p className={s.funnelTitle}>Listos para el sync nuevo (C5)</p>
-              <div className={s.readyBig}>
-                {health.ready.businesses}
-                <span> de {health.proWithOrders} negocios</span>
-              </div>
-              <p className={s.note} style={{ margin: "4px 0 12px" }}>
-                Negocios Pro donde la caja y todos los meseros ya actualizaron a
-                la {C4_APP}. Solo a esos se les puede prender el sync nuevo.
-              </p>
-              {PLATFORMS.map((p) => {
-                const r = health.ready.byPlatform[p] ?? { on: 0, total: 0 };
-                return (
-                  <div className={s.readyRow} key={p}>
-                    <span className={s.barName}>{PLATFORM_LABEL[p]}</span>
-                    <div className={s.readyTrack}>
-                      <div
-                        className={s.readyFill}
-                        style={{
-                          width: `${r.total ? (r.on / r.total) * 100 : 0}%`,
-                          background: PLATFORM_COLOR[p],
-                        }}
-                      />
-                    </div>
-                    <span className={s.barN}>
-                      {r.on}/{r.total}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-            <div className={s.readyCard}>
-              <p className={s.funnelTitle}>Corte de pagos viejos</p>
-              <div className={s.readyBig}>
-                {cutoffDays > 0 ? cutoffDays : 0}
-                <span>
-                  {" "}
-                  {cutoffDays === 1 ? "día" : "días"} ·{" "}
-                  {shortDay(LEGACY_CUTOFF)}
-                </span>
-              </div>
-              <p className={s.note} style={{ margin: "4px 0 12px" }}>
-                Ese día se apaga la forma vieja de validar pagos. Se hace si al
-                menos 90% de los Pro ya están verificados.
-              </p>
-              <div className={s.readyTrack} style={{ height: 12 }}>
-                <div
-                  className={s.readyFill}
-                  style={{
-                    width: `${Math.min(100, health.proVerifiedPct)}%`,
-                    background:
-                      health.proVerifiedPct >= 90
-                        ? "var(--green)"
-                        : "var(--amber)",
-                  }}
-                />
-                <div className={s.readyMark} style={{ left: "90%" }} />
-              </div>
-              <p className={s.platSub} style={{ marginTop: 8 }}>
-                {Math.round(health.proVerifiedPct)}% verificados ·{" "}
-                {health.proVerifiedPct >= 90
-                  ? "se mantiene el corte"
-                  : "habría que moverlo"}
-              </p>
-            </div>
-          </div>
-
-          <div className={s.health}>
-            <Check
-              state={
-                health.mismatches === null
-                  ? "idle"
-                  : health.mismatches === 0
-                    ? "ok"
-                    : "bad"
-              }
-              value={health.mismatches ?? "—"}
-              label="Comandas que no cuadran entre la tabla vieja y la nueva (C2). Debe ser 0."
-            />
-            <Check
-              state={health.proVerifiedPct >= 90 ? "ok" : "bad"}
-              value={pct(health.proVerified, health.proWithOrders)}
-              label={`Negocios Pro verificados: ${health.proVerified} de ${health.proWithOrders} que tuvieron comandas esta semana${health.unverified.some((b) => b.bridgeUntil) ? ` (${health.unverified.filter((b) => b.bridgeUntil).length} con puente)` : ""}. Mínimo 90%.`}
-            />
-            <Check
-              state={health.rcRemoves === 0 ? "ok" : "bad"}
-              value={health.rcRemoves}
-              label={`Clientes a los que RevenueCat les quitaría el plan por error. Debe ser 0. (${health.rcMatch} coinciden, en ${health.rcBetter} RevenueCat da más, ${health.rcErrors} no se pudieron revisar)`}
-            />
-            <Check
-              state={health.syncV2 ? "ok" : "idle"}
-              value={health.syncV2 ?? "—"}
-              label={`Negocios con el sync nuevo prendido (C5). ${health.orderOps.toLocaleString("es-MX")} acciones mandadas por el sync nuevo.`}
-            />
-          </div>
-          {health.unverified.some((b) => b.bridgeUntil) ? (
-            <>
-              <p className={s.funnelTitle} style={{ marginTop: 22 }}>
-                Con puente hasta el{" "}
-                {shortDay(
-                  health.unverified.find((b) => b.bridgeUntil)!.bridgeUntil!,
-                )}{" "}
-                · {health.unverified.filter((b) => b.bridgeUntil).length}
-              </p>
-              <p className={s.note} style={{ marginTop: -4, marginBottom: 10 }}>
-                Su caja no manda comprobante (versión vieja o plan heredado de
-                otro aparato), así que se verificaron a mano por un tiempo. En
-                cuanto actualicen la caja se verifican solos; si no, ese día se
-                les apagan los meseros.
-              </p>
-              <div className={s.bizList}>
-                {health.unverified
-                  .filter((b) => b.bridgeUntil)
-                  .map((b) => (
-                    <Biz key={b.name} biz={b} newest={newest} today={today} />
-                  ))}
-              </div>
-            </>
-          ) : null}
-          {health.unverified.some((b) => !b.bridgeUntil) ? (
-            <>
-              <p className={s.funnelTitle} style={{ marginTop: 22 }}>
-                Pro que todavía no se verifican ·{" "}
-                {health.unverified.filter((b) => !b.bridgeUntil).length}
-              </p>
-              <p className={s.note} style={{ marginTop: -4, marginBottom: 10 }}>
-                La pastilla es la versión de su caja. Verde: la más nueva (
-                {newest ?? "—"}) · Gris: reciente · Amarillo: vieja · Rojo: muy
-                vieja, pídeles que actualicen.
-              </p>
-              <div className={s.bizList}>
-                {health.unverified
-                  .filter((b) => !b.bridgeUntil)
-                  .map((b) => (
-                    <Biz key={b.name} biz={b} newest={newest} today={today} />
-                  ))}
-              </div>
-            </>
-          ) : null}
-        </section>
-      </div>
-    </main>
+    <Users days={userDays} day={shown} today={today} rows={userRows} risk={riskUsers} />
   );
+}
+
+/// ¿Quién se queda? De los que pagaban hace 2 meses, cuántos ya se fueron.
+function Retention({ ret }: { ret: ReturnType<typeof retention> }) {
+  return (
+    <section className={s.card} id="retencion">
+      <div className={s.cardHead}>
+        <div>
+          <p className={s.eyebrow}>Retención</p>
+          <h2 className={s.h2}>¿Quién se queda?</h2>
+          <p className={s.note}>
+            De los {ret.total.n} clientes que pagaban hace 2 meses, cuántos ya
+            dejaron de usar la app con su plan.
+          </p>
+        </div>
+        <div className={s.retTotal}>
+          <span className={s.retTotalN}>{pct(ret.total.gone, ret.total.n)}</span>
+          <span className={s.retTotalL}>se fue (promedio)</span>
+        </div>
+      </div>
+      <div className={s.retGrid}>
+        {/* El plan primero: es el que más dice (p. ej. Pro mensual). */}
+        {[...ret.groups]
+          .sort(
+            (a, b) =>
+              Number(b.title.includes("plan")) - Number(a.title.includes("plan")),
+          )
+          .map((g) => (
+            <RetGroup key={g.title} title={g.title} rows={g.rows} />
+          ))}
+      </div>
+    </section>
+  );
+}
+
+function MigrationTab({
+  health,
+  newest,
+  today,
+}: {
+  health: Awaited<ReturnType<typeof migrationHealth>>;
+  newest: string | null;
+  today: string;
+}) {
+  const cutoffDays = Math.round(
+    (Date.parse(LEGACY_CUTOFF) - Date.parse(today)) / 86_400_000,
+  );
+  const bridged = health.unverified.filter((b) => b.bridgeUntil);
+  const unverified = health.unverified.filter((b) => !b.bridgeUntil);
+  const green =
+    health.mismatches === 0 && health.proVerifiedPct >= 90 && health.rcRemoves === 0;
+  return (
+    <section className={s.card} id="migracion">
+      <div className={s.cardHead}>
+        <div>
+          <p className={s.eyebrow}>Migración</p>
+          <h2 className={s.h2}>
+            Vamos en {health.syncV2 === null ? "C4" : "C5"} ·{" "}
+            {green ? "todo en verde" : "hay algo que revisar"}
+          </h2>
+        </div>
+      </div>
+      <Stepper
+        steps={[
+          { id: "C1", name: "Líneas canceladas no regresan", state: "done" },
+          {
+            id: "C2",
+            name: "Tabla de líneas en sombra",
+            state: "done",
+            sub: health.mismatches === 0 ? "0 diferencias" : undefined,
+          },
+          { id: "C3", name: "order-ops y order-changes", state: "done" },
+          {
+            id: "C4",
+            name: `Interruptor + app ${C4_APP}`,
+            state: health.syncV2 === null ? "now" : "done",
+          },
+          {
+            id: "C5",
+            name: "Prender negocio por negocio",
+            state: health.syncV2 ? "now" : "next",
+            sub: health.syncV2 ? `${health.syncV2} prendidos` : undefined,
+          },
+          {
+            id: "C6",
+            name: "Limpieza",
+            state: "next",
+            sub: "cuando <5% use versiones viejas",
+          },
+        ]}
+      />
+
+      <div className={s.health}>
+        <Check
+          state={health.mismatches === null ? "idle" : health.mismatches === 0 ? "ok" : "bad"}
+          value={health.mismatches ?? "—"}
+          label="Comandas que no cuadran entre la tabla vieja y la nueva. Debe ser 0."
+        />
+        <Check
+          state={health.rcRemoves === 0 ? "ok" : "bad"}
+          value={health.rcRemoves}
+          label={`Clientes a los que RevenueCat les quitaría el plan. Debe ser 0 (${health.rcMatch} coinciden).`}
+        />
+        <Check
+          state={health.proVerifiedPct >= 90 ? "ok" : "bad"}
+          value={pct(health.proVerified, health.proWithOrders)}
+          label={`Pro verificados: ${health.proVerified} de ${health.proWithOrders} con comandas esta semana. Mínimo 90%.`}
+        />
+        <Check
+          state={health.syncV2 ? "ok" : "idle"}
+          value={health.ready.businesses}
+          label={`Negocios Pro con todos sus aparatos en ${C4_APP} o más nueva (de ${health.proWithOrders}). Esos pueden ir al sync nuevo.`}
+        />
+      </div>
+
+      <div className={s.readyGrid}>
+        <div className={s.readyCard}>
+          <p className={s.funnelTitle}>Aparatos Pro en {C4_APP} o más nueva</p>
+          {PLATFORMS.map((p) => {
+            const r = health.ready.byPlatform[p] ?? { on: 0, total: 0 };
+            return (
+              <div className={s.readyRow} key={p}>
+                <span className={s.barName}>{PLATFORM_LABEL[p]}</span>
+                <div className={s.readyTrack}>
+                  <div
+                    className={s.readyFill}
+                    style={{
+                      width: `${r.total ? (r.on / r.total) * 100 : 0}%`,
+                      background: PLATFORM_COLOR[p],
+                    }}
+                  />
+                </div>
+                <span className={s.barN}>
+                  {r.on}/{r.total}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+        <div className={s.readyCard}>
+          <p className={s.funnelTitle}>Corte de pagos viejos</p>
+          <div className={s.readyBig}>
+            {Math.max(0, cutoffDays)}
+            <span>
+              {" "}
+              {cutoffDays === 1 ? "día" : "días"} · {shortDay(LEGACY_CUTOFF)}
+            </span>
+          </div>
+          <p className={s.platSub} style={{ marginTop: 8 }}>
+            {Math.round(health.proVerifiedPct)}% verificados ·{" "}
+            {health.proVerifiedPct >= 90 ? "se mantiene el corte" : "habría que moverlo"}
+          </p>
+        </div>
+      </div>
+
+      {bridged.length ? (
+        <>
+          <p className={s.funnelTitle} style={{ marginTop: 22 }}>
+            Con puente hasta el {shortDay(bridged[0].bridgeUntil!)} · {bridged.length}
+          </p>
+          <div className={s.bizList}>
+            {bridged.map((b) => (
+              <Biz key={b.name} biz={b} newest={newest} today={today} />
+            ))}
+          </div>
+        </>
+      ) : null}
+      {unverified.length ? (
+        <>
+          <p className={s.funnelTitle} style={{ marginTop: 22 }}>
+            Pro que todavía no se verifican · {unverified.length}
+          </p>
+          <div className={s.bizList}>
+            {unverified.map((b) => (
+              <Biz key={b.name} biz={b} newest={newest} today={today} />
+            ))}
+          </div>
+        </>
+      ) : null}
+    </section>
+  );
+}
+
+/// Lo que tarda en llegar (RevenueCat, eventos de la tienda, salud de la
+/// migración) se guarda unos minutos: cambiar de pestaña o de mes no lo
+/// vuelve a pedir. Un error no se guarda.
+const MEMO_TTL_MS = 2 * 60_000;
+const memoStore = new Map<string, { at: number; value: Promise<unknown> }>();
+function memo<T>(key: string, load: () => Promise<T>): Promise<T> {
+  const hit = memoStore.get(key);
+  if (hit && Date.now() - hit.at < MEMO_TTL_MS) return hit.value as Promise<T>;
+  const value = load();
+  memoStore.set(key, { at: Date.now(), value });
+  value.catch(() => memoStore.delete(key));
+  return value;
+}
+
+/// El historial de uso se guarda unos minutos: es lo que más tarda (~1.7 s
+/// por 33 mil filas) y cambiar de pestaña lo volvía a pedir entero.
+const HISTORY_TTL_MS = 2 * 60_000;
+type History = {
+  at: number;
+  rows: PingRow[];
+  installs: Install[];
+  error: string | null;
+};
+let historyCache: History | null = null;
+let historyLoading: Promise<History> | null = null;
+
+async function usageHistory(supabase: Db): Promise<History> {
+  if (historyCache && Date.now() - historyCache.at < HISTORY_TTL_MS) {
+    return historyCache;
+  }
+  historyLoading ??= (async () => {
+    // Todo el historial, en páginas que se piden a la vez.
+    const { count } = await supabase
+      .from("usage_pings")
+      .select("install_id", { count: "exact", head: true });
+    const res = await fetchAllParallel<PingRow>(
+      () =>
+        supabase
+          .from("usage_pings")
+          .select(PING_COLUMNS)
+          .order("ping_date")
+          .order("install_id"),
+      count ?? 0,
+      16,
+    );
+    const rows = fillAccountKeys(res.data);
+    const loaded: History = {
+      at: Date.now(),
+      rows,
+      installs: toInstalls(rows),
+      error: res.error?.message ?? null,
+    };
+    // Una lectura a medias no se guarda: la siguiente vuelve a intentar.
+    if (!loaded.error) historyCache = loaded;
+    return loaded;
+  })().finally(() => {
+    historyLoading = null;
+  });
+  return historyLoading;
+}
+
+/// Altas de un día: de la tienda desde STORE_SINCE (sin pruebas que se
+/// cobraron), antes de lo que reportaba la app.
+function subsOnDay(
+  storeSubs: NewSub[],
+  subsList: ReturnType<typeof firstSubscriptions>,
+) {
+  return (day: string): NewSub[] =>
+    day >= STORE_SINCE
+      ? storeSubs.filter((x) => x.day === day && x.kind !== "converted")
+      : subsList.filter((x) => x.day === day);
 }
 
 type UnverifiedBiz = {
@@ -898,12 +1151,12 @@ function PulseTile({
           </div>
         </div>
       </div>
-      <PlatformSplit c={now} />
     </div>
   );
 }
 
-/// Quién se suscribió hoy y ayer, con la misma antigüedad de Usuarios.
+/// Quién se suscribió hoy y ayer por primera vez (sin pruebas que se cobraron):
+/// plan, negocio y desde cuándo usa la app.
 function NewSubs({
   days,
   names,
@@ -912,13 +1165,12 @@ function NewSubs({
     title: string;
     day: string;
     list: NewSub[];
-    converted: NewSub[];
-    store: boolean;
   }[];
   names: Map<string, string>;
 }) {
-  const row = (x: NewSub, tag?: string) => {
+  const row = (x: NewSub) => {
     const info = PLAN_INFO.find((p) => p.key === x.plan);
+    const platform = x.platform ? PLATFORM_LABEL[x.platform] ?? x.platform : "";
     return (
       <div key={`${x.key}-${x.kind ?? ""}`} className={s.subsRow}>
         <span
@@ -927,69 +1179,45 @@ function NewSubs({
         >
           {x.label ?? info?.label ?? "Plan sin dato"}
         </span>
-        <span className={s.subsName}>
-          {x.platform ? PLATFORM_LABEL[x.platform] ?? x.platform : ""}
-          {names.get(x.key) ? ` · ${names.get(x.key)}` : ""}
-        </span>
-        {tag ? <span className={s.subsMeta}>{tag}</span> : null}
-        <span className={s.subsTenure}>
-          Antigüedad: {x.tenure === 0 ? "Nuevo" : x.tenure != null ? tenureLabel(x.tenure) : x.matchedInstallId ? "Sin dato" : "Sin vínculo con dispositivo"}
+        <span className={s.subsName}>{names.get(x.key) ?? platform}</span>
+        <span
+          className={
+            x.tenure == null
+              ? s.ageUnknown
+              : x.tenure === 0
+                ? s.ageNew
+                : x.tenure < 30
+                  ? s.ageWeeks
+                  : s.ageOld
+          }
+          title={x.guessed ? "Probable: el único aparato Android que contrató ese plan ese día" : undefined}
+        >
+          {x.tenure == null
+            ? "sin identificar"
+            : `${x.guessed ? "~" : ""}${x.tenure === 0 ? "nuevo" : tenureLabel(x.tenure)}`}
         </span>
       </div>
     );
   };
   return (
     <section className={`${s.card} ${s.subsCard}`}>
-      <p className={s.eyebrow}>
-        Nuevos suscriptores ·{" "}
-        {days.every((d) => d.store)
-          ? "según la tienda"
-          : days.some((d) => d.store)
-            ? "hoy según la tienda, ayer según la app"
-            : "según la app"}
-      </p>
+      <p className={s.eyebrow}>Nuevos suscriptores</p>
       <div className={s.subsCols}>
         {days.map((d) => {
-          const counts = new Map<string, number>();
-          for (const x of d.list) {
-            const k = x.plan ?? "?";
-            counts.set(k, (counts.get(k) ?? 0) + 1);
-          }
+          const all = d.list;
           return (
             <div key={d.day} className={s.subsCol}>
               <div className={s.subsHead}>
-                <span className={s.subsWhen}>{d.title}</span>
-                <span className={s.subsChips}>
-                  {PLAN_INFO.filter((p) => counts.get(p.key)).map((p) => (
-                    <span key={p.key} className={s.subsChip}>
-                      <span
-                        className={s.dot}
-                        style={{ background: p.color }}
-                      />
-                      {counts.get(p.key)} {p.label}
-                    </span>
-                  ))}
-                  {counts.get("?") ? (
-                    <span className={s.subsChip}>
-                      {counts.get("?")} sin dato
-                    </span>
-                  ) : null}
+                <span className={s.subsWhen}>
+                  {d.title} · {all.length}
                 </span>
               </div>
-              {d.list.length === 0 ? (
+              {all.length === 0 ? (
                 <span className={s.note} style={{ margin: 0 }}>
                   Nadie todavía
                 </span>
               ) : null}
-              {d.list.map((x) => row(x, x.kind === "paid" ? "Pagó" : undefined))}
-              {d.converted.length ? (
-                <>
-                  <span className={s.subsWhen} style={{ marginTop: 6 }}>
-                    Pagaron al terminar su prueba
-                  </span>
-                  {d.converted.map((x) => row(x, "Pagó"))}
-                </>
-              ) : null}
+              {all.map(row)}
             </div>
           );
         })}
@@ -1336,8 +1564,9 @@ const PRODUCT_LABEL: Record<string, string> = {
   pro_monthly: "Pro mensual",
   pro_yearly: "Pro anual",
 };
+// Play manda «producto:plan base» (orale_monthly:monthly).
 const productLabel = (p: string | null) =>
-  (p && PRODUCT_LABEL[p]) ?? p ?? "Plan";
+  (p && (PRODUCT_LABEL[p] ?? PRODUCT_LABEL[p.split(":")[0]])) ?? p ?? "Plan";
 const storeLabel = (s: string | null) =>
   s === "APP_STORE" || s === "ios"
     ? "iPhone"
@@ -1512,14 +1741,22 @@ type CancelRow = {
   created_at: string;
 };
 
-async function cancelSurvey(supabase: ReturnType<typeof adminClient>) {
-  const since = new Date(Date.now() - 30 * 86_400_000).toISOString();
+async function cancelSurvey(
+  supabase: ReturnType<typeof adminClient>,
+  fromDay: string,
+  toDay: string,
+) {
+  const since = new Date(`${fromDay}T00:00:00-06:00`).toISOString();
+  const until = new Date(
+    Date.parse(`${toDay}T00:00:00-06:00`) + 86_400_000,
+  ).toISOString();
   const r = await supabase
     .from("cancel_survey_answers")
     .select(
       "id, install_id, product_id, reason, detail, offer_shown, offer_accepted, moment, went_to_store, created_at",
     )
     .gte("created_at", since)
+    .lt("created_at", until)
     .order("created_at", { ascending: false })
     .limit(500);
   if (r.error) return null;
@@ -1539,6 +1776,7 @@ async function cancelSurvey(supabase: ReturnType<typeof adminClient>) {
     .eq("type", "CANCELLATION")
     .eq("cancel_reason", "UNSUBSCRIBE")
     .gte("event_at", since)
+    .lt("event_at", until)
     .order("event_at", { ascending: false })
     .limit(1000);
   let storeCancels: StoreCancel[] | null = null;
@@ -1646,14 +1884,10 @@ function Cancellations({
     <section className={s.card} id="cancelaciones">
       <div className={s.cardHead}>
         <div>
-          <p className={s.eyebrow}>Cancelaciones · últimos 30 días</p>
-          <h2 className={s.h2}>¿Por qué se van?</h2>
-          <p className={s.note}>
-            Una respuesta por aparato (la más reciente). «Antes»: tocó Cancelar
-            en la app (desde la 3.0.102) y le preguntamos antes de mandarlo a la
-            tienda. «Después»: canceló directo en la tienda y contestó al volver
-            a abrir la app. Abrir la tienda no es cancelar: las cancelaciones de
-            verdad las dice la tienda.
+          <p className={s.note} style={{ marginTop: 0 }}>
+            Las cancelaciones las dice la tienda. Los motivos, la encuesta de
+            la app: «antes» si preguntamos al tocar Cancelar, «después» si
+            contestó al volver a abrir la app.
           </p>
         </div>
       </div>
@@ -1726,7 +1960,7 @@ function Cancellations({
               <div className={s.biz} key={c.user}>
                 <div className={s.bizBody}>
                   <div className={s.bizName}>
-                    {c.name ?? "Sin nombre (app anterior a 3.0.107)"}
+                    {c.name ?? "Sin nombre"}
                   </div>
                   <div className={s.bizMeta}>
                     {productLabel(c.productId)} · {storeLabel(c.store)} ·{" "}
@@ -1771,7 +2005,7 @@ function Cancellations({
         </>
       ) : (
         <p className={s.note} style={{ marginTop: 16 }}>
-          Todavía no hay respuestas en los últimos 30 días.
+          Nadie contestó la encuesta este mes.
         </p>
       )}
     </section>
@@ -2046,42 +2280,29 @@ async function churnDetails(
 }
 
 function Ring({ value, goal }: { value: number; goal: number }) {
-  const r = 90;
+  const r = 62;
   const c = 2 * Math.PI * r;
   const share = Math.min(1, value / goal);
   return (
     <div className={s.ring}>
-      <svg viewBox="0 0 210 210" width="210" height="210" aria-hidden>
-        <defs>
-          <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#f15a29" />
-            <stop offset="100%" stopColor="#f5b942" />
-          </linearGradient>
-        </defs>
+      <svg viewBox="0 0 150 150" width="150" height="150" aria-hidden>
+        <circle cx="75" cy="75" r={r} fill="none" stroke="var(--card-2)" strokeWidth="12" />
         <circle
-          cx="105"
-          cy="105"
+          cx="75"
+          cy="75"
           r={r}
           fill="none"
-          stroke="rgba(255,255,255,0.07)"
-          strokeWidth="14"
-        />
-        <circle
-          cx="105"
-          cy="105"
-          r={r}
-          fill="none"
-          stroke="url(#ringGrad)"
-          strokeWidth="14"
+          stroke="var(--orange)"
+          strokeWidth="12"
           strokeLinecap="round"
           strokeDasharray={`${share * c} ${c}`}
-          transform="rotate(-90 105 105)"
+          transform="rotate(-90 75 75)"
         />
       </svg>
       <div className={s.ringCenter}>
-        <div className={s.ringValue}>{value.toLocaleString("es-MX")}</div>
+        <div className={s.ringValue}>{pct(value, goal)}</div>
         <div className={s.ringLabel}>
-          de {goal.toLocaleString("es-MX")} · {pct(value, goal)}
+          {value.toLocaleString("es-MX")} de {goal.toLocaleString("es-MX")}
         </div>
       </div>
     </div>
@@ -2386,13 +2607,9 @@ function journeySteps(list: Install[]): JourneyStep[] {
 function Journey({
   steps,
   paths,
-  from,
-  to,
 }: {
   steps: JourneyStep[];
   paths: ReturnType<typeof menuPaths>;
-  from: string;
-  to: string;
 }) {
   const top = Math.max(1, steps[0]?.n ?? 1);
   const per100 = (n: number) => Math.round((n / top) * 100);
@@ -2468,11 +2685,8 @@ function Journey({
   );
   return (
     <section className={s.card} id="cuello">
-      <p className={s.eyebrow}>Negocios nuevos</p>
-      <h2 className={s.h2}>¿Dónde se va la gente?</h2>
-      <p className={s.note}>
-        Negocios nuevos del {shortDay(from)} al {shortDay(to)} (app 3.0.93 o
-        más nueva). El % es cuántos pasaron del paso anterior.
+      <p className={s.note} style={{ marginTop: 0 }}>
+        Los que llegaron en el mes. El % es cuántos pasaron del paso anterior.
       </p>
       <div className={s.funnel}>
         {now.map((st, i) => row(st, i))}
@@ -2516,9 +2730,11 @@ function Journey({
   );
 }
 
-/// Mes en curso de [today] (México) y los mismos días del mes anterior.
-function monthWindow(today: string) {
-  const [y, m, d] = today.split("-").map(Number);
+/// El mes [ym] (2026-10) y contra qué se compara: si es el mes en curso, los
+/// mismos días del mes anterior; si ya terminó, el mes anterior completo.
+function monthWindow(today: string, ym: string) {
+  const [y, m] = ym.split("-").map(Number);
+  const current = ym === today.slice(0, 7);
   const iso = (yy: number, mm: number, dd: number) =>
     `${yy}-${String(mm).padStart(2, "0")}-${String(dd).padStart(2, "0")}`;
   const lastDay = (yy: number, mm: number) =>
@@ -2530,14 +2746,40 @@ function monthWindow(today: string) {
       month: "long",
       timeZone: "UTC",
     });
+  const d = current ? Number(today.slice(8, 10)) : lastDay(y, m);
   return {
+    current,
     start: iso(y, m, 1),
     end: iso(y, m, lastDay(y, m)),
+    /// Último día que ya pasó (o hoy) dentro del mes.
+    to: iso(y, m, d),
     prevStart: iso(py, pm, 1),
-    prevTo: iso(py, pm, Math.min(d, lastDay(py, pm))),
+    prevTo: iso(py, pm, current ? Math.min(d, lastDay(py, pm)) : lastDay(py, pm)),
     name: name(y, m),
     prevName: name(py, pm),
   };
+}
+
+/// Meses con datos, del más nuevo al más viejo, para el selector.
+function monthOptions(firstDay: string, today: string) {
+  const out: { value: string; label: string }[] = [];
+  let [y, m] = today.split("-").map(Number);
+  const stop = firstDay.slice(0, 7);
+  for (let i = 0; i < 36; i++) {
+    const value = `${y}-${String(m).padStart(2, "0")}`;
+    if (value < stop) break;
+    const label = new Date(Date.UTC(y, m - 1, 15)).toLocaleDateString("es-MX", {
+      month: "long",
+      year: "numeric",
+      timeZone: "UTC",
+    });
+    out.push({ value, label: label.charAt(0).toUpperCase() + label.slice(1) });
+    if (--m === 0) {
+      m = 12;
+      y--;
+    }
+  }
+  return out;
 }
 
 function shortDay(day: string) {

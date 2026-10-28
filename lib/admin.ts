@@ -65,6 +65,10 @@ export type Install = {
   orders: number;
   subscribed: boolean;
   version: string | null;
+  /** Versión con la que abrió la app por primera vez. */
+  firstVersion: string | null;
+  /** Lo más lejos que llegó el día que llegó (para comparar grupos parejo). */
+  day1: { stage: number; products: number; orders: number };
 };
 
 /// Mismo orden que bump_onboarding_funnel: solo sube.
@@ -95,12 +99,21 @@ export function toInstalls(rows: PingRow[]): Install[] {
         orders: 0,
         subscribed: false,
         version: r.app_version,
+        firstVersion: r.app_version,
+        day1: { stage: 0, products: 0, orders: 0 },
       };
       map.set(r.install_id, i);
     }
     if (r.ping_date < i.firstDay) {
       i.firstDay = r.ping_date;
       i.platform = plat;
+      i.firstVersion = r.app_version;
+      i.day1 = { stage: 0, products: 0, orders: 0 };
+    }
+    if (r.ping_date === i.firstDay) {
+      i.day1.stage = Math.max(i.day1.stage, r.onboarding_stage ?? 0);
+      i.day1.products = Math.max(i.day1.products, r.product_count ?? 0);
+      i.day1.orders = Math.max(i.day1.orders, r.orders_total ?? 0);
     }
     if (r.ping_date > i.lastDay) {
       i.lastDay = r.ping_date;
