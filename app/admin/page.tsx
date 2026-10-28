@@ -146,7 +146,7 @@ export default async function Admin({
           today={today}
         />
 
-        <Fold title={`Negocios nuevos · ${month.name}`} hint="¿dónde se va la gente?">
+        <Fold title={`Negocios nuevos · ${month.name}`} hint="¿dónde se va la gente?" open>
           <Suspense fallback={<FoldLoading />}>
             <NewBusinesses installs={installs} month={month} today={today} />
           </Suspense>
@@ -194,7 +194,7 @@ function activeOn(rows: PingRow[], day: string) {
   return set.size;
 }
 
-/// Sección que se abre y se cierra; cerrada por default.
+/// Sección que se abre y se cierra; cerrada salvo que diga [open].
 function Fold({
   title,
   hint,
