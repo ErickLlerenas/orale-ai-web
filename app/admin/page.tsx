@@ -325,7 +325,7 @@ async function Today({
       />
 
       <div className={s.twoCols}>
-        <section className={s.card}>
+        <section className={`${s.card} ${s.rcCard}`}>
           <p className={s.eyebrow}>
             Suscripciones · {rc.ok ? "RevenueCat" : "según la app"}
           </p>

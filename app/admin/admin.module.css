@@ -2320,3 +2320,31 @@
 .foldBody > section > .uHead .eyebrow {
   display: none;
 }
+
+/* RevenueCat: los números llenan la tarjeta y los planes quedan abajo. */
+.rcCard {
+  display: flex;
+  flex-direction: column;
+}
+.rcCard .kpis {
+  flex: 1;
+  align-items: center;
+  margin: 8px 0 18px;
+}
+.rcCard .kpis > div {
+  background: var(--card-2);
+  border-radius: 16px;
+  padding: 22px 16px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.rcCard .kpiValue {
+  font-size: 40px;
+}
+@media (max-width: 520px) {
+  .rcCard .kpiValue {
+    font-size: 28px;
+  }
+}
