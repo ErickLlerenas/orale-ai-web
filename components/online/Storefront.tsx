@@ -26,6 +26,56 @@ const plusBadge = (
   </span>
 );
 
+const smallWords = new Set(["de", "del", "la", "las", "el", "los", "y", "e", "en", "con", "a"]);
+/** Textos escritos todo en mayúsculas (nombre, categorías, platillos,
+ * opciones) se leen mejor así: «Menudo-Barbacoa-Birria de Borrego Don Gus».
+ * Si el dueño usó mayúsculas y minúsculas, se respeta tal cual. El mensaje de
+ * WhatsApp conserva los nombres como los escribió el dueño. */
+function displayName(name: string) {
+  const t = name.trim();
+  if (t.length < 4 || t !== t.toUpperCase() || t === t.toLowerCase()) return t;
+  return t
+    .toLowerCase()
+    .replace(/[\p{L}\p{N}]+/gu, (w, i: number) =>
+      i > 0 && smallWords.has(w) ? w : w.charAt(0).toUpperCase() + w.slice(1),
+    );
+}
+/** «INT.MERCADO MPAL. JESÚS MARÍA, AGS.LOCAL 4,5,8,» → sin coma final y con
+ * espacio después de cada coma o punto. */
+function cleanAddress(address: string) {
+  return address
+    .trim()
+    .replace(/[\s,;.]+$/, "")
+    .replace(/([,.])(?=[^\s\d])/g, "$1 ")
+    .replace(/,(?=\d)/g, ", ")
+    .replace(/\s+/g, " ");
+}
+const pinIcon = (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+    <circle cx="12" cy="9.5" r="2.5" stroke="currentColor" strokeWidth="2" />
+  </svg>
+);
+
+const deliveryIcon = (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <circle cx="5.5" cy="18" r="2.5" />
+    <circle cx="18.5" cy="18" r="2.5" />
+    <path d="M8 18h8.5L13 4" />
+    <path d="M11 4h4" />
+    <path d="M3 13.5h7l1.5 4.5" />
+  </svg>
+);
+
+const pickupIcon = (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z" />
+    <path d="M3 6h18" />
+    <path d="M16 10a4 4 0 0 1-8 0" />
+  </svg>
+);
+
+
 function Dialog({
   title,
   close,
@@ -174,7 +224,7 @@ function ProductForm({
       .filter((c) => choiceIds.includes(c.id))
       .reduce((s, c) => s + c.price, 0);
   return (
-    <Dialog title={product.name} close={close}>
+    <Dialog title={displayName(product.name)} close={close}>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -198,7 +248,7 @@ function ProductForm({
           />
         )}
         {product.description && (
-          <p className={styles.description}>{product.description}</p>
+          <p className={styles.description}>{displayName(product.description)}</p>
         )}
         <ProductPromotions catalog={catalog} productId={product.id} now={now} detail />
         {product.variants.length > 1 && (
@@ -213,7 +263,7 @@ function ProductForm({
                     checked={variantId === v.id}
                     onChange={() => setVariant(v.id)}
                   />
-                  {v.name}
+                  {displayName(v.name)}
                 </span>
                 <b>{money(v.price)}</b>
               </label>
@@ -225,7 +275,7 @@ function ProductForm({
           .map((o) => (
             <fieldset key={o.id}>
               <legend>
-                {o.name}{" "}
+                {displayName(o.name)}{" "}
                 <small>
                   {o.required ? "Obligatorio" : "Opcional"}
                   {o.multiple ? " · Puedes elegir varios" : ""}
@@ -268,7 +318,7 @@ function ProductForm({
                         })
                       }
                     />
-                    {c.name}
+                    {displayName(c.name)}
                   </span>
                   <span>{c.price ? `+${money(c.price)}` : "Sin costo"}</span>
                 </label>
@@ -284,23 +334,24 @@ function ProductForm({
             placeholder="Por ejemplo, sin cebolla"
           />
         </label>
-        <div className={styles.field}>
-          Cantidad
+        {error && (
+          <p role="alert" className={styles.error}>
+            {error}
+          </p>
+        )}
+        {/* Fijo abajo: en un platillo con muchas opciones el botón quedaba
+            hasta el final y había que bajar todo para encontrarlo. */}
+        <div className={styles.formFooter}>
           <QuantityStepper
             value={quantity}
             max={product.stock ?? 99}
             label={`Cantidad de ${product.name}`}
             onChange={setQuantity}
           />
+          <button className={styles.primary} type="submit">
+            Agregar · {money(unit * quantity)}
+          </button>
         </div>
-        {error && (
-          <p role="alert" className={styles.error}>
-            {error}
-          </p>
-        )}
-        <button className={styles.primary} type="submit">
-          Agregar al carrito · {money(unit * quantity)}
-        </button>
       </form>
     </Dialog>
   );
@@ -342,6 +393,48 @@ export default function Storefront({
   // A menu without photos reads better as a dense list than as a column of
   // empty frames. Decided for the whole menu so rows keep one rhythm.
   const anyPhoto = catalog.products.some((p) => p.image);
+  // Categoría en pantalla: se resalta y su botón se centra en la barra.
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const categoryBar = useRef<HTMLElement>(null);
+  useEffect(() => {
+    // La activa es la última sección cuyo inicio ya pasó bajo la barra de
+    // categorías; arriba del todo, la primera.
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      const sections = Array.from(
+        document.querySelectorAll<HTMLElement>("section[data-category]"),
+      );
+      if (!sections.length) return;
+      const line = (categoryBar.current?.getBoundingClientRect().bottom ?? 0) + 24;
+      let current = sections[0];
+      for (const section of sections) {
+        if (section.getBoundingClientRect().top <= line) current = section;
+        else break;
+      }
+      setActiveCategory(current.getAttribute("data-category"));
+    };
+    const onScroll = () => {
+      if (!frame) frame = window.requestAnimationFrame(update);
+    };
+    update();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      if (frame) window.cancelAnimationFrame(frame);
+    };
+  }, [catalog]);
+  useEffect(() => {
+    const bar = categoryBar.current;
+    const chip = activeCategory
+      ? bar?.querySelector<HTMLElement>(`[data-chip="${activeCategory}"]`)
+      : null;
+    if (!bar || !chip) return;
+    bar.scrollTo({
+      left: chip.offsetLeft - bar.clientWidth / 2 + chip.clientWidth / 2,
+      behavior: "smooth",
+    });
+  }, [activeCategory]);
   let quote: ReturnType<typeof quoteCart> | null = null;
   let cartError = "";
   try {
@@ -423,25 +516,42 @@ export default function Storefront({
         </div>
       )}
       <header className={styles.header}>
-        <div className={styles.eyebrow}>MENÚ EN LÍNEA</div>
         <div className={styles.brand}>
           {catalog.logoImage && (
             <img className={styles.logo} src={catalog.logoImage} alt="" />
           )}
-          <h1>{catalog.name}</h1>
+          <h1>{displayName(catalog.name)}</h1>
         </div>
-        {catalog.address && <p>{catalog.address}</p>}
-        <div className={styles.intro}>
-          Elige tus productos y envía tu pedido por WhatsApp.
+        <div className={styles.infoChips}>
+          {catalog.address.trim() && (
+            <a
+              className={styles.infoChip}
+              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${catalog.name}, ${catalog.address}`)}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {pinIcon}
+              <span>{displayName(cleanAddress(catalog.address))}</span>
+            </a>
+          )}
+          <span className={styles.infoChip}>
+            {catalog.acceptsDelivery === true ? deliveryIcon : pickupIcon}
+            {catalog.acceptsDelivery === true
+              ? "Envío a domicilio"
+              : "Solo para recoger"}
+          </span>
         </div>
       </header>
-      <nav className={styles.categories} aria-label="Categorías">
+      <nav className={styles.categories} aria-label="Categorías" ref={categoryBar}>
         {catalog.categories
           .filter((c) => catalog.products.some((p) => p.categoryId === c.id))
           .map((c) => (
             <a
               key={c.id}
               href={`#cat-${c.id}`}
+              data-chip={c.id}
+              className={activeCategory === c.id ? styles.activeCategory : undefined}
+              aria-current={activeCategory === c.id ? "true" : undefined}
               onClick={(event) => {
                 const section = document.getElementById(`cat-${c.id}`);
                 if (!section) return;
@@ -455,7 +565,7 @@ export default function Storefront({
                 });
               }}
             >
-              {c.name}
+              {displayName(c.name)}
             </a>
           ))}
       </nav>
@@ -473,9 +583,10 @@ export default function Storefront({
           <section
             key={category.id}
             id={`cat-${category.id}`}
+            data-category={category.id}
             className={styles.section}
           >
-            <h2>{category.name}</h2>
+            <h2>{displayName(category.name)}</h2>
             <div
               className={
                 anyPhoto
@@ -492,8 +603,8 @@ export default function Storefront({
                   aria-label={`Elegir ${p.name}`}
                 >
                   <div className={styles.productCopy}>
-                    <h3>{p.name}</h3>
-                    {p.description && <p>{p.description}</p>}
+                    <h3>{displayName(p.name)}</h3>
+                    {p.description && <p>{displayName(p.description)}</p>}
                     <strong>
                       {p.available
                         ? `${p.variants.length > 1 ? "Desde " : ""}${money(Math.min(...p.variants.map((v) => v.price)))}`
@@ -578,11 +689,11 @@ export default function Storefront({
               return (
                 <div className={styles.cartLine} key={index}>
                   <div>
-                    <h3>{p?.name ?? "Producto no disponible"}</h3>
+                    <h3>{p ? displayName(p.name) : "Producto no disponible"}</h3>
                     <p>
-                      {v?.name}
+                      {v ? displayName(v.name) : ""}
                       {options.length
-                        ? ` · ${options.map((c) => c.name).join(", ")}`
+                        ? ` · ${options.map((c) => displayName(c.name)).join(", ")}`
                         : ""}
                     </p>
                     {line.notes && <p>{line.notes}</p>}
