@@ -11,18 +11,37 @@ export async function generateMetadata({
   params: { slug: string };
 }): Promise<Metadata> {
   let name = "Menú no disponible";
+  let address = "";
+  let logo: string | undefined;
   try {
-    name = (await getMenu(params.slug)).catalog.name;
+    const { catalog } = await getMenu(params.slug);
+    name = catalog.name;
+    address = catalog.address.trim();
+    logo = catalog.logoImage;
   } catch {}
-  const title = `${name} · Pide por WhatsApp`;
-  const description = `Consulta el menú de ${name} y prepara tu pedido por WhatsApp.`;
+  // Lo que ve el cliente cuando el dueño comparte el link (WhatsApp,
+  // Facebook): el nombre, la dirección y el logo del restaurante.
+  const title = `${name} · Menú y pedidos por WhatsApp`;
+  const description = address
+    ? `${address} · Elige del menú y manda tu pedido por WhatsApp.`
+    : `Elige del menú de ${name} y manda tu pedido por WhatsApp.`;
+  const images = logo ? [{ url: logo, alt: name }] : [];
   return {
     title,
     description,
     alternates: { canonical: `/pedir/${params.slug}` },
     robots: { index: false, follow: false },
-    openGraph: { title, description, url: `/pedir/${params.slug}`, images: [] },
-    twitter: { card: "summary", title, description, images: [] },
+    // Con logo, la pestaña del navegador muestra el del restaurante en lugar
+    // del de Órale AI.
+    ...(logo ? { icons: { icon: logo, apple: logo } } : {}),
+    openGraph: {
+      title,
+      description,
+      url: `/pedir/${params.slug}`,
+      siteName: name,
+      images,
+    },
+    twitter: { card: "summary", title, description, images },
   };
 }
 export default async function MenuPage({
