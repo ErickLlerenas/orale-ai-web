@@ -188,8 +188,9 @@
 }
 .ring {
   position: relative;
-  width: 210px;
-  height: 210px;
+  flex-shrink: 0;
+  width: 150px;
+  height: 150px;
 }
 .ringCenter {
   position: absolute;
@@ -200,15 +201,15 @@
   justify-content: center;
 }
 .ringValue {
-  font-size: 46px;
+  font-size: 34px;
   font-weight: 800;
   letter-spacing: -0.03em;
   line-height: 1;
 }
 .ringLabel {
-  margin-top: 6px;
+  margin-top: 4px;
   color: var(--soft);
-  font-size: 13px;
+  font-size: 12px;
 }
 .goalLine {
   font-size: 14px;
@@ -2106,17 +2107,24 @@
 /* ---- meta ---- */
 .goalTop {
   display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 4px 14px;
-  margin-top: 10px;
+  align-items: center;
+  gap: 22px;
+  margin-top: 12px;
 }
 .goalWhen {
-  font-size: 15px;
-  color: var(--ink);
-}
-.goalWhen span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 14px;
   color: var(--soft);
+}
+.goalWhen b {
+  font-size: 26px;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+}
+.goalWhen .goalSub {
+  margin-top: 8px;
 }
 .goalBar {
   height: 12px;

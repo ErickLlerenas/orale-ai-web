@@ -351,28 +351,20 @@ async function Today({
         <section className={s.card} id="meta">
           <p className={s.eyebrow}>Meta · 1,000 clientes</p>
           <div className={s.goalTop}>
-            <div className={s.kpiValue}>{pct(active, GOAL)}</div>
+            <Ring value={active} goal={GOAL} />
             <div className={s.goalWhen}>
               {arrival ? (
                 <>
-                  Llegas en <b>{humanWeeks(weeksLeft!)}</b>
-                  <span>
-                    {" "}
-                    · {arrival} a este ritmo
-                  </span>
+                  <span>Llegas en</span>
+                  <b>{humanWeeks(weeksLeft!)}</b>
+                  <span>{arrival} a este ritmo</span>
                 </>
               ) : (
                 <b>No estás creciendo neto</b>
               )}
+              <span className={s.goalSub}>Faltan {left.toLocaleString("es-MX")}</span>
             </div>
           </div>
-          <div className={s.goalBar}>
-            <div style={{ width: `${Math.min(100, (active / GOAL) * 100)}%` }} />
-          </div>
-          <p className={s.goalSub}>
-            {active.toLocaleString("es-MX")} de 1,000 · faltan{" "}
-            {left.toLocaleString("es-MX")}
-          </p>
           <div className={s.goalFlow}>
             <div>
               <b className={s.flowIn}>+{inPerWeek.toFixed(0)}</b>
@@ -2177,42 +2169,29 @@ async function churnDetails(
 }
 
 function Ring({ value, goal }: { value: number; goal: number }) {
-  const r = 90;
+  const r = 62;
   const c = 2 * Math.PI * r;
   const share = Math.min(1, value / goal);
   return (
     <div className={s.ring}>
-      <svg viewBox="0 0 210 210" width="210" height="210" aria-hidden>
-        <defs>
-          <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#f15a29" />
-            <stop offset="100%" stopColor="#f5b942" />
-          </linearGradient>
-        </defs>
+      <svg viewBox="0 0 150 150" width="150" height="150" aria-hidden>
+        <circle cx="75" cy="75" r={r} fill="none" stroke="var(--card-2)" strokeWidth="12" />
         <circle
-          cx="105"
-          cy="105"
+          cx="75"
+          cy="75"
           r={r}
           fill="none"
-          stroke="rgba(255,255,255,0.07)"
-          strokeWidth="14"
-        />
-        <circle
-          cx="105"
-          cy="105"
-          r={r}
-          fill="none"
-          stroke="url(#ringGrad)"
-          strokeWidth="14"
+          stroke="var(--orange)"
+          strokeWidth="12"
           strokeLinecap="round"
           strokeDasharray={`${share * c} ${c}`}
-          transform="rotate(-90 105 105)"
+          transform="rotate(-90 75 75)"
         />
       </svg>
       <div className={s.ringCenter}>
-        <div className={s.ringValue}>{value.toLocaleString("es-MX")}</div>
+        <div className={s.ringValue}>{pct(value, goal)}</div>
         <div className={s.ringLabel}>
-          de {goal.toLocaleString("es-MX")} · {pct(value, goal)}
+          {value.toLocaleString("es-MX")} de {goal.toLocaleString("es-MX")}
         </div>
       </div>
     </div>
