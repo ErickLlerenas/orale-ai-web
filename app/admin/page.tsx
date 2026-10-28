@@ -105,11 +105,12 @@ export default async function Admin({
   const supabase = adminClient();
   // La salud de la migración no depende del historial: corre mientras se
   // arma todo lo demás y se espera hasta el final.
-  const healthP = tab === "migracion" ? migrationHealth(supabase) : null;
+  const healthP =
+    tab === "migracion" ? memo("health", () => migrationHealth(supabase)) : null;
   healthP?.catch(() => undefined);
   const [pings, rc] = await Promise.all([
     usageHistory(supabase),
-    tab === "hoy" ? revenueCatOverview() : Promise.resolve(null),
+    tab === "hoy" ? memo("rc", revenueCatOverview) : Promise.resolve(null),
   ]);
   const { rows, installs, error: pingsError } = pings;
   const subsList = firstSubscriptions(rows);
@@ -206,22 +207,27 @@ async function TodayTab({
   today: string;
 }) {
   const yesterday = mxDay(1);
-  const storeSubs = await storeNewSubs(supabase, yesterday);
+  const storeSubs = await memo(`subs:${yesterday}`, () =>
+    storeNewSubs(supabase, yesterday),
+  );
   const subsOn = subsOnDay(storeSubs, subsList);
   const newSubs = storeSubs.filter((x) => x.day === today || x.day === yesterday);
   if (today < STORE_SINCE || yesterday < STORE_SINCE) {
     newSubs.push(...subsList.filter((x) => x.day === today || x.day === yesterday));
   }
-  const customerIds = [...new Set(newSubs.flatMap((x) => x.customerIds ?? []))];
-  const aliases = customerIds.length ? await fetchAll<BillingAlias>(
-    supabase.from("billing_purchase_aliases").select("key_hash, customer_id")
-      .in("customer_id", customerIds).order("key_hash"),
-  ) : { data: [] as BillingAlias[], error: null };
-  const detailedSubs = enrichSubscriberTenure(newSubs, rows, aliases.data);
-  const names = await businessNames(
-    supabase,
-    detailedSubs.map((x) => ({ key: x.key, installIds: x.installIds ?? [] })),
-  );
+  const { detailedSubs, names } = await memo(`hoy:${today}`, async () => {
+    const customerIds = [...new Set(newSubs.flatMap((x) => x.customerIds ?? []))];
+    const aliases = customerIds.length ? await fetchAll<BillingAlias>(
+      supabase.from("billing_purchase_aliases").select("key_hash, customer_id")
+        .in("customer_id", customerIds).order("key_hash"),
+    ) : { data: [] as BillingAlias[], error: null };
+    const detailedSubs = enrichSubscriberTenure(newSubs, rows, aliases.data);
+    const names = await businessNames(
+      supabase,
+      detailedSubs.map((x) => ({ key: x.key, installIds: x.installIds ?? [] })),
+    );
+    return { detailedSubs, names };
+  });
   const pulse = {
     today: dayPulse(rows, installs, subsList, today),
     yesterday: dayPulse(rows, installs, subsList, yesterday),
@@ -365,8 +371,10 @@ async function MonthTab({
   today: string;
 }) {
   const [storeSubs, cancels] = await Promise.all([
-    storeNewSubs(supabase, month.prevStart),
-    cancelSurvey(supabase, month.start, month.to),
+    memo(`subs:${month.prevStart}`, () => storeNewSubs(supabase, month.prevStart)),
+    memo(`cancel:${month.start}:${month.to}`, () =>
+      cancelSurvey(supabase, month.start, month.to),
+    ),
   ]);
   const subsOn = subsOnDay(storeSubs, subsList);
   const dlDays = downloadsDaily(installs, month.start, month.end);
@@ -487,15 +495,19 @@ async function UsersTab({
     if (!accountInstalls.has(k)) accountInstalls.set(k, new Set());
     accountInstalls.get(k)!.add(r.install_id);
   }
-  const risk = await withoutActiveBusinesses(
-    supabase, atRisk(rows, today), rows, mxDay(1),
-  );
-  const [userNames, riskNames] = await Promise.all([
-    businessNames(
-      supabase,
-      [...accountInstalls].map(([key, ids]) => ({ key, installIds: [...ids] })),
+  const [userNames, { risk, riskNames }] = await Promise.all([
+    memo(`names:${shown}`, () =>
+      businessNames(
+        supabase,
+        [...accountInstalls].map(([key, ids]) => ({ key, installIds: [...ids] })),
+      ),
     ),
-    businessNames(supabase, risk),
+    memo(`risk:${today}`, async () => {
+      const risk = await withoutActiveBusinesses(
+        supabase, atRisk(rows, today), rows, mxDay(1),
+      );
+      return { risk, riskNames: await businessNames(supabase, risk) };
+    }),
   ]);
   // La versión «más nueva» es la publicada: la más alta que ya usan al menos
   // 10 aparatos (las de prueba no cuentan).
@@ -745,6 +757,20 @@ function MigrationTab({
   );
 }
 
+/// Lo que tarda en llegar (RevenueCat, eventos de la tienda, salud de la
+/// migración) se guarda unos minutos: cambiar de pestaña o de mes no lo
+/// vuelve a pedir. Un error no se guarda.
+const MEMO_TTL_MS = 2 * 60_000;
+const memoStore = new Map<string, { at: number; value: Promise<unknown> }>();
+function memo<T>(key: string, load: () => Promise<T>): Promise<T> {
+  const hit = memoStore.get(key);
+  if (hit && Date.now() - hit.at < MEMO_TTL_MS) return hit.value as Promise<T>;
+  const value = load();
+  memoStore.set(key, { at: Date.now(), value });
+  value.catch(() => memoStore.delete(key));
+  return value;
+}
+
 /// El historial de uso se guarda unos minutos: es lo que más tarda (~1.7 s
 /// por 33 mil filas) y cambiar de pestaña lo volvía a pedir entero.
 const HISTORY_TTL_MS = 2 * 60_000;
@@ -774,6 +800,7 @@ async function usageHistory(supabase: Db): Promise<History> {
           .order("ping_date")
           .order("install_id"),
       count ?? 0,
+      16,
     );
     const rows = fillAccountKeys(res.data);
     const loaded: History = {
