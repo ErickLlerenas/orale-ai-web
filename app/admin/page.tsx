@@ -135,6 +135,7 @@ export default async function Admin({
           subsList={subsList}
           rc={rc}
           today={today}
+          month={month}
         />
 
         <MonthNumbers
@@ -234,6 +235,7 @@ async function Today({
   subsList,
   rc,
   today,
+  month,
 }: {
   supabase: Db;
   rows: PingRow[];
@@ -241,14 +243,14 @@ async function Today({
   subsList: ReturnType<typeof firstSubscriptions>;
   rc: Rc;
   today: string;
+  /** El mes escogido: la meta usa su ritmo. */
+  month: ReturnType<typeof monthWindow>;
 }) {
   const yesterday = mxDay(1);
-  // La meta se mide con el mes en curso: desde el día 1 (y lo mismo que pide
-  // «Descargas y suscripciones» del mes, para no pedirlo dos veces).
-  const thisMonth = monthWindow(today, today.slice(0, 7));
-  const storeSubs = await memo(`subs:${thisMonth.prevStart}`, () =>
-    storeNewSubs(supabase, thisMonth.prevStart),
-  );
+  // La meta se mide con el ritmo del mes escogido, desde su día 1 (lo mismo
+  // que pide «Descargas y suscripciones» del mes, para no pedirlo dos veces).
+  const from = month.prevStart < yesterday ? month.prevStart : yesterday;
+  const storeSubs = await memo(`subs:${from}`, () => storeNewSubs(supabase, from));
   const subsOn = subsOnDay(storeSubs, subsList);
   const newSubs = storeSubs.filter((x) => x.day === today || x.day === yesterday);
   const { detailedSubs, names } = await memo(`hoy:${today}`, async () => {
@@ -279,26 +281,29 @@ async function Today({
       .filter((r) => r.ping_date >= mxDay(7) && r.subscription_active)
       .map((r) => r.account_key ?? r.install_id),
   ).size;
-  const active = metric("active_subscriptions")?.value ?? appActive;
+  const activeNow = metric("active_subscriptions")?.value ?? appActive;
+  // Mes pasado: la meta va con las activas al cerrar ese mes (las que vio la
+  // app); RevenueCat solo da las de hoy.
+  const active = month.current ? activeNow : activeOn(rows, month.to);
   const plans = planMix(rows, mxDay(7));
   // Ritmo del mes en curso, por semana. Neto: activas hoy menos las que
   // había al cerrar el mes anterior (las que ve la app). Entran: altas del
   // mes. Se van: la diferencia. El 1 del mes empieza de cero.
-  const monthWeeks = Number(today.slice(8, 10)) / 7;
-  const lastOfPrev = new Date(Date.parse(`${thisMonth.start}T12:00:00Z`) - 86_400_000)
+  const monthWeeks = Number(month.to.slice(8, 10)) / 7;
+  const lastOfPrev = new Date(Date.parse(`${month.start}T12:00:00Z`) - 86_400_000)
     .toISOString()
     .slice(0, 10);
   const netPerWeek =
-    (activeOn(rows, today) - activeOn(rows, lastOfPrev)) / monthWeeks;
+    (activeOn(rows, month.to) - activeOn(rows, lastOfPrev)) / monthWeeks;
   const inPerWeek =
-    dayRange(thisMonth.start, today).reduce((a, d) => a + subsOn(d).length, 0) /
+    dayRange(month.start, month.to).reduce((a, d) => a + subsOn(d).length, 0) /
     monthWeeks;
   const leavingPerWeek = Math.max(0, inPerWeek - netPerWeek);
   const left = Math.max(0, GOAL - active);
   const weeksLeft = netPerWeek > 0 ? Math.ceil(left / netPerWeek) : null;
   const arrival =
     weeksLeft != null
-      ? new Date(Date.parse(today) + weeksLeft * 7 * 86_400_000).toLocaleDateString(
+      ? new Date(Date.parse(month.to) + weeksLeft * 7 * 86_400_000).toLocaleDateString(
           "es-MX",
           { month: "long", year: "numeric", timeZone: "UTC" },
         )
@@ -349,10 +354,11 @@ async function Today({
         <section className={`${s.card} ${s.rcCard}`}>
           <p className={s.eyebrow}>
             Suscripciones · {rc.ok ? "RevenueCat" : "según la app"}
+            {month.current ? "" : " · hoy"}
           </p>
           <div className={s.kpis}>
             <div>
-              <div className={s.kpiValue}>{active.toLocaleString("es-MX")}</div>
+              <div className={s.kpiValue}>{activeNow.toLocaleString("es-MX")}</div>
               <div className={s.kpiLabel}>activas</div>
             </div>
             {RC_ORDER.map((id) => metric(id))
@@ -369,7 +375,9 @@ async function Today({
         </section>
 
         <section className={s.card} id="meta">
-          <p className={s.eyebrow}>Meta · 1,000 clientes</p>
+          <p className={s.eyebrow}>
+            Meta · 1,000 clientes{month.current ? "" : ` · al cierre de ${month.name}`}
+          </p>
           <div className={s.goalTop}>
             <Ring value={active} goal={GOAL} />
             <div className={s.goalWhen}>
@@ -403,7 +411,7 @@ async function Today({
             </div>
           </div>
           <p className={s.goalSub} style={{ textAlign: "center" }}>
-            por semana, promedio de {thisMonth.name}
+            por semana, promedio de {month.name}
           </p>
         </section>
       </div>
