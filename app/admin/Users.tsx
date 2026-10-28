@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { tenureLabel } from "@/lib/admin-tenure";
 import s from "./admin.module.css";
@@ -161,18 +162,22 @@ function Version({ v, tone }: { v: string | null; tone: string }) {
 /// Quién usó la app cada día (caja y meseros), y quién está en riesgo.
 export default function Users({
   days,
+  day,
   today,
   rows,
   risk,
 }: {
   days: string[];
+  /** El día que se ve; [rows] trae solo ese día. */
+  day: string;
   today: string;
   rows: UserRow[];
   risk: RiskUser[];
 }) {
+  const router = useRouter();
   const [tab, setTab] = useState<"day" | "risk">("day");
   const [onlyNew, setOnlyNew] = useState(false);
-  const [day, setDay] = useState(days[days.length - 1]);
+  const setDay = (d: string) => router.push(`/admin?tab=usuarios&dia=${d}`);
   const idx = days.indexOf(day);
   const all = rows
     .filter((r) => r.day === day)

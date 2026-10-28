@@ -95,7 +95,7 @@ type Tab = (typeof TABS)[number]["id"];
 export default async function Admin({
   searchParams,
 }: {
-  searchParams?: { tab?: string; mes?: string };
+  searchParams?: { tab?: string; mes?: string; dia?: string };
 }) {
   noStore();
   const today = mxDay(0);
@@ -103,29 +103,15 @@ export default async function Admin({
     TABS.find((t) => t.id === searchParams?.tab)?.id ?? "hoy";
 
   const supabase = adminClient();
-  // Todo el historial de uso, en páginas que se piden a la vez (antes iban
-  // una tras otra y era lo que más tardaba).
-  const { count: pingCount } = await supabase
-    .from("usage_pings")
-    .select("install_id", { count: "exact", head: true });
   // La salud de la migración no depende del historial: corre mientras se
   // arma todo lo demás y se espera hasta el final.
   const healthP = tab === "migracion" ? migrationHealth(supabase) : null;
   healthP?.catch(() => undefined);
-  const [pingsRes, rc] = await Promise.all([
-    fetchAllParallel<PingRow>(
-      () =>
-        supabase
-          .from("usage_pings")
-          .select(PING_COLUMNS)
-          .order("ping_date")
-          .order("install_id"),
-      pingCount ?? 0,
-    ),
+  const [pings, rc] = await Promise.all([
+    usageHistory(supabase),
     tab === "hoy" ? revenueCatOverview() : Promise.resolve(null),
   ]);
-  const rows = fillAccountKeys(pingsRes.data);
-  const installs = toInstalls(rows);
+  const { rows, installs, error: pingsError } = pings;
   const subsList = firstSubscriptions(rows);
 
   // El mes que se mide en «Por mes»: el que se escoge, o el de hoy.
@@ -135,7 +121,7 @@ export default async function Admin({
     : today.slice(0, 7);
   const month = monthWindow(today, ym);
 
-  const updated = new Date().toLocaleTimeString("es-MX", {
+  const updated = new Date(pings.at).toLocaleTimeString("es-MX", {
     timeZone: "America/Mexico_City",
     hour: "2-digit",
     minute: "2-digit",
@@ -154,7 +140,7 @@ export default async function Admin({
     const ret = retention(rows, mxDay(56), mxDay(43), mxDay(9));
     body = <Retention ret={ret} />;
   } else if (tab === "usuarios") {
-    body = await UsersTab({ supabase, rows, installs, today });
+    body = await UsersTab({ supabase, rows, installs, today, day: searchParams?.dia });
   } else {
     body = (
       <MigrationTab
@@ -190,10 +176,8 @@ export default async function Admin({
           ))}
         </nav>
 
-        {pingsRes.error ? (
-          <div className={s.error}>
-            No se pudo leer usage_pings: {pingsRes.error.message}
-          </div>
+        {pingsError ? (
+          <div className={s.error}>No se pudo leer usage_pings: {pingsError}</div>
         ) : null}
 
         {body}
@@ -485,14 +469,18 @@ async function UsersTab({
   rows,
   installs,
   today,
+  day,
 }: {
   supabase: Db;
   rows: PingRow[];
   installs: Install[];
   today: string;
+  day?: string;
 }) {
   const userDays = dayRange(mxDay(13), today);
-  const recent = rows.filter((r) => r.ping_date >= userDays[0]);
+  // Solo viaja el día que se ve: los 14 días juntos eran ~2 MB de página.
+  const shown = day && userDays.includes(day) ? day : today;
+  const recent = rows.filter((r) => r.ping_date === shown);
   const accountInstalls = new Map<string, Set<string>>();
   for (const r of recent) {
     const k = r.account_key ?? r.install_id;
@@ -571,7 +559,9 @@ async function UsersTab({
     avgDaily: r.avgDaily,
     activeDays: r.activeDays,
   }));
-  return <Users days={userDays} today={today} rows={userRows} risk={riskUsers} />;
+  return (
+    <Users days={userDays} day={shown} today={today} rows={userRows} risk={riskUsers} />
+  );
 }
 
 /// ¿Quién se queda? De los que pagaban hace 2 meses, cuántos ya se fueron.
@@ -755,6 +745,52 @@ function MigrationTab({
   );
 }
 
+/// El historial de uso se guarda unos minutos: es lo que más tarda (~1.7 s
+/// por 33 mil filas) y cambiar de pestaña lo volvía a pedir entero.
+const HISTORY_TTL_MS = 2 * 60_000;
+type History = {
+  at: number;
+  rows: PingRow[];
+  installs: Install[];
+  error: string | null;
+};
+let historyCache: History | null = null;
+let historyLoading: Promise<History> | null = null;
+
+async function usageHistory(supabase: Db): Promise<History> {
+  if (historyCache && Date.now() - historyCache.at < HISTORY_TTL_MS) {
+    return historyCache;
+  }
+  historyLoading ??= (async () => {
+    // Todo el historial, en páginas que se piden a la vez.
+    const { count } = await supabase
+      .from("usage_pings")
+      .select("install_id", { count: "exact", head: true });
+    const res = await fetchAllParallel<PingRow>(
+      () =>
+        supabase
+          .from("usage_pings")
+          .select(PING_COLUMNS)
+          .order("ping_date")
+          .order("install_id"),
+      count ?? 0,
+    );
+    const rows = fillAccountKeys(res.data);
+    const loaded: History = {
+      at: Date.now(),
+      rows,
+      installs: toInstalls(rows),
+      error: res.error?.message ?? null,
+    };
+    // Una lectura a medias no se guarda: la siguiente vuelve a intentar.
+    if (!loaded.error) historyCache = loaded;
+    return loaded;
+  })().finally(() => {
+    historyLoading = null;
+  });
+  return historyLoading;
+}
+
 /// Altas de un día: de la tienda desde STORE_SINCE (sin pruebas que se
 /// cobraron), antes de lo que reportaba la app.
 function subsOnDay(
@@ -894,12 +930,11 @@ function PulseTile({
           </div>
         </div>
       </div>
-      <PlatformSplit c={now} />
     </div>
   );
 }
 
-/// Quién se suscribió hoy y ayer, con la misma antigüedad de Usuarios.
+/// Quién se suscribió hoy y ayer: plan, negocio y desde cuándo usa la app.
 function NewSubs({
   days,
   names,
@@ -912,8 +947,9 @@ function NewSubs({
   }[];
   names: Map<string, string>;
 }) {
-  const row = (x: NewSub, tag?: string) => {
+  const row = (x: NewSub) => {
     const info = PLAN_INFO.find((p) => p.key === x.plan);
+    const platform = x.platform ? PLATFORM_LABEL[x.platform] ?? x.platform : "";
     return (
       <div key={`${x.key}-${x.kind ?? ""}`} className={s.subsRow}>
         <span
@@ -922,19 +958,16 @@ function NewSubs({
         >
           {x.label ?? info?.label ?? "Plan sin dato"}
         </span>
-        <span className={s.subsName}>
-          {x.platform ? PLATFORM_LABEL[x.platform] ?? x.platform : ""}
-          {names.get(x.key) ? ` · ${names.get(x.key)}` : ""}
-        </span>
-        {tag ? <span className={s.subsMeta}>{tag}</span> : null}
+        <span className={s.subsName}>{names.get(x.key) ?? platform}</span>
+        {x.kind === "converted" ? <span className={s.subsMeta}>terminó su prueba</span> : null}
         <span className={s.subsTenure}>
           {x.tenure === 0
-            ? "Nuevo"
+            ? "nuevo"
             : x.tenure != null
-              ? `Usa la app hace ${tenureLabel(x.tenure)}`
+              ? tenureLabel(x.tenure)
               : x.customerIds?.some((id) => id.startsWith("$RCAnonymousID"))
-                ? "Compra sin identificar en RevenueCat"
-                : "Sin antigüedad"}
+                ? "sin identificar"
+                : "—"}
         </span>
       </div>
     );
@@ -944,46 +977,23 @@ function NewSubs({
       <p className={s.eyebrow}>Nuevos suscriptores</p>
       <div className={s.subsCols}>
         {days.map((d) => {
-          const counts = new Map<string, number>();
-          for (const x of d.list) {
-            const k = x.plan ?? "?";
-            counts.set(k, (counts.get(k) ?? 0) + 1);
-          }
+          const all = [...d.list, ...d.converted];
           return (
             <div key={d.day} className={s.subsCol}>
               <div className={s.subsHead}>
-                <span className={s.subsWhen}>{d.title}</span>
-                <span className={s.subsChips}>
-                  {PLAN_INFO.filter((p) => counts.get(p.key)).map((p) => (
-                    <span key={p.key} className={s.subsChip}>
-                      <span
-                        className={s.dot}
-                        style={{ background: p.color }}
-                      />
-                      {counts.get(p.key)} {p.label}
-                    </span>
-                  ))}
-                  {counts.get("?") ? (
-                    <span className={s.subsChip}>
-                      {counts.get("?")} sin dato
-                    </span>
-                  ) : null}
+                <span className={s.subsWhen}>
+                  {d.title} · {d.list.length} {d.list.length === 1 ? "nuevo" : "nuevos"}
+                  {d.converted.length
+                    ? ` · ${d.converted.length} pagaron su prueba`
+                    : ""}
                 </span>
               </div>
-              {d.list.length === 0 ? (
+              {all.length === 0 ? (
                 <span className={s.note} style={{ margin: 0 }}>
                   Nadie todavía
                 </span>
               ) : null}
-              {d.list.map((x) => row(x, x.kind === "paid" ? "Pagó" : undefined))}
-              {d.converted.length ? (
-                <>
-                  <span className={s.subsWhen} style={{ marginTop: 6 }}>
-                    Pagaron al terminar su prueba
-                  </span>
-                  {d.converted.map((x) => row(x, "Pagó"))}
-                </>
-              ) : null}
+              {all.map(row)}
             </div>
           );
         })}

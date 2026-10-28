@@ -1481,12 +1481,10 @@
   color: var(--mute);
   font-size: 11px;
 }
-.subsRow {
-  flex-wrap: wrap;
-}
 .subsTenure {
-  flex-basis: 100%;
-  color: var(--soft);
+  flex-shrink: 0;
+  margin-left: auto;
+  color: var(--mute);
   font-size: 12px;
 }
 
@@ -2056,4 +2054,31 @@
   display: block;
   font-size: 11px;
   color: var(--mute);
+}
+
+/* ---- esqueleto mientras carga una pestaña ---- */
+.skel,
+.skelTabs {
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: linear-gradient(90deg, var(--card) 0%, var(--card-2) 50%, var(--card) 100%);
+  background-size: 200% 100%;
+  animation: skel 1.2s ease-in-out infinite;
+}
+.skelTabs {
+  height: 46px;
+  border-radius: 14px;
+}
+.skelRow {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px;
+}
+@keyframes skel {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
 }
