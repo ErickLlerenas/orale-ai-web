@@ -466,6 +466,7 @@ async function MonthNumbers({
         <div className={s.platChips}>
           {dlNow.map((p) => (
             <span key={p.platform}>
+              <i className={s.dot} style={{ background: PLATFORM_COLOR[p.platform] }} />
               {PLATFORM_LABEL[p.platform]} <b>{p.total.toLocaleString("es-MX")}</b>
             </span>
           ))}
@@ -481,6 +482,15 @@ async function MonthNumbers({
         </div>
         <p className={s.goalSub}>{compare}</p>
         <div className={s.platChips}>
+          {PLATFORMS.map((p) => (
+            <span key={p}>
+              <i className={s.dot} style={{ background: PLATFORM_COLOR[p] }} />
+              {PLATFORM_LABEL[p]}{" "}
+              <b>{subsMonth.filter((x) => x.platform === p).length}</b>
+            </span>
+          ))}
+        </div>
+        <div className={s.planLine}>
           {PLAN_INFO.map((p) => {
             const n = subsMonth.filter((x) => x.plan === p.key).length;
             return n ? (
@@ -496,8 +506,8 @@ async function MonthNumbers({
   );
 }
 
-/// Barras por día del mes, sin números encima: el número del día sale al
-/// pasar el mouse; abajo solo cada 5 días.
+/// Barras por día del mes, apiladas por plataforma y sin números encima: el
+/// número del día sale al pasar el mouse; abajo solo cada 5 días.
 function MonthBars({ days, today }: { days: DayRow[]; today: string }) {
   const max = Math.max(1, ...days.map((d) => d.total));
   const done = days.filter((d) => d.day < today);
@@ -515,9 +525,21 @@ function MonthBars({ days, today }: { days: DayRow[]; today: string }) {
             title={`${shortDay(d.day)}: ${d.total} · ${PLATFORMS.map((p) => `${PLATFORM_LABEL[p]} ${d.byPlatform[p]}`).join(" · ")}`}
           >
             <div
-              className={d.day === today ? s.mFillToday : s.mFill}
-              style={{ height: `${(d.total / max) * 100}%` }}
-            />
+              className={s.mStack}
+              style={{
+                height: `${(d.total / max) * 100}%`,
+                opacity: d.day === today ? 0.55 : 1,
+              }}
+            >
+              {PLATFORMS.map((p) =>
+                d.byPlatform[p] ? (
+                  <div
+                    key={p}
+                    style={{ flex: d.byPlatform[p], background: PLATFORM_COLOR[p] }}
+                  />
+                ) : null,
+              )}
+            </div>
           </div>
         ))}
       </div>

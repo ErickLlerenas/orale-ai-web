@@ -2348,3 +2348,25 @@
     font-size: 28px;
   }
 }
+
+.mStack {
+  width: 100%;
+  min-height: 2px;
+  display: flex;
+  flex-direction: column-reverse;
+  border-radius: 4px 4px 1px 1px;
+  overflow: hidden;
+}
+.mBar:hover .mStack {
+  filter: brightness(1.15);
+}
+.planLine {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  font-size: 12.5px;
+  color: var(--mute);
+}
+.planLine b {
+  color: var(--soft);
+}
