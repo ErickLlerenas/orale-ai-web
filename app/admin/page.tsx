@@ -1,5 +1,5 @@
+import { Suspense } from "react";
 import { unstable_noStore as noStore } from "next/cache";
-import Link from "next/link";
 import { adminClient, fetchAll, fetchAllParallel } from "@/lib/supabase";
 import {
   PING_COLUMNS,
@@ -82,40 +82,22 @@ const RC_LABEL: Record<string, string> = {
 };
 const RC_ORDER = Object.keys(RC_LABEL);
 
-/// Pestañas del panel. Cada una arma solo lo que muestra.
-const TABS = [
-  { id: "hoy", label: "Hoy" },
-  { id: "mes", label: "Por mes" },
-  { id: "retencion", label: "Retención" },
-  { id: "usuarios", label: "Usuarios" },
-  { id: "migracion", label: "Migración" },
-] as const;
-type Tab = (typeof TABS)[number]["id"];
-
 export default async function Admin({
   searchParams,
 }: {
-  searchParams?: { tab?: string; mes?: string; dia?: string };
+  searchParams?: { mes?: string; dia?: string };
 }) {
   noStore();
   const today = mxDay(0);
-  const tab: Tab =
-    TABS.find((t) => t.id === searchParams?.tab)?.id ?? "hoy";
-
   const supabase = adminClient();
-  // La salud de la migración no depende del historial: corre mientras se
-  // arma todo lo demás y se espera hasta el final.
-  const healthP =
-    tab === "migracion" ? memo("health", () => migrationHealth(supabase)) : null;
-  healthP?.catch(() => undefined);
   const [pings, rc] = await Promise.all([
     usageHistory(supabase),
-    tab === "hoy" ? memo("rc", revenueCatOverview) : Promise.resolve(null),
+    memo("rc", revenueCatOverview),
   ]);
   const { rows, installs, error: pingsError } = pings;
   const subsList = firstSubscriptions(rows);
 
-  // El mes que se mide en «Por mes»: el que se escoge, o el de hoy.
+  // Todo lo del mes se mide desde el día 1: el 1 de noviembre empieza de cero.
   const months = monthOptions(rows[0]?.ping_date ?? today, today);
   const ym = months.some((m) => m.value === searchParams?.mes)
     ? searchParams!.mes!
@@ -127,30 +109,6 @@ export default async function Admin({
     hour: "2-digit",
     minute: "2-digit",
   });
-  const href = (id: Tab) =>
-    id === "mes" && ym !== today.slice(0, 7)
-      ? `/admin?tab=mes&mes=${ym}`
-      : `/admin?tab=${id}`;
-
-  let body: JSX.Element;
-  if (tab === "hoy") {
-    body = await TodayTab({ supabase, rows, installs, subsList, rc, today });
-  } else if (tab === "mes") {
-    body = await MonthTab({ supabase, installs, subsList, month, today });
-  } else if (tab === "retencion") {
-    const ret = retention(rows, mxDay(56), mxDay(43), mxDay(9));
-    body = <Retention ret={ret} />;
-  } else if (tab === "usuarios") {
-    body = await UsersTab({ supabase, rows, installs, today, day: searchParams?.dia });
-  } else {
-    body = (
-      <MigrationTab
-        health={await healthP!}
-        newest={newestVersion(rows, mxDay(7))}
-        today={today}
-      />
-    );
-  }
 
   return (
     <main className={s.page}>
@@ -163,35 +121,99 @@ export default async function Admin({
               <p className={s.subtitle}>Actualizado a las {updated}</p>
             </div>
           </div>
-          {tab === "mes" ? <MonthPicker value={ym} options={months} /> : null}
+          <MonthPicker value={ym} options={months} />
         </header>
-        <nav className={s.tabs}>
-          {TABS.map((t) => (
-            <Link
-              key={t.id}
-              href={href(t.id)}
-              className={t.id === tab ? s.tabOn : s.tab}
-            >
-              {t.label}
-            </Link>
-          ))}
-        </nav>
 
         {pingsError ? (
           <div className={s.error}>No se pudo leer usage_pings: {pingsError}</div>
         ) : null}
 
-        {body}
+        <Today
+          supabase={supabase}
+          rows={rows}
+          installs={installs}
+          subsList={subsList}
+          rc={rc}
+          today={today}
+        />
+
+        <MonthNumbers
+          supabase={supabase}
+          installs={installs}
+          subsList={subsList}
+          month={month}
+          today={today}
+        />
+
+        <Fold title={`Negocios nuevos · ${month.name}`} hint="¿dónde se va la gente?">
+          <Suspense fallback={<FoldLoading />}>
+            <NewBusinesses installs={installs} month={month} today={today} />
+          </Suspense>
+        </Fold>
+        <Fold title={`Cancelaciones · ${month.name}`} hint="¿por qué se van?">
+          <Suspense fallback={<FoldLoading />}>
+            <MonthCancels supabase={supabase} month={month} />
+          </Suspense>
+        </Fold>
+        <Fold title="Retención" hint="de los que pagaban hace 2 meses">
+          <Retention ret={retention(rows, mxDay(56), mxDay(43), mxDay(9))} />
+        </Fold>
+        <Fold title="Usuarios" hint="quién abrió la app" open={!!searchParams?.dia}>
+          <Suspense fallback={<FoldLoading />}>
+            <UsersTab
+              supabase={supabase}
+              rows={rows}
+              installs={installs}
+              today={today}
+              day={searchParams?.dia}
+            />
+          </Suspense>
+        </Fold>
+        <Fold title="Migración" hint="C5 y pagos">
+          <Suspense fallback={<FoldLoading />}>
+            <Migration supabase={supabase} rows={rows} today={today} />
+          </Suspense>
+        </Fold>
       </div>
     </main>
   );
 }
 
+/// Sección que se abre y se cierra; cerrada por default.
+function Fold({
+  title,
+  hint,
+  open,
+  children,
+}: {
+  title: string;
+  hint?: string;
+  open?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <details className={s.fold} open={open}>
+      <summary className={s.foldHead}>
+        <span className={s.foldTitle}>{title}</span>
+        {hint ? <span className={s.foldHint}>{hint}</span> : null}
+        <span className={s.foldChevron} aria-hidden>
+          ›
+        </span>
+      </summary>
+      <div className={s.foldBody}>{children}</div>
+    </details>
+  );
+}
+
+function FoldLoading() {
+  return <div className={s.skel} style={{ height: 160 }} />;
+}
+
 type Db = ReturnType<typeof adminClient>;
 type Rc = Awaited<ReturnType<typeof revenueCatOverview>>;
 
-/// Hoy: cómo va el día, quién pagó y qué tan lejos está la meta.
-async function TodayTab({
+/// Lo de hoy: cómo va el día, quién pagó, RevenueCat y la meta.
+async function Today({
   supabase,
   rows,
   installs,
@@ -203,7 +225,7 @@ async function TodayTab({
   rows: PingRow[];
   installs: Install[];
   subsList: ReturnType<typeof firstSubscriptions>;
-  rc: Rc | null;
+  rc: Rc;
   today: string;
 }) {
   const yesterday = mxDay(1);
@@ -212,9 +234,6 @@ async function TodayTab({
   );
   const subsOn = subsOnDay(storeSubs, subsList);
   const newSubs = storeSubs.filter((x) => x.day === today || x.day === yesterday);
-  if (today < STORE_SINCE || yesterday < STORE_SINCE) {
-    newSubs.push(...subsList.filter((x) => x.day === today || x.day === yesterday));
-  }
   const { detailedSubs, names } = await memo(`hoy:${today}`, async () => {
     const customerIds = [...new Set(newSubs.flatMap((x) => x.customerIds ?? []))];
     const aliases = customerIds.length ? await fetchAll<BillingAlias>(
@@ -236,7 +255,7 @@ async function TodayTab({
   pulse.yesterday.subscribed = countSubs(subsOn(yesterday));
 
   const metric = (id: string) =>
-    rc?.ok ? rc.metrics.find((m) => m.id === id) : undefined;
+    rc.ok ? rc.metrics.find((m) => m.id === id) : undefined;
   // Sin RevenueCat: los que hoy tienen plan según la app (aproximado).
   const appActive = new Set(
     rows
@@ -254,8 +273,15 @@ async function TodayTab({
   // Mismo periodo para entradas y neto, si no las salidas salen chuecas.
   const inPerWeek = avgWeeklySubs(weeks, 7);
   const leavingPerWeek = Math.max(0, inPerWeek - netPerWeek);
-  const weeksLeft =
-    netPerWeek > 0 ? Math.ceil(Math.max(0, GOAL - active) / netPerWeek) : null;
+  const left = Math.max(0, GOAL - active);
+  const weeksLeft = netPerWeek > 0 ? Math.ceil(left / netPerWeek) : null;
+  const arrival =
+    weeksLeft != null
+      ? new Date(Date.parse(today) + weeksLeft * 7 * 86_400_000).toLocaleDateString(
+          "es-MX",
+          { month: "long", year: "numeric", timeZone: "UTC" },
+        )
+      : null;
 
   return (
     <>
@@ -299,65 +325,82 @@ async function TodayTab({
         names={names}
       />
 
-      <section className={`${s.card} ${s.hero}`} id="meta">
-        <div className={s.goal}>
-          <p className={s.eyebrow}>Meta</p>
-          <Ring value={active} goal={GOAL} />
-          <div className={s.goalLine}>
-            Faltan{" "}
-            <strong>{Math.max(0, GOAL - active).toLocaleString("es-MX")}</strong>{" "}
-            ·{" "}
-            {weeksLeft != null ? (
-              <>
-                a este ritmo, <strong>{humanWeeks(weeksLeft)}</strong>
-              </>
-            ) : (
-              <strong>no estás creciendo neto</strong>
-            )}
-          </div>
-          <div className={s.flow}>
-            <span>
-              <b className={s.flowIn}>+{inPerWeek.toFixed(0)}</b> entran
-            </span>
-            <span>
-              <b className={s.flowOut}>−{leavingPerWeek.toFixed(0)}</b> se van
-            </span>
-            <span className={s.flowUnit}>por semana</span>
-          </div>
-          <Sparkline points={series} />
-        </div>
-        <div className={s.heroSide}>
+      <div className={s.twoCols}>
+        <section className={s.card}>
           <p className={s.eyebrow}>
-            Suscripciones · {rc?.ok ? "RevenueCat" : "según la app"}
+            Suscripciones · {rc.ok ? "RevenueCat" : "según la app"}
           </p>
-          <div className={s.heroTiles}>
-            {rc?.ok ? (
-              RC_ORDER.map((id) => metric(id))
-                .filter((m): m is NonNullable<typeof m> => !!m)
-                .map((m) => (
-                  <div className={s.tile} key={m.id}>
-                    <div className={s.tileValue}>{formatMetric(m.value, m.unit)}</div>
-                    <div className={s.tileLabel}>{RC_LABEL[m.id] ?? m.name}</div>
-                  </div>
-                ))
-            ) : (
-              <div className={s.tile}>
-                <div className={s.tileValue}>{appActive}</div>
-                <div className={s.tileLabel}>Con plan activo (7 días)</div>
-              </div>
-            )}
+          <div className={s.kpis}>
+            <div>
+              <div className={s.kpiValue}>{active.toLocaleString("es-MX")}</div>
+              <div className={s.kpiLabel}>activas</div>
+            </div>
+            {RC_ORDER.map((id) => metric(id))
+              .filter((m): m is NonNullable<typeof m> => !!m)
+              .map((m) => (
+                <div key={m.id}>
+                  <div className={s.kpiValue}>{formatMetric(m.value, m.unit)}</div>
+                  <div className={s.kpiLabel}>{RC_LABEL[m.id] ?? m.name}</div>
+                </div>
+              ))}
           </div>
           <Plans counts={plans} />
-          {rc && !rc.ok ? <div className={s.warn}>Sin RevenueCat: {rc.reason}</div> : null}
-        </div>
-      </section>
+          {!rc.ok ? <div className={s.warn}>Sin RevenueCat: {rc.reason}</div> : null}
+        </section>
+
+        <section className={s.card} id="meta">
+          <p className={s.eyebrow}>Meta · 1,000 clientes</p>
+          <div className={s.goalTop}>
+            <div className={s.kpiValue}>{pct(active, GOAL)}</div>
+            <div className={s.goalWhen}>
+              {arrival ? (
+                <>
+                  Llegas en <b>{humanWeeks(weeksLeft!)}</b>
+                  <span>
+                    {" "}
+                    · {arrival} a este ritmo
+                  </span>
+                </>
+              ) : (
+                <b>No estás creciendo neto</b>
+              )}
+            </div>
+          </div>
+          <div className={s.goalBar}>
+            <div style={{ width: `${Math.min(100, (active / GOAL) * 100)}%` }} />
+          </div>
+          <p className={s.goalSub}>
+            {active.toLocaleString("es-MX")} de 1,000 · faltan{" "}
+            {left.toLocaleString("es-MX")}
+          </p>
+          <div className={s.goalFlow}>
+            <div>
+              <b className={s.flowIn}>+{inPerWeek.toFixed(0)}</b>
+              <span>entran</span>
+            </div>
+            <div>
+              <b className={s.flowOut}>−{leavingPerWeek.toFixed(0)}</b>
+              <span>se van</span>
+            </div>
+            <div>
+              <b>
+                {netPerWeek >= 0 ? "+" : ""}
+                {netPerWeek.toFixed(1)}
+              </b>
+              <span>neto</span>
+            </div>
+          </div>
+          <p className={s.goalSub} style={{ textAlign: "center" }}>
+            por semana, promedio de las últimas 8
+          </p>
+        </section>
+      </div>
     </>
   );
 }
 
-/// Por mes: descargas, suscripciones, negocios nuevos y cancelaciones del
-/// mes escogido, contra los mismos días del mes anterior.
-async function MonthTab({
+/// Descargas y suscripciones del mes, contra los mismos días del anterior.
+async function MonthNumbers({
   supabase,
   installs,
   subsList,
@@ -370,12 +413,9 @@ async function MonthTab({
   month: ReturnType<typeof monthWindow>;
   today: string;
 }) {
-  const [storeSubs, cancels] = await Promise.all([
-    memo(`subs:${month.prevStart}`, () => storeNewSubs(supabase, month.prevStart)),
-    memo(`cancel:${month.start}:${month.to}`, () =>
-      cancelSurvey(supabase, month.start, month.to),
-    ),
-  ]);
+  const storeSubs = await memo(`subs:${month.prevStart}`, () =>
+    storeNewSubs(supabase, month.prevStart),
+  );
   const subsOn = subsOnDay(storeSubs, subsList);
   const dlDays = downloadsDaily(installs, month.start, month.end);
   const dlNow = downloadsByPlatform(installs, month.start, month.to);
@@ -391,83 +431,130 @@ async function MonthTab({
     (a, d) => a + subsOn(d).length,
     0,
   );
-  // Negocios nuevos que llegaron en el mes (hoy no cuenta: no ha terminado).
-  const journeyTo = month.to < today ? month.to : mxDay(1);
-  const cohort = newOwners(installs, month.start, journeyTo).filter(
-    (i) => i.stage != null,
-  );
   const compare = month.current
-    ? `los mismos días de ${month.prevName}`
-    : month.prevName;
+    ? `vs. los mismos días de ${month.prevName}`
+    : `vs. ${month.prevName}`;
   return (
-    <>
+    <div className={s.twoCols}>
       <section className={s.card} id="descargas">
-        <div className={s.cardHead}>
-          <div>
-            <p className={s.eyebrow}>Descargas · {month.name}</p>
-            <h2 className={s.h2}>
-              {dlTotal.toLocaleString("es-MX")}{" "}
-              <Delta now={dlTotal} before={dlPrevTotal} />
-            </h2>
-            <p className={s.note}>
-              Aparatos nuevos, sin reinstalaciones. Contra {compare}.
-            </p>
-          </div>
-          <Legend subs={false} />
+        <p className={s.eyebrow}>Descargas · {month.name}</p>
+        <div className={s.monthHead}>
+          <span className={s.kpiValue}>{dlTotal.toLocaleString("es-MX")}</span>
+          <Delta now={dlTotal} before={dlPrevTotal} />
         </div>
-        <div className={s.platTiles}>
-          {dlNow.map((p, i) => (
-            <div className={s.platTile} key={p.platform}>
-              <div className={s.platHead}>
-                <span className={s.dot} style={{ background: PLATFORM_COLOR[p.platform] }} />
-                {PLATFORM_LABEL[p.platform]}
-                <Delta now={p.total} before={dlPrev[i].total} />
-              </div>
-              <div className={s.platValue}>{p.total.toLocaleString("es-MX")}</div>
-              <div className={s.platSub}>
-                {p.owners} dueños · {p.waiters} meseros
-              </div>
-            </div>
+        <p className={s.goalSub}>{compare}</p>
+        <div className={s.platChips}>
+          {dlNow.map((p) => (
+            <span key={p.platform}>
+              {PLATFORM_LABEL[p.platform]} <b>{p.total.toLocaleString("es-MX")}</b>
+            </span>
           ))}
         </div>
-        <DailyBars days={dlDays} today={today} />
+        <MonthBars days={dlDays} today={today} />
       </section>
 
       <section className={s.card} id="suscripciones-mes">
-        <div className={s.cardHead}>
-          <div>
-            <p className={s.eyebrow}>Suscripciones nuevas · {month.name}</p>
-            <h2 className={s.h2}>
-              {subsMonth.length.toLocaleString("es-MX")}{" "}
-              <Delta now={subsMonth.length} before={subsPrevTotal} />
-            </h2>
-            <p className={s.note}>
-              Primera suscripción de cada cliente. Contra {compare}.
-            </p>
-          </div>
-          <div className={s.subsChips}>
-            {PLAN_INFO.map((p) => {
-              const n = subsMonth.filter((x) => x.plan === p.key).length;
-              return n ? (
-                <span key={p.key} className={s.subsChip}>
-                  <span className={s.dot} style={{ background: p.color }} />
-                  {n} {p.label}
-                </span>
-              ) : null;
-            })}
-          </div>
+        <p className={s.eyebrow}>Suscripciones nuevas · {month.name}</p>
+        <div className={s.monthHead}>
+          <span className={s.kpiValue}>{subsMonth.length.toLocaleString("es-MX")}</span>
+          <Delta now={subsMonth.length} before={subsPrevTotal} />
         </div>
-        <DailyBars days={subDays} today={today} />
+        <p className={s.goalSub}>{compare}</p>
+        <div className={s.platChips}>
+          {PLAN_INFO.map((p) => {
+            const n = subsMonth.filter((x) => x.plan === p.key).length;
+            return n ? (
+              <span key={p.key}>
+                {p.label} <b>{n}</b>
+              </span>
+            ) : null;
+          })}
+        </div>
+        <MonthBars days={subDays} today={today} />
       </section>
+    </div>
+  );
+}
 
-      <Journey
-        steps={journeySteps(cohort)}
-        paths={menuPaths(cohort)}
-        month={month.name}
-      />
+/// Barras por día del mes, sin números encima: el número del día sale al
+/// pasar el mouse; abajo solo cada 5 días.
+function MonthBars({ days, today }: { days: DayRow[]; today: string }) {
+  const max = Math.max(1, ...days.map((d) => d.total));
+  const done = days.filter((d) => d.day < today);
+  const avg = done.reduce((a, d) => a + d.total, 0) / Math.max(1, done.length);
+  return (
+    <div className={s.mBars}>
+      <div className={s.mBarsArea}>
+        <div className={s.mAvg} style={{ bottom: `${(avg / max) * 100}%` }}>
+          <span>{avg.toFixed(0)}/día</span>
+        </div>
+        {days.map((d) => (
+          <div
+            key={d.day}
+            className={s.mBar}
+            title={`${shortDay(d.day)}: ${d.total} · ${PLATFORMS.map((p) => `${PLATFORM_LABEL[p]} ${d.byPlatform[p]}`).join(" · ")}`}
+          >
+            <div
+              className={d.day === today ? s.mFillToday : s.mFill}
+              style={{ height: `${(d.total / max) * 100}%` }}
+            />
+          </div>
+        ))}
+      </div>
+      <div className={s.mAxis}>
+        {days.map((d) => {
+          const n = Number(d.day.slice(8));
+          return (
+            <span key={d.day}>
+              {d.day === today ? "hoy" : n === 1 || n % 5 === 0 ? n : ""}
+            </span>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
-      <Cancellations data={cancels} month={month.name} />
-    </>
+async function NewBusinesses({
+  installs,
+  month,
+  today,
+}: {
+  installs: Install[];
+  month: ReturnType<typeof monthWindow>;
+  today: string;
+}) {
+  // Los que llegaron en el mes (hoy no cuenta: no ha terminado).
+  const to = month.to < today ? month.to : mxDay(1);
+  const cohort = newOwners(installs, month.start, to).filter((i) => i.stage != null);
+  return <Journey steps={journeySteps(cohort)} paths={menuPaths(cohort)} />;
+}
+
+async function MonthCancels({
+  supabase,
+  month,
+}: {
+  supabase: Db;
+  month: ReturnType<typeof monthWindow>;
+}) {
+  const data = await memo(`cancel:${month.start}:${month.to}`, () =>
+    cancelSurvey(supabase, month.start, month.to),
+  );
+  return <Cancellations data={data} />;
+}
+
+async function Migration({
+  supabase,
+  rows,
+  today,
+}: {
+  supabase: Db;
+  rows: PingRow[];
+  today: string;
+}) {
+  const health = await memo("health", () => migrationHealth(supabase));
+  return (
+    <MigrationTab health={health} newest={newestVersion(rows, mxDay(7))} today={today} />
   );
 }
 
@@ -987,15 +1074,21 @@ function NewSubs({
         </span>
         <span className={s.subsName}>{names.get(x.key) ?? platform}</span>
         {x.kind === "converted" ? <span className={s.subsMeta}>terminó su prueba</span> : null}
-        <span className={s.subsTenure}>
-          {x.guessed ? "~" : ""}
-          {x.tenure === 0
-            ? "nuevo"
-            : x.tenure != null
-              ? tenureLabel(x.tenure)
-              : x.customerIds?.some((id) => id.startsWith("$RCAnonymousID"))
-                ? "sin identificar"
-                : "—"}
+        <span
+          className={
+            x.tenure == null
+              ? s.ageUnknown
+              : x.tenure === 0
+                ? s.ageNew
+                : x.tenure < 30
+                  ? s.ageWeeks
+                  : s.ageOld
+          }
+          title={x.guessed ? "Probable: el único aparato Android que contrató ese plan ese día" : undefined}
+        >
+          {x.tenure == null
+            ? "sin identificar"
+            : `${x.guessed ? "~" : ""}${x.tenure === 0 ? "nuevo" : tenureLabel(x.tenure)}`}
         </span>
       </div>
     );
@@ -1645,10 +1738,8 @@ function cancelOutcome(r: CancelRow): { text: string; tone: "good" | "bad" | "mi
 
 function Cancellations({
   data,
-  month,
 }: {
   data: Awaited<ReturnType<typeof cancelSurvey>>;
-  month: string;
 }) {
   if (!data) {
     return (
@@ -1690,9 +1781,7 @@ function Cancellations({
     <section className={s.card} id="cancelaciones">
       <div className={s.cardHead}>
         <div>
-          <p className={s.eyebrow}>Cancelaciones · {month}</p>
-          <h2 className={s.h2}>¿Por qué se van?</h2>
-          <p className={s.note}>
+          <p className={s.note} style={{ marginTop: 0 }}>
             Las cancelaciones las dice la tienda. Los motivos, la encuesta de
             la app: «antes» si preguntamos al tocar Cancelar, «después» si
             contestó al volver a abrir la app.
@@ -2428,11 +2517,9 @@ function journeySteps(list: Install[]): JourneyStep[] {
 function Journey({
   steps,
   paths,
-  month,
 }: {
   steps: JourneyStep[];
   paths: ReturnType<typeof menuPaths>;
-  month: string;
 }) {
   const top = Math.max(1, steps[0]?.n ?? 1);
   const per100 = (n: number) => Math.round((n / top) * 100);
@@ -2508,9 +2595,7 @@ function Journey({
   );
   return (
     <section className={s.card} id="cuello">
-      <p className={s.eyebrow}>Negocios nuevos · {month}</p>
-      <h2 className={s.h2}>¿Dónde se va la gente?</h2>
-      <p className={s.note}>
+      <p className={s.note} style={{ marginTop: 0 }}>
         Los que llegaron en el mes. El % es cuántos pasaron del paso anterior.
       </p>
       <div className={s.funnel}>

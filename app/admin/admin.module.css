@@ -16,10 +16,7 @@
   --ios: #60a5fa;
   --windows: #c084fc;
   min-height: 100vh;
-  background:
-    radial-gradient(1200px 500px at 10% -10%, rgba(241, 90, 41, 0.18), transparent 60%),
-    radial-gradient(900px 400px at 100% 0%, rgba(245, 185, 66, 0.08), transparent 60%),
-    var(--bg);
+  background: var(--bg);
   color: var(--ink);
   font-family: var(--font-sans), system-ui, sans-serif;
   padding: 28px 16px 64px;
@@ -136,11 +133,11 @@
 
 /* --- tarjetas --- */
 .card {
-  background: linear-gradient(180deg, var(--card-2), var(--card));
+  background: var(--card);
   border: 1px solid var(--line);
   border-radius: 20px;
   padding: 22px;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
+  
 }
 .cardHead {
   display: flex;
@@ -295,7 +292,7 @@
   display: flex;
   gap: 14px;
   align-items: center;
-  background: linear-gradient(90deg, rgba(248, 113, 113, 0.16), rgba(248, 113, 113, 0.03));
+  background: rgba(248, 113, 113, 0.1);
   border: 1px solid rgba(248, 113, 113, 0.35);
   border-radius: 16px;
   padding: 14px 16px;
@@ -352,11 +349,11 @@
   position: absolute;
   inset: 0 auto 0 0;
   border-radius: 10px;
-  background: linear-gradient(90deg, rgba(241, 90, 41, 0.75), rgba(255, 138, 92, 0.45));
+  background: rgba(241, 90, 41, 0.7);
 }
 .fillWorst {
   composes: fill;
-  background: linear-gradient(90deg, rgba(248, 113, 113, 0.85), rgba(248, 113, 113, 0.4));
+  background: rgba(248, 113, 113, 0.75);
 }
 .stepText {
   position: absolute;
@@ -712,7 +709,7 @@
 .pulseTile {
   position: relative;
   overflow: hidden;
-  background: linear-gradient(180deg, var(--card-2), var(--card));
+  background: var(--card);
   border: 1px solid var(--line);
   border-radius: 18px;
   padding: 16px 16px 14px;
@@ -1034,7 +1031,7 @@
 }
 .stDone::before,
 .stNow::before {
-  background: linear-gradient(90deg, var(--green), var(--green));
+  background: var(--green);
 }
 .stepper li:first-child::before {
   display: none;
@@ -1568,7 +1565,7 @@
 .moreBig > summary {
   padding: 14px 16px;
   border-style: solid;
-  background: linear-gradient(180deg, var(--card-2), var(--card));
+  background: var(--card);
   border-radius: 18px;
   text-align: left;
   font-size: 14px;
@@ -2056,18 +2053,12 @@
   color: var(--mute);
 }
 
-/* ---- esqueleto mientras carga una pestaña ---- */
-.skel,
-.skelTabs {
+/* ---- esqueleto mientras carga ---- */
+.skel {
   border: 1px solid var(--line);
   border-radius: 20px;
-  background: linear-gradient(90deg, var(--card) 0%, var(--card-2) 50%, var(--card) 100%);
-  background-size: 200% 100%;
-  animation: skel 1.2s ease-in-out infinite;
-}
-.skelTabs {
-  height: 46px;
-  border-radius: 14px;
+  background: var(--card);
+  animation: skel 1.2s ease-in-out infinite alternate;
 }
 .skelRow {
   display: grid;
@@ -2076,9 +2067,248 @@
 }
 @keyframes skel {
   from {
-    background-position: 200% 0;
+    opacity: 1;
   }
   to {
-    background-position: -200% 0;
+    opacity: 0.5;
   }
+}
+
+/* ---- dos columnas (RevenueCat y meta; descargas y suscripciones) ---- */
+.twoCols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+@media (max-width: 860px) {
+  .twoCols {
+    grid-template-columns: 1fr;
+  }
+}
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin: 14px 0 18px;
+}
+.kpiValue {
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+.kpiLabel {
+  color: var(--soft);
+  font-size: 13px;
+  margin-top: 2px;
+}
+
+/* ---- meta ---- */
+.goalTop {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin-top: 10px;
+}
+.goalWhen {
+  font-size: 15px;
+  color: var(--ink);
+}
+.goalWhen span {
+  color: var(--soft);
+}
+.goalBar {
+  height: 12px;
+  border-radius: 999px;
+  background: var(--card-2);
+  margin: 14px 0 8px;
+  overflow: hidden;
+}
+.goalBar > div {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--orange);
+}
+.goalSub {
+  margin: 0;
+  color: var(--mute);
+  font-size: 12.5px;
+}
+.goalFlow {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin: 18px 0 6px;
+}
+.goalFlow > div {
+  background: var(--card-2);
+  border-radius: 14px;
+  padding: 12px;
+  text-align: center;
+}
+.goalFlow b {
+  display: block;
+  font-size: 22px;
+}
+.goalFlow span {
+  color: var(--soft);
+  font-size: 12.5px;
+}
+
+/* ---- descargas y suscripciones del mes ---- */
+.monthHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+.platChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin: 14px 0 4px;
+  font-size: 13px;
+  color: var(--soft);
+}
+.platChips span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.platChips b {
+  color: var(--ink);
+}
+.mBars {
+  margin-top: 16px;
+}
+.mBarsArea {
+  position: relative;
+  height: 120px;
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+}
+.mBar {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+}
+.mFill,
+.mFillToday {
+  width: 100%;
+  min-height: 2px;
+  border-radius: 4px 4px 1px 1px;
+  background: var(--orange);
+}
+.mFillToday {
+  background: var(--orange-2);
+  opacity: 0.6;
+}
+.mBar:hover .mFill {
+  background: var(--orange-2);
+}
+.mAvg {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1px dashed var(--mute);
+  pointer-events: none;
+}
+.mAvg span {
+  position: absolute;
+  right: 0;
+  top: -18px;
+  font-size: 11px;
+  color: var(--soft);
+  background: var(--card);
+  padding: 0 4px;
+}
+.mAxis {
+  display: flex;
+  gap: 3px;
+  margin-top: 6px;
+}
+.mAxis span {
+  flex: 1;
+  text-align: center;
+  font-size: 10.5px;
+  color: var(--mute);
+}
+
+/* ---- antigüedad del suscriptor ---- */
+.ageNew,
+.ageWeeks,
+.ageOld,
+.ageUnknown {
+  flex-shrink: 0;
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 10px;
+  border-radius: 999px;
+}
+.ageNew {
+  color: #052e1c;
+  background: var(--green);
+}
+.ageWeeks {
+  color: var(--ink);
+  background: rgba(96, 165, 250, 0.25);
+}
+.ageOld {
+  color: var(--ink);
+  background: var(--card-2);
+}
+.ageUnknown {
+  color: var(--mute);
+  font-weight: 500;
+}
+
+/* ---- secciones que se abren y cierran ---- */
+.fold {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+}
+.foldHead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 22px;
+  cursor: pointer;
+  list-style: none;
+}
+.foldHead::-webkit-details-marker {
+  display: none;
+}
+.foldTitle {
+  font-size: 16px;
+  font-weight: 700;
+}
+.foldHint {
+  color: var(--mute);
+  font-size: 13px;
+}
+.foldChevron {
+  margin-left: auto;
+  font-size: 22px;
+  color: var(--soft);
+  transition: transform 0.15s;
+}
+.fold[open] .foldChevron {
+  transform: rotate(90deg);
+}
+.foldBody {
+  padding: 0 22px 22px;
+}
+.foldBody > section {
+  background: none;
+  border: 0;
+  padding: 0;
+}
+.foldBody > section > .cardHead .eyebrow,
+.foldBody > section > .uHead .eyebrow {
+  display: none;
 }

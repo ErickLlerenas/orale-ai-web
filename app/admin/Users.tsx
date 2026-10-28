@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { tenureLabel } from "@/lib/admin-tenure";
 import s from "./admin.module.css";
@@ -175,9 +175,14 @@ export default function Users({
   risk: RiskUser[];
 }) {
   const router = useRouter();
+  const params = useSearchParams();
   const [tab, setTab] = useState<"day" | "risk">("day");
   const [onlyNew, setOnlyNew] = useState(false);
-  const setDay = (d: string) => router.push(`/admin?tab=usuarios&dia=${d}`);
+  const setDay = (d: string) => {
+    const next = new URLSearchParams(params.toString());
+    next.set("dia", d);
+    router.push(`/admin?${next}`, { scroll: false });
+  };
   const idx = days.indexOf(day);
   const all = rows
     .filter((r) => r.day === day)

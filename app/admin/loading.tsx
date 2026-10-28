@@ -1,7 +1,6 @@
 import s from "./admin.module.css";
 
-/// Mientras el servidor arma la pestaña: el clic responde al instante en
-/// lugar de dejar la página anterior congelada.
+/// Mientras el servidor arma el panel (al cambiar de mes o de día).
 export default function Loading() {
   return (
     <main className={s.page}>
@@ -15,7 +14,6 @@ export default function Loading() {
             </div>
           </div>
         </header>
-        <div className={s.skelTabs} />
         <div className={s.skelRow}>
           {[0, 1, 2, 3].map((i) => (
             <div key={i} className={s.skel} style={{ height: 150 }} />
