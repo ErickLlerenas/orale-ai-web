@@ -179,6 +179,20 @@ export default async function Admin({
   );
 }
 
+/// Cuentas con plan activo que la app vio en los 7 días que terminan en [day].
+function activeOn(rows: PingRow[], day: string) {
+  const from = new Date(Date.parse(`${day}T12:00:00Z`) - 7 * 86_400_000)
+    .toISOString()
+    .slice(0, 10);
+  const set = new Set<string>();
+  for (const r of rows) {
+    if (r.subscription_active && r.ping_date > from && r.ping_date <= day) {
+      set.add(r.account_key ?? r.install_id);
+    }
+  }
+  return set.size;
+}
+
 /// Sección que se abre y se cierra; cerrada por default.
 function Fold({
   title,
@@ -229,8 +243,11 @@ async function Today({
   today: string;
 }) {
   const yesterday = mxDay(1);
-  const storeSubs = await memo(`subs:${yesterday}`, () =>
-    storeNewSubs(supabase, yesterday),
+  // La meta se mide con el mes en curso: desde el día 1 (y lo mismo que pide
+  // «Descargas y suscripciones» del mes, para no pedirlo dos veces).
+  const thisMonth = monthWindow(today, today.slice(0, 7));
+  const storeSubs = await memo(`subs:${thisMonth.prevStart}`, () =>
+    storeNewSubs(supabase, thisMonth.prevStart),
   );
   const subsOn = subsOnDay(storeSubs, subsList);
   const newSubs = storeSubs.filter((x) => x.day === today || x.day === yesterday);
@@ -263,15 +280,19 @@ async function Today({
       .map((r) => r.account_key ?? r.install_id),
   ).size;
   const active = metric("active_subscriptions")?.value ?? appActive;
-  const weeks = weekly(installs, rows, 8, today);
-  // Crecimiento NETO (entran menos las que se van), de las activas que ve la
-  // app semana a semana. Es lo que de verdad acerca a la meta.
-  const series = activeSeries(rows, today, 8);
   const plans = planMix(rows, mxDay(7));
+  // Ritmo del mes en curso, por semana. Neto: activas hoy menos las que
+  // había al cerrar el mes anterior (las que ve la app). Entran: altas del
+  // mes. Se van: la diferencia. El 1 del mes empieza de cero.
+  const monthWeeks = Number(today.slice(8, 10)) / 7;
+  const lastOfPrev = new Date(Date.parse(`${thisMonth.start}T12:00:00Z`) - 86_400_000)
+    .toISOString()
+    .slice(0, 10);
   const netPerWeek =
-    (series[series.length - 1].n - series[0].n) / (series.length - 1);
-  // Mismo periodo para entradas y neto, si no las salidas salen chuecas.
-  const inPerWeek = avgWeeklySubs(weeks, 7);
+    (activeOn(rows, today) - activeOn(rows, lastOfPrev)) / monthWeeks;
+  const inPerWeek =
+    dayRange(thisMonth.start, today).reduce((a, d) => a + subsOn(d).length, 0) /
+    monthWeeks;
   const leavingPerWeek = Math.max(0, inPerWeek - netPerWeek);
   const left = Math.max(0, GOAL - active);
   const weeksLeft = netPerWeek > 0 ? Math.ceil(left / netPerWeek) : null;
@@ -382,7 +403,7 @@ async function Today({
             </div>
           </div>
           <p className={s.goalSub} style={{ textAlign: "center" }}>
-            por semana, promedio de las últimas 8
+            por semana, promedio de {thisMonth.name}
           </p>
         </section>
       </div>
