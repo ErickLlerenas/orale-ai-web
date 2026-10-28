@@ -2370,3 +2370,16 @@
 .planLine b {
   color: var(--soft);
 }
+
+/* ---- plática contra pantallas ---- */
+.compare {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+.cmpUp {
+  color: var(--green);
+}
+.cmpDown {
+  color: var(--red);
+}

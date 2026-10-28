@@ -569,7 +569,72 @@ async function NewBusinesses({
   // Los que llegaron en el mes (hoy no cuenta: no ha terminado).
   const to = month.to < today ? month.to : mxDay(1);
   const cohort = newOwners(installs, month.start, to).filter((i) => i.stage != null);
-  return <Journey steps={journeySteps(cohort)} paths={menuPaths(cohort)} />;
+  return (
+    <>
+      <Journey steps={journeySteps(cohort)} paths={menuPaths(cohort)} />
+      <WelcomeCompare cohort={cohort} />
+    </>
+  );
+}
+
+/// Primera versión con la bienvenida en plática con Órale (PR #210).
+const CHAT_WELCOME_APP = "3.0.108";
+/// Con menos negocios que esto el % se mueve demasiado con 2 o 3 personas.
+const CHAT_WELCOME_ENOUGH = 50;
+
+/// ¿La plática ayuda más que las pantallas? Mismos pasos, contados el día
+/// que llegó cada negocio: la plática es nueva y los de antes ya tuvieron
+/// días para avanzar.
+function WelcomeCompare({ cohort }: { cohort: Install[] }) {
+  const chat = cohort.filter(
+    (i) => i.firstVersion && cmpVersion(i.firstVersion.split("+")[0], CHAT_WELCOME_APP) >= 0,
+  );
+  const screens = cohort.filter((i) => !chat.includes(i));
+  if (!chat.length) return null;
+  const steps: { label: string; ok: (i: Install) => boolean }[] = [
+    { label: "Pasaron la primera pregunta", ok: (i) => i.day1.stage >= 2 },
+    { label: "Crearon su PIN", ok: (i) => i.day1.stage >= 6 },
+    { label: "Terminaron la bienvenida", ok: (i) => i.day1.stage >= 7 },
+    { label: "Tienen menú", ok: (i) => i.day1.products > 0 },
+    { label: "Primera venta", ok: (i) => i.day1.orders > 0 },
+  ];
+  const share = (list: Install[], ok: (i: Install) => boolean) =>
+    list.length ? Math.round((list.filter(ok).length / list.length) * 100) : 0;
+  return (
+    <div className={s.compare}>
+      <p className={s.funnelTitle}>¿Plática o pantallas? · el primer día</p>
+      <table className={s.mTable}>
+        <thead>
+          <tr>
+            <th />
+            <th>Pantallas · {screens.length}</th>
+            <th>Plática · {chat.length}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {steps.map((st) => {
+            const a = share(screens, st.ok);
+            const b = share(chat, st.ok);
+            return (
+              <tr key={st.label}>
+                <td>{st.label}</td>
+                <td>{a}%</td>
+                <td>
+                  <b className={b > a ? s.cmpUp : b < a ? s.cmpDown : undefined}>{b}%</b>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      <p className={s.note}>
+        Plática: los que llegaron con la {CHAT_WELCOME_APP} o más nueva.
+        {chat.length < CHAT_WELCOME_ENOUGH
+          ? ` Todavía son pocos (${chat.length}): con menos de ${CHAT_WELCOME_ENOUGH} el % cambia mucho con 2 o 3 personas.`
+          : ""}
+      </p>
+    </div>
+  );
 }
 
 async function MonthCancels({
