@@ -320,7 +320,6 @@ async function Today({
         ].map((d) => ({
           ...d,
           list: detailedSubs.filter((x) => x.day === d.day && x.kind !== "converted"),
-          converted: detailedSubs.filter((x) => x.day === d.day && x.kind === "converted"),
         }))}
         names={names}
       />
@@ -1040,7 +1039,8 @@ function PulseTile({
   );
 }
 
-/// Quién se suscribió hoy y ayer: plan, negocio y desde cuándo usa la app.
+/// Quién se suscribió hoy y ayer por primera vez (sin pruebas que se cobraron):
+/// plan, negocio y desde cuándo usa la app.
 function NewSubs({
   days,
   names,
@@ -1049,7 +1049,6 @@ function NewSubs({
     title: string;
     day: string;
     list: NewSub[];
-    converted: NewSub[];
   }[];
   names: Map<string, string>;
 }) {
@@ -1065,7 +1064,6 @@ function NewSubs({
           {x.label ?? info?.label ?? "Plan sin dato"}
         </span>
         <span className={s.subsName}>{names.get(x.key) ?? platform}</span>
-        {x.kind === "converted" ? <span className={s.subsMeta}>terminó su prueba</span> : null}
         <span
           className={
             x.tenure == null
@@ -1090,15 +1088,12 @@ function NewSubs({
       <p className={s.eyebrow}>Nuevos suscriptores</p>
       <div className={s.subsCols}>
         {days.map((d) => {
-          const all = [...d.list, ...d.converted];
+          const all = d.list;
           return (
             <div key={d.day} className={s.subsCol}>
               <div className={s.subsHead}>
                 <span className={s.subsWhen}>
-                  {d.title} · {d.list.length} {d.list.length === 1 ? "nuevo" : "nuevos"}
-                  {d.converted.length
-                    ? ` · ${d.converted.length} pagaron su prueba`
-                    : ""}
+                  {d.title} · {all.length}
                 </span>
               </div>
               {all.length === 0 ? (
