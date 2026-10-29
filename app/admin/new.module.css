@@ -1,0 +1,654 @@
+/* Panel nuevo: el navy de /admin con un durazno más suave que el naranja de
+   marca (se veía muy fuerte) pero con color (el pastel se veía apagado). */
+.page {
+  --bg: #0b1220;
+  --card: #121b2d;
+  --card-2: #172238;
+  --line: #24314a;
+  --ink: #f1f5f9;
+  --soft: #94a3b8;
+  --mute: #6b7a92;
+  --peach: #fb9b6e;
+  --peach-ink: #2a1408;
+  --mint: #6ee7b7;
+  /* Planes, con la misma intensidad que el durazno: el naranja de marca
+     junto al durazno se veía como dos naranjas peleando. */
+  --peach-2: #fdbf9b;
+  --amber: #f6c56b;
+  --sand: #fbe2a8;
+  --sky: #93c5fd;
+  /* Lo que piden las tarjetas que vienen de /admin (cards.tsx), en estos
+     tonos. */
+  --orange: var(--peach);
+  --orange-2: var(--peach-2);
+  --green: var(--mint);
+  --red: var(--rose);
+  --android: var(--mint);
+  --ios: var(--sky);
+  --windows: #c4b5fd;
+  --ret-bad: var(--rose);
+  --ret-mid: var(--peach);
+  --rose: #f8879a;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  padding: 28px 16px 64px;
+}
+.wrap {
+  max-width: 1040px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.logo {
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+  object-fit: cover;
+}
+.title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+.subtitle {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: var(--mute);
+}
+
+/* ---- Hoy / Ayer ---- */
+.switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--card);
+}
+.switchOn,
+.switchOff {
+  padding: 9px 18px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  text-align: center;
+  text-decoration: none;
+}
+.switchOn {
+  color: var(--peach-ink);
+  background: var(--peach);
+}
+.switchOff {
+  color: var(--soft);
+}
+.switchOff:hover {
+  color: var(--ink);
+  background: var(--card-2);
+}
+
+.card {
+  display: grid;
+  /* La última columna lleva la lista de quién se suscribió. */
+  grid-template-columns: 1fr 1fr 1.6fr;
+  /* globals.css le da 72px a toda <section>. */
+  padding: 0;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+}
+.stat {
+  min-width: 0;
+  padding: 22px 24px;
+}
+.stat + .stat {
+  border-left: 1px solid var(--line);
+}
+.label {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--soft);
+}
+.value {
+  margin: 6px 0 2px;
+  font-size: 44px;
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.detail {
+  margin: 0 0 6px;
+  font-size: 13.5px;
+  color: var(--soft);
+  font-variant-numeric: tabular-nums;
+}
+.detail b {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+/* ---- Quién se suscribió (igual que en /admin) ---- */
+.subs {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.subsRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--line);
+  font-size: 13.5px;
+}
+.subsPlan {
+  flex-shrink: 0;
+  font-size: 11.5px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 999px;
+  color: var(--peach-ink);
+  background: var(--plan);
+}
+.subsName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+.subsStore {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--mute);
+}
+.ageNew,
+.ageWeeks,
+.ageOld,
+.ageUnknown {
+  flex-shrink: 0;
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 10px;
+  border-radius: 999px;
+}
+.ageNew {
+  color: #052e1c;
+  background: var(--mint);
+}
+.ageWeeks {
+  color: var(--sky);
+  background: rgba(147, 197, 253, 0.14);
+}
+.ageOld {
+  color: var(--soft);
+  background: var(--card-2);
+}
+.ageUnknown {
+  color: var(--mute);
+  font-weight: 500;
+}
+
+/* Las tarjetas de /admin vienen en dos columnas; aquí van una debajo de la
+   otra, a todo el ancho. */
+.stack > div {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* ---- Meta ---- */
+.goal {
+  padding: 24px 28px 26px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+}
+.goalHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.goalSource {
+  font-size: 12px;
+  color: var(--mute);
+}
+.goalHero {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  margin-top: 14px;
+}
+.ring {
+  position: relative;
+  width: 160px;
+  height: 160px;
+  flex-shrink: 0;
+}
+.ringCenter {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.ringCenter b {
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.ringCenter span {
+  font-size: 12px;
+  color: var(--mute);
+}
+.goalHint {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--mute);
+}
+.goalVerdict {
+  display: flex;
+  flex-direction: column;
+}
+.goalVerdict span {
+  font-size: 13px;
+  color: var(--soft);
+}
+.goalVerdict b {
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+.toneGood {
+  color: var(--mint);
+}
+.toneBad {
+  color: var(--rose);
+}
+.track {
+  position: relative;
+  height: 14px;
+  margin-top: 40px;
+  border-radius: 999px;
+  background: var(--card-2);
+}
+.trackFill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--peach);
+}
+.trackMark {
+  position: absolute;
+  top: -7px;
+  bottom: -7px;
+  width: 2px;
+  margin-left: -1px;
+  border-radius: 2px;
+  background: var(--rose);
+}
+.trackLabel {
+  position: absolute;
+  top: -28px;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--rose);
+}
+.trackScale {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--mute);
+  font-variant-numeric: tabular-nums;
+}
+.flow {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr auto 1fr;
+  align-items: center;
+  gap: 12px;
+  margin-top: 26px;
+}
+.flow > div {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 14px 10px;
+  border-radius: 14px;
+  background: var(--card-2);
+}
+.flow b {
+  font-size: 26px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.flow span {
+  font-size: 12.5px;
+  color: var(--soft);
+}
+.flow > i {
+  font-style: normal;
+  font-size: 20px;
+  color: var(--mute);
+}
+.optionsTitle {
+  margin: 26px 0 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--soft);
+}
+.targets {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.target {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+.targetHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.targetHead span {
+  font-size: 13px;
+  color: var(--soft);
+}
+.targetHead b {
+  font-size: 24px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.targetHead i {
+  font-style: normal;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--mint);
+}
+.targetTrack {
+  position: relative;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--card-2);
+}
+.targetFill {
+  height: 100%;
+  border-radius: 999px;
+}
+.targetMark {
+  position: absolute;
+  top: -5px;
+  bottom: -5px;
+  width: 2px;
+  margin-left: -1px;
+  border-radius: 2px;
+  background: var(--mint);
+}
+.target small {
+  font-size: 12px;
+  color: var(--mute);
+}
+@media (max-width: 720px) {
+  .targets {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 720px) {
+  .goal {
+    padding: 20px 16px;
+  }
+  .flow {
+    grid-template-columns: 1fr;
+  }
+  .flow > i {
+    display: none;
+  }
+}
+
+/* ---- Pagan pero venden poco ---- */
+.lowHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+.lowBig {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  flex-shrink: 0;
+}
+.lowBig b {
+  font-size: 40px;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--rose);
+}
+.lowBig span {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--mute);
+}
+.lowBars {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 10px;
+  margin-top: 22px;
+}
+.lowCol {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.lowCol span {
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.lowCol small {
+  font-size: 11px;
+  color: var(--mute);
+}
+.lowTrack {
+  display: flex;
+  align-items: flex-end;
+  width: 100%;
+  height: 90px;
+  border-radius: 10px;
+  background: var(--card-2);
+  overflow: hidden;
+}
+.lowFill {
+  width: 100%;
+  border-radius: 10px;
+  background: var(--rose);
+}
+@media (max-width: 720px) {
+  .lowHead {
+    flex-direction: column;
+  }
+  .lowBig {
+    align-items: flex-start;
+  }
+  .lowBars {
+    gap: 4px;
+  }
+}
+
+.error {
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(248, 135, 154, 0.08);
+  border: 1px solid rgba(248, 135, 154, 0.3);
+  color: var(--rose);
+  font-size: 13.5px;
+}
+
+@media (max-width: 720px) {
+  .card {
+    grid-template-columns: 1fr;
+  }
+  .stat + .stat {
+    border-left: 0;
+    border-top: 1px solid var(--line);
+  }
+}
+@media (max-width: 420px) {
+  .stat {
+    padding: 18px 16px;
+  }
+  .value {
+    font-size: 36px;
+  }
+}
+
+/* ---- Embudo ---- */
+.card2 {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 22px 24px;
+}
+.h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+}
+.versions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 16px;
+}
+.vOn,
+.vOff {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  font-variant-numeric: tabular-nums;
+}
+.vOn span,
+.vOff span {
+  font-size: 12px;
+  font-weight: 500;
+  opacity: 0.7;
+}
+.vOn {
+  color: var(--peach-ink);
+  background: var(--peach);
+  border-color: var(--peach);
+}
+.vOff {
+  color: var(--soft);
+}
+.vOff:hover {
+  color: var(--ink);
+  border-color: var(--soft);
+}
+.funnel {
+  list-style: none;
+  margin: 22px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+/* Etiqueta · barra centrada (forma de embudo) · % de los dueños y cuántos
+   se fueron en ese paso. */
+.fRow {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr) 84px;
+  align-items: center;
+  gap: 16px;
+}
+.fLabel {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--soft);
+}
+.fTrack {
+  display: flex;
+  justify-content: center;
+}
+.fBar {
+  height: 34px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #0b1220;
+  font-size: 14px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.fNum {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+.fNum b {
+  font-size: 15px;
+  font-weight: 700;
+}
+.fNum span {
+  font-size: 12px;
+  color: var(--mute);
+}
+@media (max-width: 560px) {
+  .fRow {
+    grid-template-columns: minmax(0, 1fr) 72px;
+    grid-template-areas: "label num" "track track";
+    row-gap: 6px;
+  }
+  .fLabel {
+    grid-area: label;
+  }
+  .fNum {
+    grid-area: num;
+  }
+  .fTrack {
+    grid-area: track;
+  }
+}
+@media (max-width: 420px) {
+  .card2 {
+    padding: 18px 16px;
+  }
+}

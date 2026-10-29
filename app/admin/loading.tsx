@@ -1,25 +1,18 @@
-import s from "./admin.module.css";
+import s from "./new.module.css";
 
-/// Mientras el servidor arma el panel (al cambiar de mes o de día).
+/// Mientras el servidor arma el panel nuevo (sin esto sale el del panel oscuro).
 export default function Loading() {
   return (
     <main className={s.page}>
       <div className={s.wrap}>
         <header className={s.top}>
-          <div className={s.brand}>
-            <img className={s.logo} src="/logo.png" alt="Órale AI" />
-            <div>
-              <h1 className={s.title}>Panel</h1>
-              <p className={s.subtitle}>Cargando…</p>
-            </div>
+          <img className={s.logo} src="/logo.png" alt="Órale AI" />
+          <div>
+            <h1 className={s.title}>Panel</h1>
+            <p className={s.subtitle}>Cargando…</p>
           </div>
         </header>
-        <div className={s.skelRow}>
-          {[0, 1, 2, 3].map((i) => (
-            <div key={i} className={s.skel} style={{ height: 150 }} />
-          ))}
-        </div>
-        <div className={s.skel} style={{ height: 320 }} />
+        <section className={s.card} style={{ height: 136 }} />
       </div>
     </main>
   );

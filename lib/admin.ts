@@ -48,7 +48,7 @@ export function fillAccountKeys(rows: PingRow[]): PingRow[] {
 }
 
 /// Ventas gratis antes de pedir suscripción (subscription_provider.dart).
-export const FREE_ORDER_LIMIT = 10;
+const FREE_ORDER_LIMIT = 10;
 
 export type Install = {
   id: string;
@@ -142,29 +142,129 @@ export function newOwners(installs: Install[], from: string, to: string) {
   );
 }
 
-/// Cómo armaron el menú en la bienvenida y qué pasó después.
-export function menuPaths(list: Install[]) {
-  const m = list.filter((i) => i.stage != null && (i.stage ?? 0) >= 6);
-  const row = (label: string, f: (i: Install) => boolean) => {
-    const g = m.filter(f);
-    return {
-      label,
-      n: g.length,
-      withMenu: g.filter((i) => i.products > 0).length,
-      sold: g.filter((i) => i.orders > 0).length,
-      subscribed: g.filter((i) => i.subscribed).length,
-    };
-  };
+type JourneyStep = {
+  label: string;
+  n: number;
+  hint?: string;
+  /** Necesita días: los que llegaron hace poco todavía no alcanzan. */
+  later?: boolean;
+};
+
+/// El camino de un dueño nuevo: la bienvenida pantalla por pantalla, el
+/// menú, la primera venta y, aparte, lo que necesita tiempo.
+export function journeySteps(list: Install[]): JourneyStep[] {
+  const c = (f: (i: Install) => boolean) => list.filter(f).length;
   return [
-    row("Con IA", (i) => i.menuPath === "ai_saved"),
-    row("Menú de ejemplo", (i) => i.menuPath === "sample"),
-    row("Abrieron la IA, no guardaron", (i) => i.menuPath === "photo_opened"),
-    row(
-      "Se lo saltaron (antes de 3.0.98)",
-      (i) => i.menuPath === "skipped",
-    ),
-    row("Sin dato (no llegaron)", (i) => i.menuPath == null),
+    { label: "Abrieron la app", n: list.length },
+    {
+      label: "Pasaron la primera pregunta",
+      n: c((i) => (i.stage ?? 0) >= 2),
+      hint: "la primera pantalla de la bienvenida",
+    },
+    {
+      label: "Crearon su PIN",
+      n: c((i) => (i.stage ?? 0) >= 6),
+      hint: "preguntas 2 a 5",
+    },
+    {
+      label: "Terminaron la bienvenida",
+      n: c((i) => (i.stage ?? 0) >= 7),
+    },
+    {
+      label: "Tienen menú",
+      n: c((i) => i.products > 0),
+      hint: "IA, a mano o ejemplo",
+    },
+    { label: "Primera venta", n: c((i) => i.orders > 0) },
+    {
+      label: `${FREE_ORDER_LIMIT} ventas`,
+      n: c((i) => i.orders >= FREE_ORDER_LIMIT),
+      hint: "aquí se les pide pagar",
+      later: true,
+    },
+    { label: "Se suscribieron", n: c((i) => i.subscribed), later: true },
   ];
+}
+
+/// El mes [ym] (2026-10) y contra qué se compara: si es el mes en curso, los
+/// mismos días del mes anterior; si ya terminó, el mes anterior completo.
+export function monthWindow(today: string, ym: string) {
+  const [y, m] = ym.split("-").map(Number);
+  const current = ym === today.slice(0, 7);
+  const iso = (yy: number, mm: number, dd: number) =>
+    `${yy}-${String(mm).padStart(2, "0")}-${String(dd).padStart(2, "0")}`;
+  const lastDay = (yy: number, mm: number) =>
+    new Date(Date.UTC(yy, mm, 0)).getUTCDate();
+  const py = m === 1 ? y - 1 : y;
+  const pm = m === 1 ? 12 : m - 1;
+  const name = (yy: number, mm: number) =>
+    new Date(Date.UTC(yy, mm - 1, 15)).toLocaleDateString("es-MX", {
+      month: "long",
+      timeZone: "UTC",
+    });
+  const d = current ? Number(today.slice(8, 10)) : lastDay(y, m);
+  return {
+    current,
+    start: iso(y, m, 1),
+    end: iso(y, m, lastDay(y, m)),
+    /// Último día que ya pasó (o hoy) dentro del mes.
+    to: iso(y, m, d),
+    prevStart: iso(py, pm, 1),
+    prevTo: iso(py, pm, current ? Math.min(d, lastDay(py, pm)) : lastDay(py, pm)),
+    name: name(y, m),
+    prevName: name(py, pm),
+  };
+}
+
+/// Ventas a la semana debajo de las cuales un cliente que paga «vende poco».
+/// 10 a la semana ≈ 20 en 2 semanas: de los que vendían menos de 20, se fue
+/// 60–79% en octubre; de los que vendían 100 o más, 18% (29 oct).
+export const LOW_USE_WEEK = 10;
+
+export type LowUseWeek = { end: string; paying: number; low: number };
+
+/// Por semana (7 días que terminan en [end]): cuántas cuentas que pagan y
+/// cuántas de ellas vendieron menos de [limit] veces. De la más vieja a la
+/// más nueva. Sin cambios de aparato.
+export function lowUseWeeks(
+  rows: PingRow[],
+  end: string,
+  weeks = 8,
+  limit = LOW_USE_WEEK,
+): LowUseWeek[] {
+  const first = dayPlus(end, -7 * weeks + 1);
+  // Ventas del día por cuenta: lo más alto que reportó alguno de sus
+  // aparatos (la caja y el mesero cuentan las mismas ventas).
+  const sold = new Map<string, Map<string, number>>();
+  const paidOn = new Map<string, Set<string>>();
+  for (const r of rows) {
+    if (r.ping_date < first || r.ping_date > end || r.inherited_access) continue;
+    const k = r.account_key ?? r.install_id;
+    let byDay = sold.get(k);
+    if (!byDay) sold.set(k, (byDay = new Map()));
+    byDay.set(r.ping_date, Math.max(byDay.get(r.ping_date) ?? 0, r.orders_today ?? 0));
+    if (r.subscription_active) {
+      let days = paidOn.get(k);
+      if (!days) paidOn.set(k, (days = new Set()));
+      days.add(r.ping_date);
+    }
+  }
+  const out: LowUseWeek[] = [];
+  for (let w = weeks - 1; w >= 0; w--) {
+    const to = dayPlus(end, -7 * w);
+    const from = dayPlus(to, -6);
+    let paying = 0;
+    let low = 0;
+    for (const [k, days] of paidOn) {
+      if (![...days].some((d) => d >= from && d <= to)) continue;
+      paying++;
+      let n = 0;
+      for (const [d, v] of sold.get(k) ?? []) if (d >= from && d <= to) n += v;
+      if (n < limit) low++;
+    }
+    out.push({ end: to, paying, low });
+  }
+  return out;
 }
 
 /// yyyy-mm-dd más N días.
@@ -174,58 +274,17 @@ export function dayPlus(day: string, n: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-/// Días de [from] a [to].
-export function daysBetween(from: string, to: string) {
-  return Math.round(
-    (Date.parse(`${to}T12:00:00Z`) - Date.parse(`${from}T12:00:00Z`)) /
-      86_400_000,
-  );
-}
-
-/// Lo que hizo un negocio contado desde el día que llegó (edad 0), para
-/// comparar grupos a la misma edad.
-export type Aged = {
-  install: Install;
-  /** Un registro por día que abrió la app. */
-  days: { age: number; orders: number; active: boolean }[];
-  /** Edad el día que pagó por primera vez. */
-  paidAge: number | null;
-};
-
-export function byAge(rows: PingRow[], list: Install[]): Aged[] {
-  const map = new Map<string, Aged>(
-    list.map((i) => [i.id, { install: i, days: [], paidAge: null }]),
-  );
-  for (const r of rows) {
-    const a = map.get(r.install_id);
-    if (!a) continue;
-    const age = daysBetween(a.install.firstDay, r.ping_date);
-    a.days.push({
-      age,
-      orders: r.orders_total ?? 0,
-      active: !!r.subscription_active,
-    });
-    const paid = r.subscribed_at
-      ? Math.max(0, daysBetween(a.install.firstDay, r.subscribed_at.slice(0, 10)))
-      : r.subscription_active
-        ? age
-        : null;
-    if (paid != null && (a.paidAge == null || paid < a.paidAge)) a.paidAge = paid;
-  }
-  return [...map.values()];
-}
-
 export const PLATFORMS = ["android", "ios", "windows"] as const;
 
 /// Semana que empieza en lunes (yyyy-mm-dd).
-export function weekStart(day: string): string {
+function weekStart(day: string): string {
   const d = new Date(`${day}T12:00:00Z`);
   const dow = (d.getUTCDay() + 6) % 7;
   d.setUTCDate(d.getUTCDate() - dow);
   return d.toISOString().slice(0, 10);
 }
 
-export type WeekRow = {
+type WeekRow = {
   week: string;
   installs: Record<string, number>;
   subs: Record<string, number>;
@@ -305,7 +364,7 @@ export function mxDay(daysAgo = 0): string {
 
 // ---------------------------------------------------------------- RevenueCat
 
-export type RcOverview =
+type RcOverview =
   | {
       ok: true;
       metrics: { id: string; name: string; value: number; unit?: string }[];
@@ -377,6 +436,67 @@ export async function revenueCatOverview(): Promise<RcOverview> {
   }
 }
 
+export type RcGrowth =
+  | {
+      ok: true;
+      /** Activas el día [from] y hoy. */
+      start: number;
+      now: number;
+      /** Nuevas, las que regresaron y las que se fueron entre [from] y hoy. */
+      added: number;
+      back: number;
+      churned: number;
+      /** Días que van del periodo (para llevar todo a 30 días). */
+      days: number;
+    }
+  | { ok: false; reason: string };
+
+/// Cuántas suscripciones entran y cuántas se van desde [from], según las
+/// gráficas de RevenueCat (actives y actives_movement). Es lo que dice si el
+/// negocio crece: la app solo ve a quien la abre.
+export async function revenueCatGrowth(from: string, to: string): Promise<RcGrowth> {
+  const key = process.env.REVENUECAT_V2_SECRET_KEY;
+  const project = process.env.REVENUECAT_PROJECT_ID;
+  if (!key || !project) return { ok: false, reason: "Falta la llave de RevenueCat." };
+  const base = `https://api.revenuecat.com/v2/projects/${encodeURIComponent(project)}`;
+  const init = { headers: { Authorization: `Bearer ${key}` }, cache: "no-store" as const };
+  type Chart = { measures?: { display_name?: string }[]; values?: { cohort?: number; measure?: number; value?: number }[] };
+  const load = async (chart: string) => {
+    const res = await fetch(
+      `${base}/charts/${chart}?resolution=day&start_date=${from}&end_date=${to}`,
+      init,
+    );
+    if (!res.ok) throw new Error(`${chart}: ${res.status}`);
+    return (await res.json()) as Chart;
+  };
+  try {
+    const [actives, movement] = await Promise.all([load("actives"), load("actives_movement")]);
+    const series = (actives.values ?? [])
+      .filter((v) => (v.measure ?? 0) === 0 && typeof v.value === "number")
+      .sort((a, b) => (a.cohort ?? 0) - (b.cohort ?? 0));
+    // Las medidas por nombre: el orden lo pone RevenueCat.
+    const names = (movement.measures ?? []).map((m) => m.display_name ?? "");
+    const sum = (name: string) => {
+      const i = names.indexOf(name);
+      return (movement.values ?? [])
+        .filter((v) => v.measure === i)
+        .reduce((a, v) => a + (v.value ?? 0), 0);
+    };
+    if (!series.length) return { ok: false, reason: "RevenueCat no mandó activas." };
+    return {
+      ok: true,
+      start: series[0].value as number,
+      now: series[series.length - 1].value as number,
+      added: sum("New Actives"),
+      back: sum("Resubscription Actives"),
+      churned: sum("Churned Actives"),
+      days: series.length,
+    };
+  } catch (e) {
+    return { ok: false, reason: `RevenueCat: ${(e as Error).message}` };
+  }
+}
+
 /// Último valor (el de hoy, aunque el día no haya cerrado) de una gráfica
 /// diaria de RevenueCat, o null si no se pudo leer.
 async function rcChartToday(
@@ -404,18 +524,6 @@ async function rcChartToday(
   }
 }
 
-/// Promedio de primeras suscripciones por semana en las últimas [n] semanas
-/// completas (sin la semana en curso).
-export function avgWeeklySubs(weeks: WeekRow[], n = 4): number {
-  const done = weeks.slice(0, -1).slice(-n);
-  if (done.length === 0) return 0;
-  const total = done.reduce(
-    (sum, w) => sum + Object.values(w.subs).reduce((a, b) => a + b, 0),
-    0,
-  );
-  return total / done.length;
-}
-
 /// Compara versiones tipo 3.0.94 (negativo si a < b).
 export function cmpVersion(a: string, b: string): number {
   const pa = a.split(".").map((x) => parseInt(x, 10) || 0);
@@ -425,16 +533,6 @@ export function cmpVersion(a: string, b: string): number {
     if (d !== 0) return d;
   }
   return 0;
-}
-
-/// La versión más nueva que mandó señales desde [since].
-export function newestVersion(rows: PingRow[], since: string): string | null {
-  let best: string | null = null;
-  for (const r of rows) {
-    if (r.ping_date < since || !r.app_version) continue;
-    if (!best || cmpVersion(r.app_version, best) > 0) best = r.app_version;
-  }
-  return best;
 }
 
 // ---------------------------------------------------------------- Descargas
@@ -519,7 +617,7 @@ function bump(c: Count, platform: string | null) {
 }
 
 /// Primera suscripción por cuenta de tienda (o aparato si no hay cuenta).
-export type FirstSub = {
+type FirstSub = {
   key: string;
   day: string;
   platform: string | null;
@@ -619,35 +717,6 @@ export function dayPulse(
   };
 }
 
-// ---------------------------------------------------------------- Neto
-
-/// Suscripciones activas según la app al cierre de cada semana: cuentas con
-/// plan activo que abrieron la app en los 7 días anteriores. [weeks]
-/// intervalos hacia atrás desde [today] (regresa weeks + 1 puntos).
-export function activeSeries(rows: PingRow[], today: string, weeks = 8) {
-  const cuts: string[] = [];
-  const d = new Date(`${today}T12:00:00Z`);
-  for (let i = 0; i <= weeks; i++) {
-    cuts.unshift(d.toISOString().slice(0, 10));
-    d.setUTCDate(d.getUTCDate() - 7);
-  }
-  const sets = cuts.map(() => new Set<string>());
-  const minus7 = cuts.map((c) => {
-    const x = new Date(`${c}T12:00:00Z`);
-    x.setUTCDate(x.getUTCDate() - 7);
-    return x.toISOString().slice(0, 10);
-  });
-  for (const r of rows) {
-    if (!r.subscription_active) continue;
-    for (let i = 0; i < cuts.length; i++) {
-      if (r.ping_date > minus7[i] && r.ping_date <= cuts[i]) {
-        sets[i].add(r.account_key ?? r.install_id);
-      }
-    }
-  }
-  return cuts.map((day, i) => ({ day, n: sets[i].size }));
-}
-
 /// Plan de cada cuenta con suscripción activa vista en los últimos 7 días
 /// (su último plan reportado).
 export function planMix(rows: PingRow[], since: string) {
@@ -664,405 +733,4 @@ export function planMix(rows: PingRow[], since: string) {
   const counts: Record<string, number> = {};
   for (const { plan } of last.values()) counts[plan] = (counts[plan] ?? 0) + 1;
   return counts;
-}
-
-// ---------------------------------------------------------------- Retención
-
-export type RetRow = { label: string; n: number; gone: number };
-
-/// ¿Quién se queda? Toma las cuentas que pagaban en [baseFrom, baseTo] y ve
-/// cuáles siguen con plan activo desde [stayFrom] (en cualquiera de sus
-/// aparatos). Las agrupa por cómo usaban la app en esas 2 semanas.
-/// "Se fue" = dejó de abrir la app con plan activo; casi siempre termina en
-/// cancelación, pero no es la cancelación confirmada por la tienda.
-export function retention(
-  rows: PingRow[],
-  baseFrom: string,
-  baseTo: string,
-  stayFrom: string,
-) {
-  type Acc = {
-    days: Set<string>;
-    orders: number;
-    products: number;
-    plan: string | null;
-    planDay: string;
-    platform: string | null;
-    paid: boolean;
-    inherited: boolean;
-  };
-  const accs = new Map<string, Acc>();
-  const installsOf = new Map<string, Set<string>>();
-  for (const r of rows) {
-    if (r.ping_date < baseFrom || r.ping_date > baseTo) continue;
-    const k = r.account_key ?? r.install_id;
-    let a = accs.get(k);
-    if (!a) {
-      a = {
-        days: new Set(),
-        orders: 0,
-        products: 0,
-        plan: null,
-        planDay: "",
-        platform: null,
-        paid: false,
-        inherited: false,
-      };
-      accs.set(k, a);
-    }
-    a.days.add(r.ping_date);
-    a.orders += r.orders_today ?? 0;
-    a.products = Math.max(a.products, r.product_count ?? 0);
-    a.platform = r.platform ?? a.platform;
-    if (r.inherited_access) a.inherited = true;
-    if (r.subscription_active) {
-      a.paid = true;
-      if (r.plan && r.ping_date >= a.planDay) {
-        a.plan = r.plan;
-        a.planDay = r.ping_date;
-      }
-    }
-  }
-  const base = new Map([...accs].filter(([, a]) => a.paid && !a.inherited));
-  // Aparatos de cada cuenta (para no contar como baja a quien solo cambió
-  // de identidad, p. ej. inició sesión y ahora reporta con su cuenta).
-  for (const r of rows) {
-    const k = r.account_key ?? r.install_id;
-    if (!base.has(k)) continue;
-    let set = installsOf.get(r.install_id);
-    if (!set) installsOf.set(r.install_id, (set = new Set()));
-    set.add(k);
-  }
-  const stayed = new Set<string>();
-  for (const r of rows) {
-    if (r.ping_date < stayFrom || !r.subscription_active) continue;
-    for (const k of installsOf.get(r.install_id) ?? []) stayed.add(k);
-    const own = r.account_key ?? r.install_id;
-    if (base.has(own)) stayed.add(own);
-  }
-
-  const groups: { title: string; rows: RetRow[] }[] = [
-    { title: "Cuántos días abren la app (de cada 14)", rows: [] },
-    { title: "Cuánto venden en 2 semanas", rows: [] },
-    { title: "Qué plan tienen", rows: [] },
-    { title: "Cuántos productos tiene su menú", rows: [] },
-    { title: "Dónde la usan", rows: [] },
-  ];
-  const bucket = (g: number, label: string, gone: boolean) => {
-    let row = groups[g].rows.find((x) => x.label === label);
-    if (!row) groups[g].rows.push((row = { label, n: 0, gone: 0 }));
-    row.n++;
-    if (gone) row.gone++;
-  };
-  const order: Record<string, number> = {};
-  const total = { n: 0, gone: 0 };
-  for (const [k, a] of base) {
-    const gone = !stayed.has(k);
-    total.n++;
-    if (gone) total.gone++;
-    const d = a.days.size;
-    bucket(
-      0,
-      d >= 10 ? "10 días o más" : d >= 5 ? "5 a 9 días" : "Menos de 5",
-      gone,
-    );
-    bucket(
-      1,
-      a.orders >= 100
-        ? "100 ventas o más"
-        : a.orders >= 20
-          ? "20 a 99"
-          : "Menos de 20",
-      gone,
-    );
-    const plan = a.plan ?? "";
-    const pro = plan.startsWith("pro");
-    const yearly = plan.endsWith("yearly");
-    bucket(
-      2,
-      pro
-        ? yearly
-          ? "Pro anual"
-          : "Pro mensual"
-        : yearly
-          ? "Anual"
-          : "Mensual",
-      gone,
-    );
-    bucket(
-      3,
-      a.products >= 40
-        ? "40 o más"
-        : a.products >= 15
-          ? "15 a 39"
-          : "Menos de 15",
-      gone,
-    );
-    const p = a.platform ?? "?";
-    if ((PLATFORMS as readonly string[]).includes(p)) {
-      bucket(
-        4,
-        p === "ios" ? "iOS" : p === "android" ? "Android" : "Windows",
-        gone,
-      );
-    }
-  }
-  // Orden fijo para que siempre se lean igual (de mejor a peor uso).
-  const ORDER = [
-    "10 días o más",
-    "5 a 9 días",
-    "Menos de 5",
-    "100 ventas o más",
-    "20 a 99",
-    "Menos de 20",
-    "Mensual",
-    "Anual",
-    "Pro mensual",
-    "Pro anual",
-    "40 o más",
-    "15 a 39",
-    "Menos de 15",
-    "Android",
-    "iOS",
-    "Windows",
-  ];
-  ORDER.forEach((l, i) => (order[l] = i));
-  for (const g of groups)
-    g.rows.sort((x, y) => order[x.label] - order[y.label]);
-  return { total, groups };
-}
-
-// ---------------------------------------------------------------- Bajas
-
-export type LostAccount = {
-  key: string;
-  platform: string | null;
-  plan: string | null;
-  version: string | null;
-  firstPaid: string;
-  lastPaid: string;
-  /** Ventas en sus últimos 14 días con plan. */
-  recentSales: number;
-  /** Siguió abriendo la app después de quedarse sin plan. */
-  stillOpens: boolean;
-  installIds: string[];
-};
-
-/// Cuentas que tuvieron plan y lo dejaron de tener: su último día con plan
-/// cae en los últimos [windowDays] y en los últimos [quietDays] ya no aparece
-/// con plan en ninguno de sus aparatos (una semana: hay quien no abre la app
-/// a diario). Aproximado (sale de la app, sin motivo):
-/// el motivo exacto llega con el webhook de RevenueCat.
-export function recentLost(
-  rows: PingRow[],
-  today: string,
-  windowDays = 28,
-  quietDays = 7,
-): LostAccount[] {
-  const shift = (n: number) => {
-    const d = new Date(`${today}T12:00:00Z`);
-    d.setUTCDate(d.getUTCDate() - n);
-    return d.toISOString().slice(0, 10);
-  };
-  const from = shift(windowDays);
-  const quietSince = shift(quietDays - 1);
-  type Acc = {
-    first: string;
-    last: string;
-    lastSeen: string;
-    plan: string | null;
-    platform: string | null;
-    version: string | null;
-    inherited: boolean;
-    installs: Set<string>;
-  };
-  const accs = new Map<string, Acc>();
-  for (const r of rows) {
-    const k = r.account_key ?? r.install_id;
-    let a = accs.get(k);
-    if (!a) {
-      a = {
-        first: "",
-        last: "",
-        lastSeen: r.ping_date,
-        plan: null,
-        platform: null,
-        version: null,
-        inherited: false,
-        installs: new Set(),
-      };
-      accs.set(k, a);
-    }
-    a.installs.add(r.install_id);
-    if (r.ping_date > a.lastSeen) a.lastSeen = r.ping_date;
-    if (r.inherited_access) a.inherited = true;
-    if (r.subscription_active) {
-      if (!a.first || r.ping_date < a.first) a.first = r.ping_date;
-      if (r.ping_date >= a.last) {
-        a.last = r.ping_date;
-        a.plan = r.plan ?? a.plan;
-        a.platform = r.platform ?? a.platform;
-        a.version = r.app_version ?? a.version;
-      }
-    }
-  }
-  // Último día con plan de cada aparato: si el aparato sigue con plan bajo
-  // otra cuenta (inició sesión), no es una baja.
-  const lastPaidByInstall = new Map<string, string>();
-  for (const r of rows) {
-    if (!r.subscription_active) continue;
-    const prev = lastPaidByInstall.get(r.install_id);
-    if (!prev || r.ping_date > prev)
-      lastPaidByInstall.set(r.install_id, r.ping_date);
-  }
-  const lost: LostAccount[] = [];
-  for (const [key, a] of accs) {
-    if (!a.last || a.inherited) continue;
-    if (a.last < from || a.last >= quietSince) continue;
-    const switched = [...a.installs].some(
-      (i) => (lastPaidByInstall.get(i) ?? "") > a.last,
-    );
-    if (switched) continue;
-    lost.push({
-      key,
-      platform: a.platform,
-      plan: a.plan,
-      version: a.version,
-      firstPaid: a.first,
-      lastPaid: a.last,
-      recentSales: 0,
-      stillOpens: a.lastSeen > a.last,
-      installIds: [...a.installs],
-    });
-  }
-  // Ventas de sus últimos 14 días con plan.
-  const byKey = new Map(lost.map((l) => [l.key, l]));
-  for (const r of rows) {
-    const l = byKey.get(r.account_key ?? r.install_id);
-    if (!l || r.ping_date > l.lastPaid) continue;
-    const d = new Date(`${l.lastPaid}T12:00:00Z`);
-    d.setUTCDate(d.getUTCDate() - 13);
-    if (r.ping_date >= d.toISOString().slice(0, 10)) {
-      l.recentSales += r.orders_today ?? 0;
-    }
-  }
-  return lost.sort((x, y) => y.lastPaid.localeCompare(x.lastPaid));
-}
-
-export type RiskAccount = {
-  key: string;
-  platform: string | null;
-  plan: string | null;
-  version: string | null;
-  /** Último día que la caja abrió la app (con plan activo). */
-  lastSeen: string;
-  /** Días completos sin abrir la app. */
-  quietDays: number;
-  /** Ventas por día que abrió, en sus 14 días antes de dejar de abrir. */
-  avgDaily: number;
-  /** De esos 14 días, cuántos abrió la app. */
-  activeDays: number;
-  installIds: string[];
-};
-
-/// Cuentas que HOY todavía pagan pero dejaron de abrir la app hace
-/// [minQuiet]–[maxQuiet] días. Es la señal que llega antes de la baja: el 81%
-/// de los que se van primero dejan de abrir. A partir de [maxQuiet]+1 ya salen
-/// en «Dejaron de tener plan» (ver [recentLost]).
-///
-/// Solo cuenta la caja (los meseros no pagan) y salta accesos heredados
-/// (transferencias): ese aparato no es quien paga.
-export function atRisk(
-  rows: PingRow[],
-  today: string,
-  minQuiet = 3,
-  maxQuiet = 6,
-  minActiveDays = 7,
-): RiskAccount[] {
-  type Acc = {
-    lastSeen: string;
-    paidOnLast: boolean;
-    inherited: boolean;
-    plan: string | null;
-    platform: string | null;
-    version: string | null;
-    installs: Set<string>;
-  };
-  const accs = new Map<string, Acc>();
-  for (const r of rows) {
-    if (r.is_caja === false) continue;
-    const k = r.account_key ?? r.install_id;
-    let a = accs.get(k);
-    if (!a) {
-      a = {
-        lastSeen: "",
-        paidOnLast: false,
-        inherited: false,
-        plan: null,
-        platform: null,
-        version: null,
-        installs: new Set(),
-      };
-      accs.set(k, a);
-    }
-    a.installs.add(r.install_id);
-    if (r.inherited_access) a.inherited = true;
-    if (r.ping_date > a.lastSeen) {
-      a.lastSeen = r.ping_date;
-      a.paidOnLast = !!r.subscription_active;
-      a.plan = r.plan ?? a.plan;
-      a.platform = r.platform ?? a.platform;
-      a.version = r.app_version ?? a.version;
-    } else if (r.ping_date === a.lastSeen && r.subscription_active) {
-      a.paidOnLast = true;
-      a.plan = r.plan ?? a.plan;
-    }
-  }
-  const dayMs = 86_400_000;
-  const todayMs = Date.parse(`${today}T12:00:00Z`);
-  const out: RiskAccount[] = [];
-  for (const [key, a] of accs) {
-    if (!a.lastSeen || !a.paidOnLast || a.inherited) continue;
-    const quiet = Math.round(
-      (todayMs - Date.parse(`${a.lastSeen}T12:00:00Z`)) / dayMs,
-    );
-    if (quiet < minQuiet || quiet > maxQuiet) continue;
-    out.push({
-      key,
-      platform: a.platform,
-      plan: a.plan,
-      version: a.version,
-      lastSeen: a.lastSeen,
-      quietDays: quiet,
-      avgDaily: 0,
-      activeDays: 0,
-      installIds: [...a.installs],
-    });
-  }
-  // Ventas por día abierto en sus últimos 14 días: quién vendía más pesa más.
-  const byKey = new Map(out.map((r) => [r.key, r]));
-  const days = new Map<string, Set<string>>();
-  const sales = new Map<string, number>();
-  for (const r of rows) {
-    if (r.is_caja === false) continue;
-    const k = r.account_key ?? r.install_id;
-    const acc = byKey.get(k);
-    if (!acc) continue;
-    const from = new Date(`${acc.lastSeen}T12:00:00Z`);
-    from.setUTCDate(from.getUTCDate() - 13);
-    if (r.ping_date < from.toISOString().slice(0, 10)) continue;
-    if (!days.has(k)) days.set(k, new Set());
-    days.get(k)!.add(r.ping_date);
-    sales.set(k, (sales.get(k) ?? 0) + (r.orders_today ?? 0));
-  }
-  for (const acc of out) {
-    const n = days.get(acc.key)?.size ?? 0;
-    acc.activeDays = n;
-    acc.avgDaily = n ? Math.round((sales.get(acc.key) ?? 0) / n) : 0;
-  }
-  // Solo quien abría casi diario: un negocio de fin de semana pasa días sin
-  // abrir y no está en riesgo. Primero a quien más vendía.
-  return out
-    .filter((r) => r.activeDays >= minActiveDays)
-    .sort((x, y) => y.avgDaily - x.avgDaily || x.quietDays - y.quietDays);
 }
