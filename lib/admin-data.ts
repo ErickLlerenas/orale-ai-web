@@ -19,7 +19,7 @@ import {
   type StripeSub,
 } from "@/lib/admin-subscribers";
 
-/// Lo que piden los paneles (/admin y /admin/new) y comparten caché.
+/// Lo que pide el panel (/admin), con caché compartida.
 
 type Db = ReturnType<typeof adminClient>;
 
