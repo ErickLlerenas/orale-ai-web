@@ -23,6 +23,7 @@ import {
 import {
   enrichSubscriberTenure,
   type BillingAlias,
+  type InstallPurchase,
   type NewSub,
 } from "@/lib/admin-subscribers";
 import { tenureLabel } from "@/lib/admin-tenure";
@@ -30,6 +31,7 @@ import { fetchAll } from "@/lib/supabase";
 import {
   businessNames,
   cancelReasons,
+  chunks,
   planChurn,
   memo,
   storeNewSubs,
@@ -198,7 +200,13 @@ async function whoSubscribed(supabase: ReturnType<typeof adminClient>, subs: New
           .order("key_hash"),
       )
     : { data: [] as BillingAlias[] };
-  const list = enrichSubscriberTenure(subs, rows, aliases.data);
+  const purchaseIds = customerIds.filter((id) => id.startsWith("orale_purchase_"));
+  const purchases = (await Promise.all(
+    chunks(purchaseIds).map((part) =>
+      supabase.from("install_profiles").select("install_id, purchase_id").in("purchase_id", part),
+    ),
+  )).flatMap((r) => (r.data ?? []) as InstallPurchase[]);
+  const list = enrichSubscriberTenure(subs, rows, aliases.data, purchases);
   const names = await businessNames(
     supabase,
     list.map((x) => ({ key: x.key, installIds: x.installIds ?? [] })),
@@ -233,11 +241,10 @@ function SubsList({ list, names }: { list: NewSub[]; names: Map<string, string> 
                       ? s.ageWeeks
                       : s.ageOld
               }
-              title={x.guessed ? "Probable: el único aparato Android que contrató ese plan ese día" : undefined}
             >
               {x.tenure == null
                 ? "sin identificar"
-                : `${x.guessed ? "~" : ""}${x.tenure === 0 ? "nuevo" : tenureLabel(x.tenure)}`}
+                : x.tenure === 0 ? "nuevo" : tenureLabel(x.tenure)}
             </span>
           </li>
         );
