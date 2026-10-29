@@ -34,7 +34,8 @@ export async function middleware(req: NextRequest) {
   }
   if (!pathname.startsWith("/admin")) return NextResponse.next();
   const adminResponse = () => {
-    if (pathname === "/admin2" || pathname === "/admin2/") {
+    // /admin/new ya es /admin: los enlaces guardados siguen llegando.
+    if (["/admin2", "/admin2/", "/admin/new", "/admin/new/"].includes(pathname)) {
       const url = req.nextUrl.clone();
       url.pathname = "/admin";
       return NextResponse.redirect(url, 308);
@@ -45,7 +46,7 @@ export async function middleware(req: NextRequest) {
   // NODE_ENV y la marca son del proceso: un Host o una URL no bastan.
   // La excepción es solo para las páginas; no abre posibles APIs admin.
   const localHost = /^(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/i;
-  const localPage = ["/admin", "/admin/", "/admin2", "/admin2/"].includes(pathname);
+  const localPage = ["/admin", "/admin/", "/admin2", "/admin2/", "/admin/new", "/admin/new/"].includes(pathname);
   if (
     process.env.NODE_ENV === "development" &&
     process.env.ORALE_LOCAL_ADMIN === "1" &&
