@@ -124,7 +124,7 @@ export async function storeNewSubs(
   const [rc, st] = await Promise.all([
     fetchAll<StoreEvent>(
       supabase.from("revenuecat_events")
-        .select("id, type, store, product_id, period_type, event_at, original_transaction_id, app_user_id, original_app_user_id, raw")
+        .select("id, type, store, product_id, period_type, event_at, original_transaction_id, app_user_id, original_app_user_id, customer_id, raw")
         .eq("environment", "PRODUCTION")
         .in("type", ["INITIAL_PURCHASE", "RENEWAL"])
         .gte("event_at", since)

@@ -14,8 +14,6 @@ export type NewSub = {
   customerIds?: string[];
   tenure?: number | null;
   matchedInstallId?: string;
-  /** La antigüedad salió por día y plan, no por la compra (ver abajo). */
-  guessed?: boolean;
 };
 
 export type StoreEvent = {
@@ -28,6 +26,9 @@ export type StoreEvent = {
   original_transaction_id: string | null;
   app_user_id: string | null;
   original_app_user_id: string | null;
+  /** La compra verificada dueña del aviso, aunque RevenueCat lo mande con un
+   * cliente anónimo (servidor, 20261029120000_rc_event_owner). */
+  customer_id: string | null;
   raw: { is_trial_conversion?: boolean; aliases?: string[] } | null;
 };
 
@@ -44,6 +45,9 @@ const hash = (value: string) => createHash("sha256").update(value).digest("hex")
 
 export type BillingAlias = { key_hash: string; customer_id: string };
 
+/** La compra que cada aparato reporta en su informe diario (install_profiles). */
+export type InstallPurchase = { install_id: string; purchase_id: string };
+
 /** Solo se usa para agrupar los eventos de la tienda en días de México. */
 function mxDateOf(iso: string | null): string | null {
   if (!iso || !Number.isFinite(Date.parse(iso))) return null;
@@ -56,8 +60,10 @@ export function revenueCatSub(event: StoreEvent): NewSub | null {
   const day = mxDateOf(event.event_at);
   if (!day) return null;
   const product = (event.product_id ?? "").split(":")[0];
-  const customerIds = [event.original_app_user_id, event.app_user_id, ...(event.raw?.aliases ?? [])]
-    .filter((id): id is string => typeof id === "string" && id.length > 0);
+  const customerIds = [...new Set(
+    [event.customer_id, event.original_app_user_id, event.app_user_id, ...(event.raw?.aliases ?? [])]
+      .filter((id): id is string => typeof id === "string" && id.length > 0),
+  )];
   return {
     key: customerIds[0] ?? `rc:${event.id}`,
     day,
@@ -83,10 +89,12 @@ export function stripeSub(row: StripeSub): NewSub | null {
 
 /** Vincula compras con la MISMA fila de uso que alimenta la tabla Usuarios.
  * No calcula fechas de registro ni antigüedad al pagar: conserva days_since_install.
- * Solo une IDs exactos o alias verificados, nunca por nombre, plan o fecha.
+ * Solo une IDs exactos o alias verificados, nunca por nombre, plan o fecha:
+ * una compra que no se puede unir queda «sin identificar».
  */
 export function enrichSubscriberTenure(
   subs: NewSub[], rows: PingRow[], billingAliases: BillingAlias[] = [],
+  purchases: InstallPurchase[] = [],
 ): NewSub[] {
   const byIdentity = new Map<string, PingRow[]>();
   const customersByAlias = new Map(billingAliases.map((a) => [a.key_hash, a.customer_id]));
@@ -108,55 +116,38 @@ export function enrichSubscriberTenure(
       byIdentity.get(id)!.push(row);
     }
   }
-  const linked = subs.map((sub) => {
+  // Una compra anónima no manda su llave en el informe diario, pero el
+  // aparato sí reporta su compra en cuanto el servidor la verifica.
+  for (const p of purchases) {
+    const own = byIdentity.get(p.install_id);
+    if (!own) continue;
+    if (!byIdentity.has(p.purchase_id)) byIdentity.set(p.purchase_id, []);
+    byIdentity.get(p.purchase_id)!.push(...own);
+  }
+  return subs.map((sub) => {
     const ids = [sub.key, ...(sub.customerIds ?? []), ...(sub.accountKeys ?? []), ...(sub.installIds ?? [])];
     const linked = [...new Set(ids.flatMap((id) => byIdentity.get(id) ?? []))];
     // El account_key puede cambiar al cambiar de compra/plan. Una vez resuelto
     // el dispositivo, usa TODO su historial, como la tabla de usuarios.
     const installIds = [...new Set(linked.map((r) => r.install_id))];
-    const matches = installIds.flatMap((id) => byIdentity.get(id) ?? [])
-      .filter((r) => r.is_caja !== false && r.ping_date <= sub.day)
-      .sort((a, b) => b.ping_date.localeCompare(a.ping_date) || (b.updated_at ?? "").localeCompare(a.updated_at ?? ""));
-    const latest = matches[0];
-    const tenure = latest?.days_since_install;
+    // El último informe de cada aparato hasta el día de la compra. Con varios
+    // aparatos en la misma compra cuenta el más viejo: lo que el negocio
+    // lleva usando Órale, no lo que lleva el celular nuevo.
+    let oldest: PingRow | undefined;
+    for (const id of installIds) {
+      const latest = (byIdentity.get(id) ?? [])
+        .filter((r) => r.install_id === id && r.is_caja !== false && r.ping_date <= sub.day)
+        .sort((a, b) => b.ping_date.localeCompare(a.ping_date) || (b.updated_at ?? "").localeCompare(a.updated_at ?? ""))[0];
+      const days = latest?.days_since_install;
+      if (latest && days != null && Number.isSafeInteger(days) && days >= 0 &&
+          (oldest?.days_since_install == null || days > oldest.days_since_install)) {
+        oldest = latest;
+      }
+    }
     return {
       ...sub, installIds,
-      matchedInstallId: latest?.install_id,
-      tenure: tenure != null && Number.isSafeInteger(tenure) && tenure >= 0 ? tenure : null,
+      matchedInstallId: oldest?.install_id,
+      tenure: oldest?.days_since_install ?? null,
     };
   });
-  return linked.map((sub) => guessTenure(sub, linked, rows));
-}
-
-/// Compras de Android que RevenueCat dejó anónimas: no traen nada que las una
-/// al aparato. Si ese día UN solo aparato Android empezó a reportar ese plan
-/// (y no es de otra compra ya unida), es ese. Con dos o más se deja sin dato.
-function guessTenure(sub: NewSub, all: NewSub[], rows: PingRow[]): NewSub {
-  const anonymous = sub.customerIds?.some((id) => id.startsWith("$RCAnonymousID"));
-  if (sub.matchedInstallId || !anonymous || sub.platform !== "android" || !sub.plan) {
-    return sub;
-  }
-  const taken = new Set(all.map((x) => x.matchedInstallId).filter(Boolean));
-  const candidates = new Map<string, PingRow>();
-  for (const r of rows) {
-    if (
-      r.platform === "android" && r.is_caja !== false && r.plan === sub.plan &&
-      r.subscribed_at === sub.day && r.ping_date >= sub.day && !taken.has(r.install_id)
-    ) {
-      const prev = candidates.get(r.install_id);
-      // La fila del día de la compra (o la primera después).
-      if (!prev || r.ping_date < prev.ping_date) candidates.set(r.install_id, r);
-    }
-  }
-  if (candidates.size !== 1) return sub;
-  const [row] = candidates.values();
-  const tenure = row.days_since_install;
-  if (tenure == null || !Number.isSafeInteger(tenure) || tenure < 0) return sub;
-  return {
-    ...sub,
-    installIds: [row.install_id],
-    matchedInstallId: row.install_id,
-    tenure,
-    guessed: true,
-  };
 }
