@@ -127,10 +127,9 @@ function request(path = "/admin", host = "localhost:3000", headers = {}) {
 test("solo el modo local explícito de desarrollo permite el panel sin clave", async () => {
   const middleware = middlewareFor({ NODE_ENV: "development", ORALE_LOCAL_ADMIN: "1" });
   assert.equal((await middleware(request())).status, 200);
-  const redirect = await middleware(request("/admin2?month=2026-10"));
-  assert.equal(redirect.status, 308);
-  assert.equal(new URL(redirect.headers.get("location")).pathname, "/admin");
-  assert.equal(new URL(redirect.headers.get("location")).search, "?month=2026-10");
+  // Solo existe /admin: los paneles viejos ya no se abren sin clave ni redirigen.
+  assert.equal((await middleware(request("/admin2"))).status, 401);
+  assert.equal((await middleware(request("/admin/new"))).status, 401);
   assert.equal((await middleware(request("/admin/api/example"))).status, 401);
   assert.equal((await middleware(request("/admin", "public.example"))).status, 401);
 });
@@ -143,14 +142,14 @@ test("producción, Vercel y desarrollo normal mantienen autenticación pese al H
     { NODE_ENV: "development", ORALE_LOCAL_ADMIN: "1", VERCEL: "1" },
   ]) {
     const middleware = middlewareFor(env);
-    for (const path of ["/admin?ORALE_LOCAL_ADMIN=1", "/admin2", "/admin/api/example"]) {
+    for (const path of ["/admin?ORALE_LOCAL_ADMIN=1", "/admin2", "/admin/new", "/admin/api/example"]) {
       const response = await middleware(request(path));
       assert.equal(response.status, 401);
       assert.match(response.headers.get("www-authenticate"), /Basic/);
     }
     const headers = { authorization: `Basic ${Buffer.from("admin:test-password").toString("base64")}` };
     assert.equal((await middleware(request("/admin", "localhost:3000", headers))).status, 200);
-    assert.equal((await middleware(request("/admin2", "localhost:3000", headers))).status, 308);
+    assert.equal((await middleware(request("/admin2", "localhost:3000", headers))).headers.get("location"), null);
     assert.equal((await middleware(request("/admin", "localhost:3000", { authorization: "Basic ???" }))).status, 401);
   }
 });

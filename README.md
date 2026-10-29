@@ -74,7 +74,7 @@ npm run dev
 por env). Es suficiente para un solo dueño. Si más adelante quieres algo más
 robusto, se puede cambiar a Supabase Auth.
 
-Es el único panel: los enlaces antiguos a `/admin2` redirigen a `/admin`.
+Es el único panel: `/admin2` y `/admin/new` ya no existen.
 Para verlo sin credenciales en localhost: `npm run dev:admin`. Este modo de
 desarrollo escucha solo en `127.0.0.1`; la excepción requiere además una marca
 del proceso y una URL local. `npm run dev` conserva el acceso desde la red con

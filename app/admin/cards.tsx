@@ -25,7 +25,7 @@ import {
 import type { adminClient } from "@/lib/supabase";
 import s from "./admin.module.css";
 
-/// Tarjetas que usan /admin y /admin/new: descargas y suscripciones del mes,
+/// Tarjetas de /admin: descargas y suscripciones del mes,
 /// suscripciones (RevenueCat) y la meta de 1,000. Los colores salen de las
 /// variables de cada página.
 
