@@ -27,6 +27,8 @@ const {
   promotionActive,
   promotionLabel,
   promotionConditions,
+  storeHours,
+  opensLabel,
 } = createRequire(
   import.meta.url,
 )(file);
@@ -390,4 +392,39 @@ test("offer labels explain bundles, selected products, extras and schedule befor
     promotionLabel({ ...p, fixedPriceCents: undefined, pay: 1 }),
     "2x1",
   );
+});
+
+// Horario del menú en línea (30 oct). -360 = hora del centro; 2026-10-12 es lunes.
+test("horario: abierto, cerrado y cuándo vuelve a abrir, también de noche", () => {
+  const c = catalog();
+  assert.deepEqual(storeHours(c, new Date("2026-10-12T03:00:00Z")), { open: true, closesAt: null });
+  const off = { open: false };
+  // Lunes 13:00–22:00; martes cerrado; miércoles 19:00–02:00; jueves 24 h.
+  c.hours = [
+    { open: true, from: 780, to: 1320 },
+    off,
+    { open: true, from: 1140, to: 120 },
+    { open: true, from: 0, to: 0 },
+    off,
+    off,
+    off,
+  ];
+  const at = (iso) => storeHours(c, new Date(iso));
+  // Lunes 12:59 → abre hoy a la 1:00 p.m.
+  const early = at("2026-10-12T18:59:00Z");
+  assert.deepEqual(early, { open: false, opensIn: 0, opensAt: 780 });
+  assert.equal(opensLabel(c, early, new Date("2026-10-12T18:59:00Z")), "Abre hoy a la 1:00 p.m.");
+  assert.deepEqual(at("2026-10-12T19:00:00Z"), { open: true, closesAt: 1320 });
+  // Lunes 22:00 → cerrado; martes cerrado → abre el miércoles a las 7:00 p.m.
+  const late = at("2026-10-13T04:00:00Z");
+  assert.deepEqual(late, { open: false, opensIn: 2, opensAt: 1140 });
+  assert.equal(opensLabel(c, late, new Date("2026-10-13T04:00:00Z")), "Abre el miércoles a las 7:00 p.m.");
+  // Miércoles 23:30 abierto; jueves 1:30 a.m. sigue abierto por lo de anoche.
+  assert.deepEqual(at("2026-10-15T05:30:00Z"), { open: true, closesAt: 120 });
+  assert.deepEqual(at("2026-10-15T07:30:00Z"), { open: true, closesAt: 120 });
+  // Jueves todo el día; viernes cerrado → abre el lunes, en 3 días.
+  assert.deepEqual(at("2026-10-15T20:00:00Z"), { open: true, closesAt: null });
+  const weekend = at("2026-10-17T18:00:00Z");
+  assert.deepEqual(weekend, { open: false, opensIn: 2, opensAt: 780 });
+  assert.equal(opensLabel(c, weekend, new Date("2026-10-17T18:00:00Z")), "Abre el lunes a la 1:00 p.m.");
 });

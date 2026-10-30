@@ -2,7 +2,7 @@ import "server-only";
 import { createHash } from "node:crypto";
 import { adminClient } from "@/lib/supabase";
 import { MenuError } from "./server";
-import { quoteCart, whatsappOrder } from "./cart";
+import { opensLabel, quoteCart, storeHours, whatsappOrder } from "./cart";
 import { siteUrl } from "@/lib/seo";
 import type { Menu, CartLine, Checkout } from "./types";
 
@@ -19,6 +19,13 @@ export async function storeOrder(slug: string, menu: Menu, lines: CartLine[], ch
   }
   // Validation and prices always come from the current server catalogue.
   const now = new Date();
+  // Fuera del horario que puso el dueño no entra nada, aunque la página
+  // estuviera abierta desde antes.
+  const hours = storeHours(menu.catalog, now);
+  if (!hours.open) {
+    // La hora ya termina en «a.m.»/«p.m.»: sin otro punto.
+    throw new MenuError(`El negocio está cerrado. ${opensLabel(menu.catalog, hours, now)}`, 409);
+  }
   whatsappOrder(menu.catalog, lines, checkout, now);
   const q = quoteCart(menu.catalog, lines, now);
   const payload = {

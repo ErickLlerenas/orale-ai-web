@@ -10,6 +10,9 @@ import {
   promotionLabel,
   promotionConditions,
   promotionSchedule,
+  clock12,
+  opensLabel,
+  storeHours,
 } from "@/lib/online/cart";
 import styles from "./storefront.module.css";
 
@@ -64,6 +67,13 @@ const deliveryIcon = (
     <path d="M8 18h8.5L13 4" />
     <path d="M11 4h4" />
     <path d="M3 13.5h7l1.5 4.5" />
+  </svg>
+);
+
+const clockIcon = (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 7v5l3 2" />
   </svg>
 );
 
@@ -390,6 +400,10 @@ export default function Storefront({
     document.addEventListener("visibilitychange", refresh);
     return () => { window.clearInterval(timer); document.removeEventListener("visibilitychange", refresh); };
   }, []);
+  // Horario del dueño. Sin hora del cliente todavía (render del servidor) se
+  // toma como abierto: el servidor igual rechaza un pedido fuera de horario.
+  const hours = now ? storeHours(catalog, now) : null;
+  const closedText = hours && !hours.open && now ? opensLabel(catalog, hours, now) : null;
   // A menu without photos reads better as a dense list than as a column of
   // empty frames. Decided for the whole menu so rows keep one rhythm.
   const anyPhoto = catalog.products.some((p) => p.image);
@@ -540,6 +554,18 @@ export default function Storefront({
               ? "Envío a domicilio"
               : "Solo para recoger"}
           </span>
+          {catalog.hours && hours ? (
+            <span className={hours.open ? styles.infoChip : `${styles.infoChip} ${styles.closedChip}`}>
+              {clockIcon}
+              <span>
+                {hours.open
+                  ? hours.closesAt == null
+                    ? "Abierto todo el día"
+                    : `Abierto · Cierra a la${clock12(hours.closesAt).startsWith("1:") ? "" : "s"} ${clock12(hours.closesAt)}`
+                  : `Cerrado · ${closedText}`}
+              </span>
+            </span>
+          ) : null}
         </div>
       </header>
       <nav className={styles.categories} aria-label="Categorías" ref={categoryBar}>
@@ -833,6 +859,11 @@ export default function Storefront({
                     {error}
                   </p>
                 )}
+                {closedText && !preview ? (
+                  <p className={styles.error} role="status">
+                    El negocio está cerrado. {closedText}
+                  </p>
+                ) : null}
                 {whatsapp ? (
                   <a className={styles.whatsapp} href={whatsapp}>
                     Abrir WhatsApp y enviar pedido
@@ -841,7 +872,7 @@ export default function Storefront({
                   <button
                     className={styles.primary}
                     type="submit"
-                    disabled={busy || !!cartError}
+                    disabled={busy || !!cartError || (!!closedText && !preview)}
                   >
                     {busy
                       ? "Revisando disponibilidad…"
