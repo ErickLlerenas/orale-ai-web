@@ -270,19 +270,21 @@ export function PlanChurn({
   rows,
   monthName,
   reasons,
+  monthChurn,
 }: {
   rows: PlanChurnRow[];
   monthName: string;
   /** La encuesta al cancelar del mes, con el nombre del negocio. */
   reasons?: { list: CancelReason[]; names: Map<string, string> };
+  /** El % de bajas del mes de la Meta (RevenueCat), el único que se enseña
+   * como total para que el panel no tenga dos. */
+  monthChurn?: number;
 }) {
   const list = PLAN_INFO.flatMap((p) => {
     const r = rows.find((x) => x.plan === p.key);
     return r?.n ? [{ ...r, label: p.label }] : [];
   });
   if (!list.length) return null;
-  const n = list.reduce((a, r) => a + r.n, 0);
-  const gone = list.reduce((a, r) => a + r.gone, 0);
   const leaving = list.reduce((a, r) => a + r.leaving, 0);
   return (
     <section className={s.card} id="bajas">
@@ -294,10 +296,14 @@ export function PlanChurn({
             Se les venció sin renovar, según la tienda.
             {leaving ? ` Otras ${leaving} ya cancelaron y se van al vencer.` : ""}
           </p>
-        </div>
-        <div className={s.retTotal}>
-          <span className={s.retTotalN}>{pct(gone, n)}</span>
-          <span className={s.retTotalL}>se dio de baja</span>
+          {/* Esta base cuenta a todos los que tuvieron plan en el mes, también
+              a los que acaban de entrar y aún no les toca renovar; por eso un
+              total aquí salía más bajo que el de la Meta. */}
+          <p className={s.note}>
+            Para comparar planes. Cuenta también a los que entraron en {monthName.toLowerCase()}, por
+            eso sale más bajo
+            {monthChurn != null ? ` que el ${monthChurn}% de bajas del mes de la Meta` : " que las bajas del mes de la Meta"}.
+          </p>
         </div>
       </div>
       <div className={s.retCard}>

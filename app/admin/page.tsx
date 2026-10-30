@@ -147,7 +147,12 @@ export default async function NewAdmin({ searchParams = {} }: { searchParams?: P
 
         <LowUse weeks={lowUseWeeks(rows, dayPlus(today, -1))} />
 
-        <PlanChurn rows={churn} monthName={month.name} reasons={reasons} />
+        <PlanChurn
+          rows={churn}
+          monthName={month.name}
+          reasons={reasons}
+          monthChurn={growth.ok ? Math.round(pace(growth).churnRate * 100) : undefined}
+        />
 
         <div className={s.stack}>
           <MonthNumbers
