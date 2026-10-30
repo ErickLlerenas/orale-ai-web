@@ -16,8 +16,13 @@ export type Product = {
     choices: Choice[];
   }[];
 };
+/** Un día del horario: minutos en la hora del negocio. [to] < [from] cierra
+ * al día siguiente; iguales, abierto todo el día. */
+export type HoursDay = { open: false } | { open: true; from: number; to: number };
 export type Catalog = {
   acceptsDelivery?: boolean;
+  /** Lunes a domingo. Sin horario, siempre abierto (como antes). */
+  hours?: HoursDay[];
   version: number;
   utcOffsetMinutes: number;
   name: string;

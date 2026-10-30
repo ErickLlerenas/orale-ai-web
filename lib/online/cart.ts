@@ -1,4 +1,4 @@
-import type { CartLine, Catalog, Checkout } from "./types";
+import type { CartLine, Catalog, Checkout, HoursDay } from "./types";
 export const money = (cents: number) =>
   new Intl.NumberFormat("es-MX", {
     style: "currency",
@@ -16,6 +16,68 @@ export function demoPhoneNumber(input: string): string {
     );
   }
   return compact.replace(/^\+/, "");
+}
+
+/** Día (0 = lunes, como daysMask) y minuto en la hora del negocio. */
+function businessClock(catalog: Catalog, now: Date) {
+  const local = new Date(now.getTime() + catalog.utcOffsetMinutes * 60000);
+  return {
+    weekday: (local.getUTCDay() + 6) % 7,
+    minute: local.getUTCHours() * 60 + local.getUTCMinutes(),
+  };
+}
+
+const allDay = (d: HoursDay) => d.open && d.from === d.to;
+const overnight = (d: HoursDay) => d.open && d.from > d.to;
+
+/** «1:00 p.m.», «9:30 a.m.». */
+export function clock12(minute: number): string {
+  const h = Math.floor(minute / 60) % 24;
+  const m = String(minute % 60).padStart(2, "0");
+  return `${h % 12 === 0 ? 12 : h % 12}:${m} ${h < 12 ? "a.m." : "p.m."}`;
+}
+
+export type StoreHours =
+  | { open: true; closesAt: number | null }
+  | { open: false; opensIn: number; opensAt: number };
+
+/**
+ * Si el menú recibe pedidos ahora, en la hora del negocio. Sin horario, siempre
+ * (los menús de antes no tienen). Abierto: a qué minuto cierra hoy (null todo
+ * el día). Cerrado: en cuántos días y a qué minuto vuelve a abrir.
+ */
+export function storeHours(catalog: Catalog, now: Date): StoreHours {
+  const hours = catalog.hours;
+  if (!hours || hours.length !== 7) return { open: true, closesAt: null };
+  const { weekday, minute } = businessClock(catalog, now);
+  const today = hours[weekday];
+  const yesterday = hours[(weekday + 6) % 7];
+  // Lo de anoche que cierra esta madrugada.
+  if (yesterday.open && overnight(yesterday) && minute < yesterday.to) {
+    return { open: true, closesAt: yesterday.to };
+  }
+  if (today.open) {
+    if (allDay(today)) return { open: true, closesAt: null };
+    if (overnight(today) ? minute >= today.from : minute >= today.from && minute < today.to) {
+      return { open: true, closesAt: today.to };
+    }
+  }
+  for (let d = 0; d < 8; d++) {
+    const day = hours[(weekday + d) % 7];
+    if (day.open && (d > 0 || day.from > minute)) {
+      return { open: false, opensIn: d, opensAt: day.from };
+    }
+  }
+  return { open: false, opensIn: 7, opensAt: 0 };
+}
+
+/** «Abre hoy a la 1:00 p.m.», «Abre mañana…», «Abre el lunes…». */
+export function opensLabel(catalog: Catalog, h: Extract<StoreHours, { open: false }>, now: Date): string {
+  const { weekday } = businessClock(catalog, now);
+  const names = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"];
+  const when = h.opensIn === 0 ? "hoy" : h.opensIn === 1 ? "mañana" : `el ${names[(weekday + h.opensIn) % 7]}`;
+  const time = clock12(h.opensAt);
+  return `Abre ${when} a la${time.startsWith("1:") ? "" : "s"} ${time}`;
 }
 
 type Promotion = Catalog["promotions"][number];
