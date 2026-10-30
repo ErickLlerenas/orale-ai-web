@@ -12,6 +12,7 @@ import {
   type PingRow,
 } from "@/lib/admin";
 import {
+  canceledTransactions,
   revenueCatSub,
   stripeSub,
   type NewSub,
@@ -124,24 +125,29 @@ export async function storeNewSubs(
   const [rc, st] = await Promise.all([
     fetchAll<StoreEvent>(
       supabase.from("revenuecat_events")
-        .select("id, type, store, product_id, period_type, event_at, original_transaction_id, app_user_id, original_app_user_id, customer_id, raw")
+        .select("id, type, store, product_id, period_type, event_at, original_transaction_id, app_user_id, original_app_user_id, customer_id, cancel_reason, raw")
         .eq("environment", "PRODUCTION")
-        .in("type", ["INITIAL_PURCHASE", "RENEWAL"])
+        .in("type", ["INITIAL_PURCHASE", "RENEWAL", "CANCELLATION", "UNCANCELLATION"])
         .gte("event_at", since)
         .order("event_at").order("id"),
     ),
     fetchAll<StripeSub>(
       supabase.from("subscriptions")
-        .select("user_id, plan, subscribed_at")
+        .select("user_id, plan, subscribed_at, status, cancel_at_period_end, past_due_since")
         .gte("subscribed_at", fromDay)
         .order("user_id"),
     ),
   ]);
+  const canceled = canceledTransactions(rc.data);
   for (const event of rc.data) {
     const sub = revenueCatSub(event);
     if (!sub) continue;
     const product = (event.product_id ?? "").split(":")[0];
-    out.push({ ...sub, label: PRODUCT_LABEL[product] });
+    out.push({
+      ...sub,
+      label: PRODUCT_LABEL[product],
+      canceled: !!event.original_transaction_id && canceled.has(event.original_transaction_id),
+    });
   }
   for (const row of st.data) {
     const sub = stripeSub(row);

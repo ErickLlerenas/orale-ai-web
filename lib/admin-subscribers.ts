@@ -14,6 +14,8 @@ export type NewSub = {
   customerIds?: string[];
   tenure?: number | null;
   matchedInstallId?: string;
+  /** Apagó la renovación (o la prueba) después de suscribirse. */
+  canceled?: boolean;
 };
 
 export type StoreEvent = {
@@ -29,6 +31,7 @@ export type StoreEvent = {
   /** La compra verificada dueña del aviso, aunque RevenueCat lo mande con un
    * cliente anónimo (servidor, 20261029120000_rc_event_owner). */
   customer_id: string | null;
+  cancel_reason?: string | null;
   raw: { is_trial_conversion?: boolean; aliases?: string[] } | null;
 };
 
@@ -77,13 +80,39 @@ export function revenueCatSub(event: StoreEvent): NewSub | null {
   };
 }
 
-export type StripeSub = { user_id: string; plan: string | null; subscribed_at: string };
+/** Compras (original_transaction_id) que el cliente dejó de renovar, según el
+ * último aviso de cada una. Un cobro fallido no cuenta: eso no lo decidió él.
+ * `events` debe venir en orden de event_at. */
+export function canceledTransactions(events: StoreEvent[]): Set<string> {
+  const out = new Set<string>();
+  for (const e of events) {
+    if (!e.original_transaction_id) continue;
+    if (e.type === "CANCELLATION" && e.cancel_reason !== "BILLING_ERROR") {
+      out.add(e.original_transaction_id);
+    } else if (e.type === "UNCANCELLATION") {
+      out.delete(e.original_transaction_id);
+    }
+  }
+  return out;
+}
+
+export type StripeSub = {
+  user_id: string;
+  plan: string | null;
+  subscribed_at: string;
+  status?: string | null;
+  cancel_at_period_end?: boolean | null;
+  past_due_since?: string | null;
+};
 
 export function stripeSub(row: StripeSub): NewSub | null {
   if (!row.plan || row.plan === "unknown") return null;
   return {
     key: row.user_id, day: row.subscribed_at, platform: "windows", plan: row.plan,
     kind: "paid", accountKeys: [hash(row.user_id)],
+    // Stripe también la cancela tras cobros fallidos; esa no la decidió él.
+    canceled: row.cancel_at_period_end === true ||
+      (row.status === "canceled" && !row.past_due_since),
   };
 }
 

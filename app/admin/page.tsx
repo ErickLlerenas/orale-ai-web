@@ -225,7 +225,11 @@ function SubsList({ list, names }: { list: NewSub[]; names: Map<string, string> 
         const store = PLATFORM_LABEL[x.platform ?? ""] ?? x.platform;
         const name = names.get(x.key);
         return (
-          <li key={`${x.key}-${x.kind ?? ""}`} className={s.subsRow}>
+          <li
+            key={`${x.key}-${x.kind ?? ""}`}
+            className={x.canceled ? `${s.subsRow} ${s.subsCanceled}` : s.subsRow}
+            title={x.canceled ? "Canceló" : undefined}
+          >
             <span className={s.subsPlan} style={{ ["--plan" as string]: plan?.color ?? "var(--mute)" }}>
               {x.label ?? plan?.label ?? "Plan sin dato"}
             </span>
