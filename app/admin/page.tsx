@@ -34,11 +34,14 @@ import {
   chunks,
   planChurn,
   memo,
+  pendingSupport,
   storeNewSubs,
+  type SupportCase,
   subsOnDay,
   usageHistory,
 } from "@/lib/admin-data";
 import { GOAL, MonthNumbers, PlanChurn, RcCard, appActive, pace, shortDay } from "./cards";
+import { markSupportReviewed } from "./actions";
 import s from "./new.module.css";
 
 export const metadata = { robots: { index: false, follow: false } };
@@ -70,10 +73,12 @@ export default async function NewAdmin({ searchParams = {} }: { searchParams?: P
     memo(`subs:${month.prevStart}`, () => storeNewSubs(supabase, month.prevStart)),
     memo("rc", revenueCatOverview),
   ]);
-  const [churn, reasons, growth] = await Promise.all([
+  const [churn, reasons, growth, support] = await Promise.all([
     memo(`churn:${month.start}`, () => planChurn(supabase, month.start)),
     memo(`motivos:${month.start}`, () => cancelReasons(supabase, month.start)),
     memo(`crece:${month.start}:${today}`, () => revenueCatGrowth(month.start, today)),
+    // Sin memo: lo que se acaba de marcar como revisado no debe volver a salir.
+    pendingSupport(supabase),
   ]);
   const { rows, installs, error } = pings;
   const subsList = firstSubscriptions(rows);
@@ -112,6 +117,8 @@ export default async function NewAdmin({ searchParams = {} }: { searchParams?: P
             Ayer
           </Link>
         </nav>
+
+        <Support {...support} />
 
         <section className={s.card}>
           <Stat label="Descargas" value={downloads} tone="var(--peach)">
@@ -673,3 +680,86 @@ function LowUse({ weeks }: { weeks: LowUseWeek[] }) {
   );
 }
 
+/// Lo que el chat de soporte no pudo resolver, arriba de todo: cada persona con
+/// su caso más reciente, los demás plegados, y «Revisado» para quitarla de aquí.
+/// Sin pendientes no se enseña.
+function Support({
+  people,
+  names,
+  ideas,
+  error,
+}: Awaited<ReturnType<typeof pendingSupport>>) {
+  if (error) return <div className={s.error}>No se pudo leer soporte: {error}</div>;
+  if (!people.length) return null;
+  const total = people.reduce((a, p) => a + p.cases.length, 0);
+  return (
+    <section className={s.card2} id="soporte">
+      <h2 className={s.h2}>Soporte sin revisar</h2>
+      <p className={s.subtitle}>
+        {total} {total === 1 ? "caso" : "casos"} de {people.length}{" "}
+        {people.length === 1 ? "persona" : "personas"} que el chat no pudo resolver.
+        {ideas ? ` Además hay ${ideas} ${ideas === 1 ? "idea" : "ideas"} sin revisar.` : ""}
+      </p>
+      <ul className={s.support}>
+        {people.map((p) => {
+          const [last, ...older] = p.cases;
+          const meta = [PLATFORM_LABEL[last.platform ?? ""] ?? last.platform, last.version, whenMx(last.at)]
+            .filter(Boolean)
+            .join(" · ");
+          return (
+            <li key={p.installId} className={s.supportRow}>
+              <div className={s.supportHead}>
+                <span className={s.subsName}>{names.get(p.installId) ?? "Sin nombre"}</span>
+                <span className={s.subsStore}>{meta}</span>
+                <form action={markSupportReviewed} className={s.supportForm}>
+                  {p.cases.map((c) => (
+                    <input key={c.id} type="hidden" name="id" value={c.id} />
+                  ))}
+                  <button type="submit" className={s.supportDone}>
+                    Revisado
+                  </button>
+                </form>
+              </div>
+              <SupportCaseText c={last} />
+              {older.length ? (
+                <details className={s.supportMore}>
+                  <summary>
+                    {older.length} {older.length === 1 ? "caso más" : "casos más"}
+                  </summary>
+                  {older.map((c) => (
+                    <SupportCaseText key={c.id} c={c} when />
+                  ))}
+                </details>
+              ) : null}
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
+function SupportCaseText({ c, when = false }: { c: SupportCase; when?: boolean }) {
+  // El chat suele poner de título el principio del mismo mensaje: se lee una vez.
+  const repeats = !!c.detail && c.detail.startsWith(c.title.replace(/[.…\s]+$/, ""));
+  return (
+    <div className={s.supportCase}>
+      <p className={s.supportTitle}>
+        {when ? <span className={s.subsStore}>{whenMx(c.at)} · </span> : null}
+        {repeats ? c.detail : c.title}
+      </p>
+      {c.detail && !repeats ? <p className={s.supportDetail}>{c.detail}</p> : null}
+    </div>
+  );
+}
+
+/// «28 oct, 9:14 p.m.» en hora de México.
+function whenMx(iso: string) {
+  return new Date(iso).toLocaleString("es-MX", {
+    timeZone: "America/Mexico_City",
+    day: "numeric",
+    month: "short",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}

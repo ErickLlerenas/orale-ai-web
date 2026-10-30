@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sessionRole, sessionCookie } from "@/lib/accounting/access";
 import { siteUrl } from "@/lib/seo";
+import { basicAdmin, localAdmin } from "@/lib/admin-auth";
 
 // Dominio original. Sus links (menús, pedidos por WhatsApp, QR impresos) deben
 // seguir funcionando para siempre: se redirigen con la misma ruta al dominio
@@ -33,36 +34,13 @@ export async function middleware(req: NextRequest) {
     return response;
   }
   if (!pathname.startsWith("/admin")) return NextResponse.next();
-  // dev:admin habilita esta marca y liga el servidor a 127.0.0.1.
-  // NODE_ENV y la marca son del proceso: un Host o una URL no bastan.
-  // La excepción es solo para las páginas; no abre posibles APIs admin.
-  const localHost = /^(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/i;
+  // La excepción local es solo para las páginas; no abre posibles APIs admin
+  // (ver lib/admin-auth.ts).
   const localPage = pathname === "/admin" || pathname === "/admin/";
-  if (
-    process.env.NODE_ENV === "development" &&
-    process.env.ORALE_LOCAL_ADMIN === "1" &&
-    !process.env.VERCEL &&
-    localPage &&
-    localHost.test(req.headers.get("host") ?? "") &&
-    localHost.test(req.nextUrl.host)
-  ) {
+  if (localPage && localAdmin(req.headers.get("host"), req.nextUrl.host)) {
     return NextResponse.next();
   }
-  // Protege /admin con Basic Auth (un solo dueño). Credenciales por env.
-  const auth = req.headers.get("authorization");
-  const user = process.env.ADMIN_USER ?? "admin";
-  const pass = process.env.ADMIN_PASSWORD ?? "";
-
-  if (auth?.startsWith("Basic ")) {
-    try {
-      const [u, p] = atob(auth.slice(6)).split(":");
-      if (pass !== "" && u === user && p === pass) {
-        return NextResponse.next();
-      }
-    } catch {
-      // cae al 401
-    }
-  }
+  if (basicAdmin(req.headers.get("authorization"))) return NextResponse.next();
 
   return new NextResponse("Acceso restringido", {
     status: 401,

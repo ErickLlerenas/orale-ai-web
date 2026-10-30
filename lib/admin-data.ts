@@ -343,3 +343,59 @@ export async function cancelReasons(supabase: Db, from: string) {
   );
   return { list, names };
 }
+
+export type SupportCase = {
+  id: string;
+  at: string;
+  title: string;
+  detail: string | null;
+  version: string | null;
+  platform: string | null;
+};
+export type SupportPerson = { installId: string; cases: SupportCase[] };
+
+/// Lo que el chat de soporte le pasó a Erick y nadie ha revisado: cada persona
+/// con sus casos, de lo más nuevo a lo más viejo. Las ideas solo se cuentan.
+export async function pendingSupport(supabase: Db) {
+  const [cases, ideas] = await Promise.all([
+    supabase
+      .from("support_requests")
+      .select("id, created_at, title, detail, install_id, app_version, platform")
+      .eq("kind", "escalation")
+      .eq("reviewed", false)
+      .order("created_at", { ascending: false })
+      .limit(300),
+    supabase
+      .from("support_requests")
+      .select("id", { count: "exact", head: true })
+      .eq("kind", "idea")
+      .eq("reviewed", false),
+  ]);
+  const byPerson = new Map<string, SupportCase[]>();
+  for (const r of (cases.data ?? []) as {
+    id: string;
+    created_at: string;
+    title: string;
+    detail: string | null;
+    install_id: string | null;
+    app_version: string | null;
+    platform: string | null;
+  }[]) {
+    const key = r.install_id ?? "sin aparato";
+    if (!byPerson.has(key)) byPerson.set(key, []);
+    byPerson.get(key)!.push({
+      id: r.id,
+      at: r.created_at,
+      title: r.title,
+      detail: r.detail?.trim() || null,
+      version: r.app_version,
+      platform: r.platform,
+    });
+  }
+  const people: SupportPerson[] = [...byPerson].map(([installId, list]) => ({ installId, cases: list }));
+  const names = await businessNames(
+    supabase,
+    people.map((p) => ({ key: p.installId, installIds: [p.installId] })),
+  );
+  return { people, names, ideas: ideas.count ?? 0, error: cases.error?.message ?? null };
+}
