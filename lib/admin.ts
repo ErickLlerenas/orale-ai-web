@@ -439,7 +439,8 @@ export async function revenueCatOverview(): Promise<RcOverview> {
 export type RcGrowth =
   | {
       ok: true;
-      /** Activas el día [from] y hoy. */
+      /** Activas al cierre del día anterior a [from] (con cuántas empezó el
+       * periodo) y hoy: start + added + back − churned = now. */
       start: number;
       now: number;
       /** Nuevas, las que regresaron y las que se fueron entre [from] y hoy. */
@@ -461,16 +462,22 @@ export async function revenueCatGrowth(from: string, to: string): Promise<RcGrow
   const base = `https://api.revenuecat.com/v2/projects/${encodeURIComponent(project)}`;
   const init = { headers: { Authorization: `Bearer ${key}` }, cache: "no-store" as const };
   type Chart = { measures?: { display_name?: string }[]; values?: { cohort?: number; measure?: number; value?: number }[] };
-  const load = async (chart: string) => {
+  const load = async (chart: string, since = from) => {
     const res = await fetch(
-      `${base}/charts/${chart}?resolution=day&start_date=${from}&end_date=${to}`,
+      `${base}/charts/${chart}?resolution=day&start_date=${since}&end_date=${to}`,
       init,
     );
     if (!res.ok) throw new Error(`${chart}: ${res.status}`);
     return (await res.json()) as Chart;
   };
   try {
-    const [actives, movement] = await Promise.all([load("actives"), load("actives_movement")]);
+    // Las activas de cada día ya traen los movimientos de ese día. Para que
+    // cuadre con los movimientos desde [from], se empieza el día anterior.
+    const before = new Date(Date.parse(`${from}T12:00:00Z`) - 86_400_000).toISOString().slice(0, 10);
+    const [actives, movement] = await Promise.all([
+      load("actives", before),
+      load("actives_movement"),
+    ]);
     const series = (actives.values ?? [])
       .filter((v) => (v.measure ?? 0) === 0 && typeof v.value === "number")
       .sort((a, b) => (a.cohort ?? 0) - (b.cohort ?? 0));
@@ -490,7 +497,7 @@ export async function revenueCatGrowth(from: string, to: string): Promise<RcGrow
       added: sum("New Actives"),
       back: sum("Resubscription Actives"),
       churned: sum("Churned Actives"),
-      days: series.length,
+      days: Math.max(1, series.length - 1),
     };
   } catch (e) {
     return { ok: false, reason: `RevenueCat: ${(e as Error).message}` };
