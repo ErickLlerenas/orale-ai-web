@@ -410,7 +410,11 @@ function Goal({
   const p = growth.ok ? pace(growth) : null;
   const ceiling = p?.ceiling ?? null;
   const stuck = ceiling != null && ceiling < GOAL;
-  const net = p ? p.inPerWeek - p.outPerWeek : 0;
+  // Conteos reales del mes (RevenueCat); el ritmo de 30 días solo da el techo.
+  const entered = growth.ok ? growth.added + growth.back : 0;
+  const net = growth.ok ? growth.now - growth.start : 0;
+  const outShare = growth.ok && growth.start ? Math.round((growth.churned / growth.start) * 100) : 0;
+  const oneIn = growth.ok && growth.churned ? Math.round(growth.start / growth.churned) : null;
   const top = Math.max(GOAL, ceiling ?? 0);
   const at = (n: number) => `${Math.min(100, (n / top) * 100)}%`;
   const churn = p ? Math.round(p.churnRate * 100) : 0;
@@ -455,31 +459,45 @@ function Goal({
         <span>{GOAL.toLocaleString("es-MX")}</span>
       </div>
 
-      {p ? (
+      {p && growth.ok ? (
         <>
+          {/* El mes en conteos reales, una sola unidad: con cuántos empezó,
+              cuántos entraron, cuántos se fueron y con cuántos va. */}
           <div className={s.flow}>
             <div>
-              <b className={s.toneGood}>+{Math.round(p.inPerWeek)}</b>
-              <span>entran por semana</span>
+              <b>{growth.start.toLocaleString("es-MX")}</b>
+              <span>al empezar {monthName}</span>
+            </div>
+            <i>+</i>
+            <div>
+              <b className={s.toneGood}>{entered}</b>
+              <span>entraron</span>
             </div>
             <i>−</i>
             <div>
-              <b className={s.toneBad}>{Math.round(p.outPerWeek)}</b>
-              <span>se van por semana</span>
+              <b className={s.toneBad}>{growth.churned}</b>
+              <span>se fueron</span>
             </div>
             <i>=</i>
             <div>
-              <b>
-                {net >= 0 ? "+" : ""}
-                {net.toFixed(1)}
-              </b>
-              <span>neto por semana</span>
+              <b>{growth.now.toLocaleString("es-MX")}</b>
+              <span>hoy ({net >= 0 ? "+" : ""}{net})</span>
             </div>
           </div>
           <p className={s.goalHint} style={{ textAlign: "center" }}>
-            Entran ~{inMonth} al mes y se va el {churn}% de los clientes al mes. Cuando llegues a
-            ~{ceiling?.toLocaleString("es-MX")}, ese {churn}% ya son {inMonth}: se empata.
+            De los {growth.start.toLocaleString("es-MX")} clientes que tenías al empezar{" "}
+            {monthName} se fueron {growth.churned}: {outShare}%
+            {oneIn ? `, 1 de cada ${oneIn}` : ""}. Los {entered} que entraron ({growth.added} nuevos y{" "}
+            {growth.back} que regresaron) son aparte.
           </p>
+          {ceiling != null ? (
+            <p className={s.goalHint} style={{ textAlign: "center" }}>
+              ¿Por qué el techo es ~{ceiling.toLocaleString("es-MX")}? Cada mes entran ~{inMonth}.
+              Si se sigue yendo el {churn}% de los clientes que tienes, con ~
+              {ceiling.toLocaleString("es-MX")} ese {churn}% ya son {inMonth} bajas al mes: entra lo
+              mismo que se va y dejas de crecer.
+            </p>
+          ) : null}
 
           <p className={s.optionsTitle}>
             El camino a {GOAL.toLocaleString("es-MX")}: con estas dos, el techo llega a la meta
@@ -496,7 +514,7 @@ function Goal({
             />
             <Target
               label="Que entren más"
-              unit="nuevas al mes"
+              unit="entran al mes"
               now={inMonth}
               goal={Math.round(GOAL * TARGET_CHURN)}
               max={Math.max(200, inMonth)}
@@ -562,7 +580,7 @@ function Target({
         <i className={s.targetMark} style={{ left: at(goal) }} />
       </div>
       <small>
-        {unit} · {done ? "¡ya llegaste!" : `${lowerIsBetter ? "bajar" : "subir"} ${gap}${suffix}`}
+        {unit} · {done ? "¡ya llegaste!" : `${lowerIsBetter ? "bajar" : "subir"} ${gap}${suffix === "%" ? " puntos" : suffix}`}
       </small>
     </div>
   );
