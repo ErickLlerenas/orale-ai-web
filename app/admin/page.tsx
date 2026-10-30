@@ -37,11 +37,12 @@ import {
   pendingSupport,
   storeNewSubs,
   type SupportCase,
+  type SupportReply,
   subsOnDay,
   usageHistory,
 } from "@/lib/admin-data";
 import { GOAL, MonthNumbers, PlanChurn, RcCard, appActive, pace, shortDay } from "./cards";
-import { markSupportReviewed } from "./actions";
+import { markSupportReviewed, replySupport } from "./actions";
 import s from "./new.module.css";
 
 export const metadata = { robots: { index: false, follow: false } };
@@ -684,20 +685,26 @@ function LowUse({ weeks }: { weeks: LowUseWeek[] }) {
 /// Sin pendientes no se enseña.
 function Support({
   people,
+  replies,
   names,
   ideas,
   error,
 }: Awaited<ReturnType<typeof pendingSupport>>) {
   if (error) return <div className={s.error}>No se pudo leer soporte: {error}</div>;
-  if (!people.length) return null;
+  if (!people.length && !replies.length) return null;
   const total = people.reduce((a, p) => a + p.cases.length, 0);
+  const pending = new Set(people.map((p) => p.installId));
+  // Lo contestado de quien ya no tiene casos pendientes, para ver si ya lo leyó.
+  const answered = replies.filter((r) => !pending.has(r.installId));
   return (
     <section className={s.card2} id="soporte">
       <h2 className={s.h2}>Soporte sin revisar</h2>
       <p className={s.subtitle}>
-        {total} {total === 1 ? "caso" : "casos"} de {people.length}{" "}
-        {people.length === 1 ? "persona" : "personas"} que el chat no pudo resolver.
-        {ideas ? ` Además hay ${ideas} ${ideas === 1 ? "idea" : "ideas"} sin revisar.` : ""}
+        {people.length
+          ? `${total} ${total === 1 ? "caso" : "casos"} de ${people.length} ${people.length === 1 ? "persona" : "personas"} que el chat no pudo resolver.`
+          : "Nada pendiente."}
+        {ideas ? ` Además hay ${ideas} ${ideas === 1 ? "idea" : "ideas"} sin revisar.` : ""}{" "}
+        Lo que contestes le llega en su chat de la app (desde la próxima versión).
       </p>
       <ul className={s.support}>
         {people.map((p) => {
@@ -730,11 +737,64 @@ function Support({
                   ))}
                 </details>
               ) : null}
+              {replies
+                .filter((r) => r.installId === p.installId)
+                .map((r) => (
+                  <SupportReplyText key={r.id} r={r} />
+                ))}
+              {p.installId !== "sin aparato" ? (
+                <form action={replySupport} className={s.supportReply}>
+                  <input type="hidden" name="requestId" value={last.id} />
+                  {p.cases.map((c) => (
+                    <input key={c.id} type="hidden" name="id" value={c.id} />
+                  ))}
+                  <textarea
+                    name="reply"
+                    required
+                    maxLength={2000}
+                    rows={2}
+                    placeholder="Escríbele aquí. Le llega en su chat de la app."
+                    className={s.supportInput}
+                  />
+                  <button type="submit" className={s.supportDone}>
+                    Contestar
+                  </button>
+                </form>
+              ) : null}
             </li>
           );
         })}
       </ul>
+      {answered.length ? (
+        <details className={s.supportMore}>
+          <summary>Ya contestados (últimos 14 días) · {answered.length}</summary>
+          <ul className={s.support}>
+            {answered.map((r) => (
+              <li key={r.id} className={s.supportRow}>
+                <div className={s.supportHead}>
+                  <span className={s.subsName}>{names.get(r.installId) ?? "Sin nombre"}</span>
+                </div>
+                <SupportReplyText r={r} />
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
     </section>
+  );
+}
+
+function SupportReplyText({ r }: { r: SupportReply }) {
+  return (
+    <div className={s.supportSent}>
+      <p className={s.supportDetail}>
+        <span className={s.subsStore}>
+          Tú · {whenMx(r.at)} · {r.seen ? "ya la vio ✓" : "aún no la ve"}
+        </span>
+        <br />
+        {r.body}
+      </p>
+    </div>
   );
 }
 

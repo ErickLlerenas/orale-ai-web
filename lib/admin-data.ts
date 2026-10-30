@@ -353,11 +353,14 @@ export type SupportCase = {
   platform: string | null;
 };
 export type SupportPerson = { installId: string; cases: SupportCase[] };
+/// Lo que Erick contestó desde el panel; `seen` cuando la app ya lo enseñó.
+export type SupportReply = { id: string; installId: string; body: string; at: string; seen: boolean };
 
 /// Lo que el chat de soporte le pasó a Erick y nadie ha revisado: cada persona
 /// con sus casos, de lo más nuevo a lo más viejo. Las ideas solo se cuentan.
 export async function pendingSupport(supabase: Db) {
-  const [cases, ideas] = await Promise.all([
+  const since = new Date(Date.now() - 14 * 86_400_000).toISOString();
+  const [cases, ideas, sent] = await Promise.all([
     supabase
       .from("support_requests")
       .select("id, created_at, title, detail, install_id, app_version, platform")
@@ -370,6 +373,13 @@ export async function pendingSupport(supabase: Db) {
       .select("id", { count: "exact", head: true })
       .eq("kind", "idea")
       .eq("reviewed", false),
+    // Sin la tabla (antes de la migración) simplemente no hay respuestas.
+    supabase
+      .from("support_replies")
+      .select("id, install_id, body, created_at, seen_at")
+      .gte("created_at", since)
+      .order("created_at", { ascending: false })
+      .limit(100),
   ]);
   const byPerson = new Map<string, SupportCase[]>();
   for (const r of (cases.data ?? []) as {
@@ -393,9 +403,17 @@ export async function pendingSupport(supabase: Db) {
     });
   }
   const people: SupportPerson[] = [...byPerson].map(([installId, list]) => ({ installId, cases: list }));
+  const replies: SupportReply[] = ((sent.data ?? []) as {
+    id: string;
+    install_id: string;
+    body: string;
+    created_at: string;
+    seen_at: string | null;
+  }[]).map((r) => ({ id: r.id, installId: r.install_id, body: r.body, at: r.created_at, seen: r.seen_at != null }));
+  const installs = [...new Set([...people.map((p) => p.installId), ...replies.map((r) => r.installId)])];
   const names = await businessNames(
     supabase,
-    people.map((p) => ({ key: p.installId, installIds: [p.installId] })),
+    installs.map((i) => ({ key: i, installIds: [i] })),
   );
-  return { people, names, ideas: ideas.count ?? 0, error: cases.error?.message ?? null };
+  return { people, replies, names, ideas: ideas.count ?? 0, error: cases.error?.message ?? null };
 }
