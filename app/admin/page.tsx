@@ -118,8 +118,6 @@ export default async function NewAdmin({ searchParams = {} }: { searchParams?: P
           </Link>
         </nav>
 
-        <Support {...support} />
-
         <section className={s.card}>
           <Stat label="Descargas" value={downloads} tone="var(--peach)">
             <p className={s.detail}>
@@ -171,6 +169,7 @@ export default async function NewAdmin({ searchParams = {} }: { searchParams?: P
           />
         </div>
 
+        <Support {...support} />
       </div>
     </main>
   );
@@ -680,7 +679,7 @@ function LowUse({ weeks }: { weeks: LowUseWeek[] }) {
   );
 }
 
-/// Lo que el chat de soporte no pudo resolver, arriba de todo: cada persona con
+/// Lo que el chat de soporte no pudo resolver, al final del panel: cada persona con
 /// su caso más reciente, los demás plegados, y «Revisado» para quitarla de aquí.
 /// Sin pendientes no se enseña.
 function Support({
