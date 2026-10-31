@@ -347,6 +347,7 @@ export async function cancelReasons(supabase: Db, from: string) {
 export type SupportCase = {
   id: string;
   at: string;
+  isIdea: boolean;
   title: string;
   detail: string | null;
   version: string | null;
@@ -356,23 +357,17 @@ export type SupportPerson = { installId: string; cases: SupportCase[] };
 /// Lo que Erick contestó desde el panel; `seen` cuando la app ya lo enseñó.
 export type SupportReply = { id: string; installId: string; body: string; at: string; seen: boolean };
 
-/// Lo que el chat de soporte le pasó a Erick y nadie ha revisado: cada persona
-/// con sus casos, de lo más nuevo a lo más viejo. Las ideas solo se cuentan.
+/// Lo que el chat de soporte le pasó a Erick y nadie ha revisado, problemas e
+/// ideas: cada persona con sus casos, de lo más nuevo a lo más viejo.
 export async function pendingSupport(supabase: Db) {
   const since = new Date(Date.now() - 14 * 86_400_000).toISOString();
-  const [cases, ideas, sent] = await Promise.all([
+  const [cases, sent] = await Promise.all([
     supabase
       .from("support_requests")
-      .select("id, created_at, title, detail, install_id, app_version, platform")
-      .eq("kind", "escalation")
+      .select("id, created_at, kind, title, detail, install_id, app_version, platform")
       .eq("reviewed", false)
       .order("created_at", { ascending: false })
       .limit(300),
-    supabase
-      .from("support_requests")
-      .select("id", { count: "exact", head: true })
-      .eq("kind", "idea")
-      .eq("reviewed", false),
     // Sin la tabla (antes de la migración) simplemente no hay respuestas.
     supabase
       .from("support_replies")
@@ -385,6 +380,7 @@ export async function pendingSupport(supabase: Db) {
   for (const r of (cases.data ?? []) as {
     id: string;
     created_at: string;
+    kind: string;
     title: string;
     detail: string | null;
     install_id: string | null;
@@ -396,6 +392,7 @@ export async function pendingSupport(supabase: Db) {
     byPerson.get(key)!.push({
       id: r.id,
       at: r.created_at,
+      isIdea: r.kind === "idea",
       title: r.title,
       detail: r.detail?.trim() || null,
       version: r.app_version,
@@ -415,5 +412,5 @@ export async function pendingSupport(supabase: Db) {
     supabase,
     installs.map((i) => ({ key: i, installIds: [i] })),
   );
-  return { people, replies, names, ideas: ideas.count ?? 0, error: cases.error?.message ?? null };
+  return { people, replies, names, error: cases.error?.message ?? null };
 }

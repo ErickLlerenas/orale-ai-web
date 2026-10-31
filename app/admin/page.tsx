@@ -37,6 +37,7 @@ import {
   pendingSupport,
   storeNewSubs,
   type SupportCase,
+  type SupportPerson,
   type SupportReply,
   subsOnDay,
   usageHistory,
@@ -680,19 +681,25 @@ function LowUse({ weeks }: { weeks: LowUseWeek[] }) {
   );
 }
 
-/// Lo que el chat de soporte no pudo resolver, al final del panel: cada persona con
-/// su caso más reciente, los demás plegados, y «Revisado» para quitarla de aquí.
+/// Lo que el chat de soporte no pudo resolver, al final del panel, y las ideas plegadas
+/// aparte: cada persona con su caso más reciente y «Revisado» para quitarla.
 /// Sin pendientes no se enseña.
 function Support({
   people,
   replies,
   names,
-  ideas,
   error,
 }: Awaited<ReturnType<typeof pendingSupport>>) {
   if (error) return <div className={s.error}>No se pudo leer soporte: {error}</div>;
   if (!people.length && !replies.length) return null;
-  const total = people.reduce((a, p) => a + p.cases.length, 0);
+  const only = (isIdea: boolean) =>
+    people
+      .map((p) => ({ ...p, cases: p.cases.filter((c) => c.isIdea === isIdea) }))
+      .filter((p) => p.cases.length);
+  const problems = only(false);
+  const ideas = only(true);
+  const total = problems.reduce((a, p) => a + p.cases.length, 0);
+  const ideaCount = ideas.reduce((a, p) => a + p.cases.length, 0);
   const pending = new Set(people.map((p) => p.installId));
   // Lo contestado de quien ya no tiene casos pendientes, para ver si ya lo leyó.
   const answered = replies.filter((r) => !pending.has(r.installId));
@@ -700,71 +707,26 @@ function Support({
     <section className={s.card2} id="soporte">
       <h2 className={s.h2}>Soporte sin revisar</h2>
       <p className={s.subtitle}>
-        {people.length
-          ? `${total} ${total === 1 ? "caso" : "casos"} de ${people.length} ${people.length === 1 ? "persona" : "personas"} que el chat no pudo resolver.`
-          : "Nada pendiente."}
-        {ideas ? ` Además hay ${ideas} ${ideas === 1 ? "idea" : "ideas"} sin revisar.` : ""}{" "}
-        Lo que contestes le llega en su chat de la app (desde la próxima versión).
+        {problems.length
+          ? `${total} ${total === 1 ? "caso" : "casos"} de ${problems.length} ${problems.length === 1 ? "persona" : "personas"} que el chat no pudo resolver.`
+          : "Nada pendiente."}{" "}
+        Lo que contestes le llega en su chat de la app (con la 3.0.112 o más nueva).
       </p>
       <ul className={s.support}>
-        {people.map((p) => {
-          const [last, ...older] = p.cases;
-          const meta = [PLATFORM_LABEL[last.platform ?? ""] ?? last.platform, last.version, whenMx(last.at)]
-            .filter(Boolean)
-            .join(" · ");
-          return (
-            <li key={p.installId} className={s.supportRow}>
-              <div className={s.supportHead}>
-                <span className={s.subsName}>{names.get(p.installId) ?? "Sin nombre"}</span>
-                <span className={s.subsStore}>{meta}</span>
-                <form action={markSupportReviewed} className={s.supportForm}>
-                  {p.cases.map((c) => (
-                    <input key={c.id} type="hidden" name="id" value={c.id} />
-                  ))}
-                  <button type="submit" className={s.supportDone}>
-                    Revisado
-                  </button>
-                </form>
-              </div>
-              <SupportCaseText c={last} />
-              {older.length ? (
-                <details className={s.supportMore}>
-                  <summary>
-                    {older.length} {older.length === 1 ? "caso más" : "casos más"}
-                  </summary>
-                  {older.map((c) => (
-                    <SupportCaseText key={c.id} c={c} when />
-                  ))}
-                </details>
-              ) : null}
-              {replies
-                .filter((r) => r.installId === p.installId)
-                .map((r) => (
-                  <SupportReplyText key={r.id} r={r} />
-                ))}
-              {p.installId !== "sin aparato" ? (
-                <form action={replySupport} className={s.supportReply}>
-                  <input type="hidden" name="requestId" value={last.id} />
-                  {p.cases.map((c) => (
-                    <input key={c.id} type="hidden" name="id" value={c.id} />
-                  ))}
-                  <textarea
-                    name="reply"
-                    required
-                    maxLength={2000}
-                    rows={2}
-                    placeholder="Escríbele aquí. Le llega en su chat de la app."
-                    className={s.supportInput}
-                  />
-                  <button type="submit" className={s.supportDone}>
-                    Contestar
-                  </button>
-                </form>
-              ) : null}
-            </li>
-          );
-        })}
+        {problems.map((p) => (
+          <SupportPersonRow key={p.installId} p={p} names={names} replies={replies} />
+        ))}
       </ul>
+      {ideas.length ? (
+        <details className={s.supportMore}>
+          <summary>Ideas · {ideaCount} · el chat ya les contestó, no hace falta responder</summary>
+          <ul className={s.support}>
+            {ideas.map((p) => (
+              <SupportPersonRow key={p.installId} p={p} names={names} replies={replies} />
+            ))}
+          </ul>
+        </details>
+      ) : null}
       {answered.length ? (
         <details className={s.supportMore}>
           <summary>Ya contestados (últimos 14 días) · {answered.length}</summary>
@@ -781,6 +743,72 @@ function Support({
         </details>
       ) : null}
     </section>
+  );
+}
+
+function SupportPersonRow({
+  p,
+  names,
+  replies,
+}: {
+  p: SupportPerson;
+  names: Map<string, string>;
+  replies: SupportReply[];
+}) {
+  const [last, ...older] = p.cases;
+  const meta = [PLATFORM_LABEL[last.platform ?? ""] ?? last.platform, last.version, whenMx(last.at)]
+    .filter(Boolean)
+    .join(" · ");
+  return (
+    <li className={s.supportRow}>
+      <div className={s.supportHead}>
+        <span className={s.subsName}>{names.get(p.installId) ?? "Sin nombre"}</span>
+        <span className={s.subsStore}>{meta}</span>
+        <form action={markSupportReviewed} className={s.supportForm}>
+          {p.cases.map((c) => (
+            <input key={c.id} type="hidden" name="id" value={c.id} />
+          ))}
+          <button type="submit" className={s.supportDone}>
+            Revisado
+          </button>
+        </form>
+      </div>
+      <SupportCaseText c={last} />
+      {older.length ? (
+        <details className={s.supportMore}>
+          <summary>
+            {older.length} {older.length === 1 ? "caso más" : "casos más"}
+          </summary>
+          {older.map((c) => (
+            <SupportCaseText key={c.id} c={c} when />
+          ))}
+        </details>
+      ) : null}
+      {replies
+        .filter((r) => r.installId === p.installId)
+        .map((r) => (
+          <SupportReplyText key={r.id} r={r} />
+        ))}
+      {p.installId !== "sin aparato" ? (
+        <form action={replySupport} className={s.supportReply}>
+          <input type="hidden" name="requestId" value={last.id} />
+          {p.cases.map((c) => (
+            <input key={c.id} type="hidden" name="id" value={c.id} />
+          ))}
+          <textarea
+            name="reply"
+            required
+            maxLength={2000}
+            rows={2}
+            placeholder="Escríbele aquí. Le llega en su chat de la app."
+            className={s.supportInput}
+          />
+          <button type="submit" className={s.supportDone}>
+            Contestar
+          </button>
+        </form>
+      ) : null}
+    </li>
   );
 }
 

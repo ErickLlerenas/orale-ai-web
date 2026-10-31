@@ -166,7 +166,7 @@ export async function MonthNumbers({
       </section>
 
       <section className={s.card} id="suscripciones-mes">
-        <p className={s.eyebrow}>Suscripciones nuevas · {month.name}</p>
+        <p className={s.eyebrow}>Empezaron (con prueba gratis) · {month.name}</p>
         <div className={s.monthHead}>
           <span className={s.kpiValue}>{subsMonth.length.toLocaleString("es-MX")}</span>
           <Delta now={subsMonth.length} before={subsPrevTotal} />
