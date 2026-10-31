@@ -680,19 +680,19 @@ function LowUse({ weeks }: { weeks: LowUseWeek[] }) {
   );
 }
 
-/// Lo que el chat de soporte no pudo resolver, al final del panel: cada persona con
-/// su caso más reciente, los demás plegados, y «Revisado» para quitarla de aquí.
+/// Lo que el chat de soporte no pudo resolver y las ideas, al final del panel: cada
+/// persona con su caso más reciente, los demás plegados, y «Revisado» para quitarla.
 /// Sin pendientes no se enseña.
 function Support({
   people,
   replies,
   names,
-  ideas,
   error,
 }: Awaited<ReturnType<typeof pendingSupport>>) {
   if (error) return <div className={s.error}>No se pudo leer soporte: {error}</div>;
   if (!people.length && !replies.length) return null;
   const total = people.reduce((a, p) => a + p.cases.length, 0);
+  const ideas = people.reduce((a, p) => a + p.cases.filter((c) => c.isIdea).length, 0);
   const pending = new Set(people.map((p) => p.installId));
   // Lo contestado de quien ya no tiene casos pendientes, para ver si ya lo leyó.
   const answered = replies.filter((r) => !pending.has(r.installId));
@@ -701,10 +701,10 @@ function Support({
       <h2 className={s.h2}>Soporte sin revisar</h2>
       <p className={s.subtitle}>
         {people.length
-          ? `${total} ${total === 1 ? "caso" : "casos"} de ${people.length} ${people.length === 1 ? "persona" : "personas"} que el chat no pudo resolver.`
+          ? `${total} ${total === 1 ? "caso" : "casos"} de ${people.length} ${people.length === 1 ? "persona" : "personas"}.`
           : "Nada pendiente."}
-        {ideas ? ` Además hay ${ideas} ${ideas === 1 ? "idea" : "ideas"} sin revisar.` : ""}{" "}
-        Lo que contestes le llega en su chat de la app (desde la próxima versión).
+        {ideas ? ` ${ideas === 1 ? "Uno es idea" : `${ideas} son ideas`}.` : ""}{" "}
+        Lo que contestes le llega en su chat de la app (con la 3.0.112 o más nueva).
       </p>
       <ul className={s.support}>
         {people.map((p) => {
@@ -805,6 +805,7 @@ function SupportCaseText({ c, when = false }: { c: SupportCase; when?: boolean }
     <div className={s.supportCase}>
       <p className={s.supportTitle}>
         {when ? <span className={s.subsStore}>{whenMx(c.at)} · </span> : null}
+        {c.isIdea ? <span className={s.subsStore}>Idea · </span> : null}
         {repeats ? c.detail : c.title}
       </p>
       {c.detail && !repeats ? <p className={s.supportDetail}>{c.detail}</p> : null}

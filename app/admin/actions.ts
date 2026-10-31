@@ -22,7 +22,6 @@ export async function markSupportReviewed(form: FormData) {
   const { error } = await adminClient()
     .from("support_requests")
     .update({ reviewed: true })
-    .eq("kind", "escalation")
     .in("id", ids);
   if (error) throw new Error("No se pudo marcar como revisado.");
   revalidatePath("/admin");
@@ -45,7 +44,6 @@ export async function replySupport(form: FormData) {
     .from("support_requests")
     .select("id, install_id")
     .eq("id", requestId)
-    .eq("kind", "escalation")
     .maybeSingle();
   if (readError || !request?.install_id) {
     throw new Error("No se encontró el caso.");
@@ -63,7 +61,6 @@ export async function replySupport(form: FormData) {
     await db
       .from("support_requests")
       .update({ reviewed: true })
-      .eq("kind", "escalation")
       .eq("install_id", request.install_id)
       .in("id", ids);
   }
