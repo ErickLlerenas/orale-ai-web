@@ -265,19 +265,43 @@ const PLAN_OF: Record<string, string> = {
   orale_pro_yearly: "pro_yearly",
 };
 
+const DAY_MS = 86_400_000;
+
 /// Bajas por plan desde [from], según la tienda (billing_customers: Apple,
 /// Google y Stripe), no según quién abre la app. Cada compra es una fila; se
 /// revisó (29 oct) que ninguna vencida fuera alguien que se cambió de plan.
+/// billing_customers guarda el vencimiento que vio el último aparato: quien ya
+/// renovó sigue con la fecha vieja hasta que abre la app, y una prueba gratis
+/// que venció nunca pagó. Los avisos de RevenueCat separan a esos dos.
 export async function planChurn(supabase: Db, from: string): Promise<PlanChurnRow[]> {
-  const since = new Date(`${from}T00:00:00-06:00`).toISOString();
+  const sinceMs = Date.parse(`${from}T00:00:00-06:00`);
+  const since = new Date(sinceMs).toISOString();
   const now = new Date().toISOString();
-  const res = await fetchAll<{ id: string; product_id: string | null; expires_at: string | null; auto_renew: boolean | null }>(
-    supabase
-      .from("billing_customers")
-      .select("id, product_id, expires_at, auto_renew")
-      .gte("expires_at", since)
-      .order("id"),
-  );
+  const [res, events] = await Promise.all([
+    fetchAll<{ id: string; product_id: string | null; expires_at: string | null; auto_renew: boolean | null }>(
+      supabase
+        .from("billing_customers")
+        .select("id, product_id, expires_at, auto_renew")
+        .gte("expires_at", since)
+        .order("id"),
+    ),
+    fetchAll<{ id: string; customer_id: string | null; type: string; period_type: string | null; event_at: string }>(
+      supabase
+        .from("revenuecat_events")
+        .select("id, customer_id, type, period_type, event_at")
+        .eq("environment", "PRODUCTION")
+        .in("type", ["RENEWAL", "EXPIRATION"])
+        // Apple cobra horas antes de que venza.
+        .gte("event_at", new Date(sinceMs - DAY_MS).toISOString())
+        .order("event_at")
+        .order("id"),
+    ),
+  ]);
+  const notGone = new Map<string, number[]>();
+  for (const e of events.data) {
+    if (!e.customer_id || (e.type === "EXPIRATION" && e.period_type !== "TRIAL")) continue;
+    notGone.set(e.customer_id, [...(notGone.get(e.customer_id) ?? []), Date.parse(e.event_at)]);
+  }
   const out = new Map<string, PlanChurnRow>();
   for (const c of res.data) {
     const plan = PLAN_OF[(c.product_id ?? "").split(":")[0]];
@@ -285,8 +309,10 @@ export async function planChurn(supabase: Db, from: string): Promise<PlanChurnRo
     let row = out.get(plan);
     if (!row) out.set(plan, (row = { plan, n: 0, gone: 0, leaving: 0 }));
     row.n++;
-    if (c.expires_at <= now) row.gone++;
-    else if (c.auto_renew === false) row.leaving++;
+    if (c.expires_at <= now) {
+      const expires = Date.parse(c.expires_at);
+      if (!notGone.get(c.id)?.some((at) => at >= expires - DAY_MS)) row.gone++;
+    } else if (c.auto_renew === false) row.leaving++;
   }
   return [...out.values()];
 }
