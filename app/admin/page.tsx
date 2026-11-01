@@ -75,10 +75,12 @@ export default async function NewAdmin({ searchParams = {} }: { searchParams?: P
     memo(`subs:${month.prevStart}`, () => storeNewSubs(supabase, month.prevStart)),
     memo("rc", revenueCatOverview),
   ]);
-  const [churn, reasons, growth, support] = await Promise.all([
+  const [churn, reasons, growth, rhythm, support] = await Promise.all([
     memo(`churn:${month.start}`, () => planChurn(supabase, month.start)),
     memo(`motivos:${month.start}`, () => cancelReasons(supabase, month.start)),
     memo(`crece:${month.start}:${today}`, () => revenueCatGrowth(month.start, today)),
+    // El ritmo sale de 30 días corridos: no depende de en qué día del mes vas.
+    memo(`ritmo:${today}`, () => revenueCatGrowth(dayPlus(today, -29), today)),
     // Sin memo: lo que se acaba de marcar como revisado no debe volver a salir.
     pendingSupport(supabase),
   ]);
@@ -149,6 +151,7 @@ export default async function NewAdmin({ searchParams = {} }: { searchParams?: P
             appActive(rows)
           }
           growth={growth}
+          rhythm={rhythm}
           monthName={month.name}
         />
 
@@ -158,7 +161,7 @@ export default async function NewAdmin({ searchParams = {} }: { searchParams?: P
           rows={churn}
           monthName={month.name}
           reasons={reasons}
-          monthChurn={growth.ok ? Math.round(pace(growth).churnRate * 100) : undefined}
+          monthChurn={rhythm.ok ? Math.round(pace(rhythm).churnRate * 100) : undefined}
         />
 
         <div className={s.stack}>
@@ -414,17 +417,21 @@ function Funnel({
 }
 
 /// La meta de 1,000 contada en orden: dónde estás, a dónde te lleva el ritmo
-/// del mes (RevenueCat) y qué tendría que cambiar para llegar.
+/// de los últimos 30 días (RevenueCat) y qué tendría que cambiar para llegar.
 function Goal({
   active,
   growth,
+  rhythm,
   monthName,
 }: {
   active: number;
+  /** Lo que ha pasado en el mes en curso. */
   growth: RcGrowth;
+  /** Los últimos 30 días corridos. */
+  rhythm: RcGrowth;
   monthName: string;
 }) {
-  const p = growth.ok ? pace(growth) : null;
+  const p = rhythm.ok ? pace(rhythm) : null;
   const ceiling = p?.ceiling ?? null;
   const stuck = ceiling != null && ceiling < GOAL;
   // Conteos reales del mes (RevenueCat); el ritmo de 30 días solo da el techo.
@@ -436,6 +443,7 @@ function Goal({
   const at = (n: number) => `${Math.min(100, (n / top) * 100)}%`;
   const churn = p ? Math.round(p.churnRate * 100) : 0;
   const inMonth = p ? Math.round(p.inMonth) : 0;
+  const outMonth = p ? Math.round(p.outMonth) : 0;
   return (
     <section className={s.goal} id="meta">
       <div className={s.goalHead}>
@@ -448,7 +456,7 @@ function Goal({
         <div className={s.goalVerdict}>
           {p ? (
             <>
-              <span>A este ritmo</span>
+              <span>Al ritmo de los últimos 30 días</span>
               <b className={stuck ? s.toneBad : s.toneGood}>
                 {stuck ? `te quedas en ~${ceiling!.toLocaleString("es-MX")}` : "sí llegas"}
               </b>
@@ -509,10 +517,10 @@ function Goal({
           </p>
           {ceiling != null ? (
             <p className={s.goalHint} style={{ textAlign: "center" }}>
-              ¿Por qué el techo es ~{ceiling.toLocaleString("es-MX")}? Cada mes entran ~{inMonth}.
-              Si se sigue yendo el {churn}% de los clientes que tienes, con ~
-              {ceiling.toLocaleString("es-MX")} ese {churn}% ya son {inMonth} bajas al mes: entra lo
-              mismo que se va y dejas de crecer.
+              ¿Por qué el techo es ~{ceiling.toLocaleString("es-MX")}? En los últimos 30 días entraron{" "}
+              {inMonth} y se fueron {outMonth}, el {churn}% de tus clientes. Si sigue así, con ~
+              {ceiling.toLocaleString("es-MX")} clientes ese {churn}% ya son {inMonth} bajas al mes:
+              entra lo mismo que se va y dejas de crecer.
             </p>
           ) : null}
 
@@ -543,7 +551,9 @@ function Goal({
           </p>
         </>
       ) : (
-        <div className={s.error}>Sin RevenueCat: {growth.ok ? "" : growth.reason}</div>
+        <div className={s.error}>
+          Sin RevenueCat: {growth.ok ? (rhythm.ok ? "" : rhythm.reason) : growth.reason}
+        </div>
       )}
     </section>
   );

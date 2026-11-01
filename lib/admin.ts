@@ -188,6 +188,7 @@ export function journeySteps(list: Install[]): JourneyStep[] {
 
 /// El mes [ym] (2026-10) y contra qué se compara: si es el mes en curso, los
 /// mismos días del mes anterior; si ya terminó, el mes anterior completo.
+/// `closed*` deja fuera a hoy: un día a medias no se compara contra uno entero.
 export function monthWindow(today: string, ym: string) {
   const [y, m] = ym.split("-").map(Number);
   const current = ym === today.slice(0, 7);
@@ -203,6 +204,7 @@ export function monthWindow(today: string, ym: string) {
       timeZone: "UTC",
     });
   const d = current ? Number(today.slice(8, 10)) : lastDay(y, m);
+  const closedDays = current ? d - 1 : d;
   return {
     current,
     start: iso(y, m, 1),
@@ -211,6 +213,9 @@ export function monthWindow(today: string, ym: string) {
     to: iso(y, m, d),
     prevStart: iso(py, pm, 1),
     prevTo: iso(py, pm, current ? Math.min(d, lastDay(py, pm)) : lastDay(py, pm)),
+    closedDays,
+    closedTo: iso(y, m, Math.max(1, closedDays)),
+    prevClosedTo: iso(py, pm, current ? Math.min(Math.max(1, closedDays), lastDay(py, pm)) : lastDay(py, pm)),
     name: name(y, m),
     prevName: name(py, pm),
   };

@@ -47,6 +47,10 @@ const PLATFORM_COLOR: Record<string, string> = {
 
 export const GOAL = 1000;
 
+/// Días terminados que hacen falta para que comparar contra el mes pasado
+/// diga algo: con menos, un solo día bueno o malo mueve todo el porcentaje.
+const MIN_DAYS_TO_COMPARE = 7;
+
 /// Nombres en español de las métricas de RevenueCat que más importan. Las
 /// activas ya salen en la meta.
 const RC_LABEL: Record<string, string> = {
@@ -130,28 +134,34 @@ export async function MonthNumbers({
   const subsOn = subsOnDay(storeSubs, subsList);
   const dlDays = downloadsDaily(installs, month.start, month.end);
   const dlNow = downloadsByPlatform(installs, month.start, month.to);
-  const dlPrev = downloadsByPlatform(installs, month.prevStart, month.prevTo);
+  const total = (from: string, to: string) =>
+    downloadsByPlatform(installs, from, to).reduce((a, p) => a + p.total, 0);
   const dlTotal = dlNow.reduce((a, p) => a + p.total, 0);
-  const dlPrevTotal = dlPrev.reduce((a, p) => a + p.total, 0);
   const subDays: DayRow[] = dayRange(month.start, month.end).map((day) => ({
     day,
     ...countSubs(day <= today ? subsOn(day) : []),
   }));
   const subsMonth = dayRange(month.start, month.to).flatMap((d) => subsOn(d));
-  const subsPrevTotal = dayRange(month.prevStart, month.prevTo).reduce(
-    (a, d) => a + subsOn(d).length,
-    0,
-  );
-  const compare = month.current
-    ? `vs. los mismos días de ${month.prevName}`
-    : `vs. ${month.prevName}`;
+  const subsBetween = (from: string, to: string) =>
+    dayRange(from, to).reduce((a, d) => a + subsOn(d).length, 0);
+  const canCompare = month.closedDays >= MIN_DAYS_TO_COMPARE;
+  const compare = !canCompare
+    ? `Se compara contra ${month.prevName} a partir del día ${MIN_DAYS_TO_COMPARE + 1}`
+    : month.current
+      ? `vs. los mismos días de ${month.prevName}, sin contar hoy`
+      : `vs. ${month.prevName}`;
   return (
     <div className={s.twoCols}>
       <section className={s.card} id="descargas">
         <p className={s.eyebrow}>Descargas · {month.name}</p>
         <div className={s.monthHead}>
           <span className={s.kpiValue}>{dlTotal.toLocaleString("es-MX")}</span>
-          <Delta now={dlTotal} before={dlPrevTotal} />
+          {canCompare ? (
+            <Delta
+              now={total(month.start, month.closedTo)}
+              before={total(month.prevStart, month.prevClosedTo)}
+            />
+          ) : null}
         </div>
         <p className={s.goalSub}>{compare}</p>
         <div className={s.platChips}>
@@ -169,7 +179,12 @@ export async function MonthNumbers({
         <p className={s.eyebrow}>Empezaron (con prueba gratis) · {month.name}</p>
         <div className={s.monthHead}>
           <span className={s.kpiValue}>{subsMonth.length.toLocaleString("es-MX")}</span>
-          <Delta now={subsMonth.length} before={subsPrevTotal} />
+          {canCompare ? (
+            <Delta
+              now={subsBetween(month.start, month.closedTo)}
+              before={subsBetween(month.prevStart, month.prevClosedTo)}
+            />
+          ) : null}
         </div>
         <p className={s.goalSub}>{compare}</p>
         <div className={s.platChips}>
@@ -206,9 +221,11 @@ function MonthBars({ days, today }: { days: DayRow[]; today: string }) {
   return (
     <div className={s.mBars}>
       <div className={s.mBarsArea}>
-        <div className={s.mAvg} style={{ bottom: `${(avg / max) * 100}%` }}>
-          <span>{avg.toFixed(0)}/día</span>
-        </div>
+        {done.length ? (
+          <div className={s.mAvg} style={{ bottom: `${(avg / max) * 100}%` }}>
+            <span>{avg.toFixed(0)}/día</span>
+          </div>
+        ) : null}
         {days.map((d) => (
           <div
             key={d.day}
@@ -276,8 +293,8 @@ export function PlanChurn({
   monthName: string;
   /** La encuesta al cancelar del mes, con el nombre del negocio. */
   reasons?: { list: CancelReason[]; names: Map<string, string> };
-  /** El % de bajas del mes de la Meta (RevenueCat), el único que se enseña
-   * como total para que el panel no tenga dos. */
+  /** El % de bajas al mes de la Meta (RevenueCat, últimos 30 días), el único
+   * que se enseña como total para que el panel no tenga dos. */
   monthChurn?: number;
 }) {
   const list = PLAN_INFO.flatMap((p) => {
@@ -293,16 +310,16 @@ export function PlanChurn({
           <p className={s.eyebrow}>Bajas por plan · {monthName}</p>
           <h2 className={s.h2}>¿Quién se da de baja?</h2>
           <p className={s.note}>
-            Se les venció sin renovar, según la tienda.
+            Pagaban y se les venció sin renovar, según la tienda.
             {leaving ? ` Otras ${leaving} ya cancelaron y se van al vencer.` : ""}
           </p>
           {/* Esta base cuenta a todos los que tuvieron plan en el mes, también
               a los que acaban de entrar y aún no les toca renovar; por eso un
               total aquí salía más bajo que el de la Meta. */}
           <p className={s.note}>
-            Para comparar planes. Cuenta también a los que entraron en {monthName.toLowerCase()}, por
-            eso sale más bajo
-            {monthChurn != null ? ` que el ${monthChurn}% de bajas del mes de la Meta` : " que las bajas del mes de la Meta"}.
+            Para comparar planes. Se va llenando conforme avanza {monthName.toLowerCase()} y cuenta
+            también a los que entraron este mes, por eso sale más bajo
+            {monthChurn != null ? ` que el ${monthChurn}% de bajas de la Meta (últimos 30 días)` : " que las bajas de la Meta"}.
           </p>
         </div>
       </div>
@@ -378,7 +395,8 @@ function CancelReasons({ list, names }: { list: CancelReason[]; names: Map<strin
   );
 }
 
-/// El ritmo del mes según RevenueCat, llevado a semanas y a meses de 30 días.
+/// El ritmo según RevenueCat, llevado a meses de 30 días. Darle una ventana
+/// de 30 días (no el mes en curso): el día 1 multiplicaría un solo día por 30.
 /// Techo: lo que entra al mes ÷ el % que se va al mes (ahí se empatan).
 export function pace(g: Extract<RcGrowth, { ok: true }>) {
   const days = Math.max(1, g.days);
@@ -386,9 +404,8 @@ export function pace(g: Extract<RcGrowth, { ok: true }>) {
   const inMonth = (entered / days) * 30;
   const churnRate = g.start ? (g.churned / g.start / days) * 30 : 0;
   return {
-    inPerWeek: (entered / days) * 7,
-    outPerWeek: (g.churned / days) * 7,
     inMonth,
+    outMonth: (g.churned / days) * 30,
     churnRate,
     ceiling: churnRate > 0 ? Math.round(inMonth / churnRate) : null,
   };
