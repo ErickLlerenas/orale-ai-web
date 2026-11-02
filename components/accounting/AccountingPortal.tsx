@@ -208,10 +208,8 @@ function IncludedVatNote({amount}:{amount:number}) {
   return <div className={`${styles.foreignVatNote} ${styles.successVatNote}`} role="note"><CircleCheck aria-hidden="true"/><p>Este total incluye {money(amount)} MXN de IVA.</p></div>;
 }
 
-function ForeignVatNote({names}:{names:string[]}) {
-  if(names.length===0)return null;
-  const list=names.length<2?names[0]:`${names.slice(0,-1).join(", ")} y ${names.at(-1)}`;
-  return <div className={styles.foreignVatNote} role="note"><Info aria-hidden="true"/><p>{list} {names.length===1?"no trae":"no traen"} IVA mexicano. Al ser {names.length===1?"un servicio":"servicios"} del extranjero, hay que revisar si se declara IVA por importación de servicios.</p></div>;
+function ForeignVatNote({name}:{name:string}) {
+  return <div className={styles.foreignVatNote} role="note"><Info aria-hidden="true"/><p>{name} no trae IVA mexicano. Al ser un servicio del extranjero, hay que revisar si se declara IVA por importación de servicios.</p></div>;
 }
 
 function ExpenseTable({children}:{children:ReactNode}) {
@@ -238,7 +236,7 @@ function ExpenseSection({title,reports,month,onDownload,file,fallback="",dollars
       {paid.map(report=><div key={reportKey(report)}><dt><span>{invoiceDate(report.receipt?.date||report.documentDate||report.period.slice(0,10))}</span><ExpenseCard card={report.receipt?.cardLast4||report.cardLast4||fallback}/><button type="button" className={styles.csv} onClick={()=>onDownload(report)}><Download/>{file}</button></dt><dd>{dollars?<DollarAmount reports={[report]}/>:`${money(report.totals.closing)} MXN`}</dd></div>)}
       <div className={styles.deposit}><dt><span>{dollars?"Total":"Total pagado"}</span></dt><dd>{dollars?<DollarAmount reports={paid} total/>:`${money(paid.reduce((sum,report)=>sum+report.totals.closing,0))} MXN`}</dd></div>
     </ExpenseTable>
-    {vat>0&&<IncludedVatNote amount={vat}/>}
+    {vat>0?<IncludedVatNote amount={vat}/>:<ForeignVatNote name={title}/>}
     <div className={styles.downloadActions}><DownloadGuide title={title}/></div>
   </section>;
 }
@@ -253,7 +251,7 @@ function FacebookExpenses({ reports, month, onDownload }: { reports: Report[]; m
         {report.rows.map(row => <div key={row.line}><dt><span>{invoiceDate(row.iso || row.date)}</span><CardTag card="negocio"/><span className={styles.noReceipt}>—</span></dt><dd>{money(row.amount)} MXN</dd></div>)}
         <div className={styles.deposit}><dt><span>Total pagado</span></dt><dd>{money(report.totals.closing)} MXN</dd></div>
       </ExpenseTable>
-      {report.totals.tax>0&&<IncludedVatNote amount={report.totals.tax}/>}
+      {report.totals.tax>0?<IncludedVatNote amount={report.totals.tax}/>:<ForeignVatNote name="Facebook Ads"/>}
       <div className={styles.downloadActions}><button type="button" className={styles.csv} onClick={() => onDownload(report)}><Download/>CSV</button><DownloadGuide title="Facebook Ads"/></div>
     </div>)}
   </section>;
@@ -347,7 +345,6 @@ export default function AccountingPortal({ role, local = false }: { role: "owner
     accountant:accountantRows.length>0,
     unidentified,
   });
-  const noForeignVat=expenseSections.filter(section=>{const items=section.reports.filter(report=>report.receipt?.month===month&&!report.isAdjustment);return items.length>0&&items.every(report=>!report.totals.tax);}).map(section=>section.title);
 
   useEffect(() => {
     const selected = new URLSearchParams(location.search).get("mes");
@@ -514,7 +511,6 @@ export default function AccountingPortal({ role, local = false }: { role: "owner
       <BankExpenses title="RevenueCat" rows={revenuecatRows} loading={bankLoading}/>
       <ExpenseSection title="Google Ads" reports={google.reports} month={month} onDownload={download} file="XML" fallback="0698"/>
       <BankExpenses title="Contabilidad" rows={accountantRows} loading={bankLoading}/>
-      <ForeignVatNote names={noForeignVat}/>
       <NoPayments titles={expenseSections.map(section=>section.title).filter(title=>!hasPayment(title))}/>
     </>}
     {role==="owner"&&tab==="banco"&&bankAccount==="negocio"&&<div className={styles.downloadActions}><UploadButton title="Banamex"/></div>}
