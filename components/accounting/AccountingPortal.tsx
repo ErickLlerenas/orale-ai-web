@@ -2,6 +2,7 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { Upload, Download, AlertCircle, LogOut, CreditCard, Info, CircleCheck, CalendarDays, ChevronLeft, ChevronRight, ChevronDown, Check } from "lucide-react";
 import { money, parseReport, appleSales, reportKey, paymentAmount, incomeFigures, missingAppleFiles, type Report } from "@/lib/accounting/ledger.mjs";
+import Image from "next/image";
 import styles from "./accounting.module.css";
 
 import BankStatement from "./BankStatement";
@@ -517,7 +518,7 @@ export default function AccountingPortal({ role, local = false }: { role: "owner
 
   return <AdminView.Provider value={role === "owner"}><PesoAmounts.Provider value={pesoAmounts}><DepositDates.Provider value={depositDates}><PlatformUpload.Provider value={{choose:title=>{uploadTarget.current=title;input.current?.click();},busy:busy||loading||bankLoading,loaded:new Set(([ ["Google Play",play.reports],["App Store",apple.reports],["Stripe",stripe.reports],["Mercado Libre Afiliados",mercado.reports],["Cursor AI",cursor.reports],["ChatGPT",chatgpt.reports],["Facebook Ads",facebook.reports],["Google Ads",google.reports],["Supabase",supabase.reports],["Google Cloud",cloud.reports] ] as [string,Report[]][]).filter(([,reports])=>reports.some(r=>r.receipt?.month===month)).map(([title])=>title).concat(Object.entries(receiptCategories).filter(([,category])=>receiptFiles.receipts.some(receipt=>receipt.category===category)).map(([title])=>title)))}}><div className={styles.portal}><main className={styles.main}>
     <header className={styles.header}>
-      <a href="/contadores" className={styles.brand}>Órale AI<span>Contabilidad</span></a>
+      <a href="/contadores" className={styles.brand}><Image src="/og-icon.png" alt="" width={44} height={44} className={styles.appIcon} priority/><span>Órale AI<small>Contabilidad</small></span></a>
       <div className={styles.tools}>
         <MonthPicker month={month} disabled={busy} onChange={openMonth}/>
         <button type="button" onClick={logout}><LogOut/>Salir</button>
