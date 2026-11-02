@@ -365,7 +365,8 @@ export default function AccountingPortal({ role, local = false }: { role: "owner
   const hasReceipt=(row:BankRow)=>receiptFiles.receipts.some(receipt=>receipt.rowId===row.id);
   const pending=monthPending({
     bankMissing:bankView.missing,
-    hasNu:nuFiles.rows.length>0,
+    // Nu is needed only when a charge paid with it still lacks its amount in pesos.
+    hasNu:nuFiles.rows.length>0||!expenses.some(report=>(report.receipt?.cardLast4||report.cardLast4)==="0698"&&pesoAmounts[reportKey(report)]==null),
     appleFiles:groupAppleFiles(apple.reports.filter(report=>report.receipt?.month===month).flatMap(report=>missingAppleFiles(report).map(file=>({file,period:monthName(report.period)})))),
     deposits:bankView.rows.length?incomeChecks.filter(check=>!check.row).map(check=>`${bankLabels[check.kind]} ${money(check.amount||0)}`):[],
     pesos:[...new Set(expenses.filter(report=>pesoAmounts[reportKey(report)]==null).map(report=>bankLabels[report.kind||""]||report.kind||""))],
