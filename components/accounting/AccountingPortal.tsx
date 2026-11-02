@@ -397,8 +397,8 @@ export default function AccountingPortal({ role, local = false }: { role: "owner
     try {
       const labels=[];
       for(const file of list){
+        if(tab==="banco"){if(file.size>3_000_000)throw new Error("Cada archivo debe pesar menos de 3 MB.");labels.push("Banamex");continue;}
         if(file.size>2_000_000)throw new Error("Cada archivo debe pesar menos de 2 MB.");
-        if(tab==="banco"){labels.push("Banamex");continue;}
         let report;
         if(/\.(pdf|zip)$/i.test(file.name)){const bytes=new Uint8Array(await file.arrayBuffer());let binary="";bytes.forEach(byte=>{binary+=String.fromCharCode(byte);});report={name:file.name,[/\.zip$/i.test(file.name)?"zip":"pdf"]:btoa(binary)};}
         else report={name:file.name,text:await file.text()};
@@ -419,7 +419,7 @@ export default function AccountingPortal({ role, local = false }: { role: "owner
       if(tab === "banco") {
         if(bankLoading)throw new Error("Espera a que terminen de abrirse los archivos bancarios.");
         const files=[];
-        for(const file of list){if(file.size>2_000_000)throw new Error("Cada archivo debe pesar menos de 2 MB.");const bytes=new Uint8Array(await file.arrayBuffer());let binary="";bytes.forEach(byte=>{binary+=String.fromCharCode(byte);});files.push({name:file.name,data:btoa(binary)});}
+        for(const file of list){if(file.size>3_000_000)throw new Error("Cada archivo debe pesar menos de 3 MB.");const bytes=new Uint8Array(await file.arrayBuffer());let binary="";bytes.forEach(byte=>{binary+=String.fromCharCode(byte);});files.push({name:file.name,data:btoa(binary)});}
         const response=await fetch("/contadores/bank",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({month,version:bankFiles.version,files})});
         const data=await response.json();if(!response.ok)throw new Error(data.error);setBankFiles(data);return;
       }
