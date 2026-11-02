@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { sessionRole, sessionCookie } from "@/lib/accounting/access";
 import { latest, storeVersion, emptyWorkspace } from "@/lib/accounting/store";
 import { importBankDocument } from "@/lib/accounting/bank-import.mjs";
-import { mergeBankDocuments, type BankDocument } from "@/lib/accounting/bank-ledger.mjs";
+import { markBankTransfer, mergeBankDocuments, type BankDocument } from "@/lib/accounting/bank-ledger.mjs";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 const json = (body: unknown, status = 200) => NextResponse.json(body, {status,headers:{"Cache-Control":"private, no-store","X-Robots-Tag":"noindex, nofollow"}});
@@ -34,6 +34,14 @@ export async function POST(req:NextRequest) {
   try{
     const raw=await req.text();if(raw.length>9_000_000)return json({error:"Los archivos superan el tamaño permitido."},413);
     const body=JSON.parse(raw);
+    if(body.action==="mark-transfer"){
+      if(!validMonth(body.month||"")||typeof body.rowId!=="string")return json({error:"Movimiento inválido."},400);
+      const saved=await current(body.month);
+      if(body.version!==saved.version)return json({error:"Hay información más reciente. Recarga antes de guardar."},409);
+      const documents=markBankTransfer(saved.documents,body.month,body.rowId);
+      const version=await storeVersion(`bank-banamex/${body.month}`,{state:emptyWorkspace(),bankDocuments:documents});
+      return json({documents:listed(documents),version});
+    }
     if(!validMonth(body.month||"")||!Array.isArray(body.files)||!body.files.length||body.files.length>3)return json({error:"Elige el mes y hasta tres archivos de Banamex."},400);
     const saved=await current(body.month);
     if(body.version!==saved.version)return json({error:"Hay información más reciente. Recarga antes de guardar."},409);
