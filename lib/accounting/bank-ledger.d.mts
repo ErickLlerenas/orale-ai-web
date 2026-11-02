@@ -15,4 +15,4 @@ export function reconcileBank(view:BankView,reports:Report[],month:string):{chec
 
 export function bankOutflowTotals(rows:BankRow[]):{withdrawals:number;transfers:number;otherPayments:number};
 
-export function bankDepositTotals(rows:BankRow[]):{total:number;transfers:number;platforms:number;bonuses:number;other:number};
+export function bankDepositTotals(rows:(BankRow&{category?:string})[]):{total:number;transfers:number;platforms:number;bonuses:number;other:number};

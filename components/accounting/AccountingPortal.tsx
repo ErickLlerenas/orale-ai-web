@@ -57,12 +57,6 @@ const downloadGuides: Record<string, { href: string; steps: string; file: string
     "file": "Archivo: AAAA-MM-DD--AAAA-MM-DD_Resumen_Facturación.csv.",
     "detail": "Sube un resumen del mes completo, no los PDF de cada cobro."
   },
-  "Google Ads": {
-    "href": "https://ads.google.com/aw/billing/documents?ocid=322288941&billingId=527655704",
-    "steps": "Facturación → Documentos → selecciona las facturas del mes → descarga Factura Fiscal: XML.",
-    "file": "Archivos: FCP-….xml (CFDI).",
-    "detail": "Sube todos los XML del mes; puedes seleccionarlos juntos. No subas las versiones PDF de esos mismos comprobantes."
-  },
   "Supabase": {
     "href": "https://supabase.com/dashboard/org/jaddfmfmvtdzyuhexakn/billing",
     "steps": "Billing → historial de facturas → abre el pago del mes → descarga Receipt.",
@@ -244,7 +238,10 @@ function ChatgptExpenses({ reports, month, onDownload }: { reports: Report[]; mo
   return <section className={styles.entry}>
     <div className={styles.row}><h2>ChatGPT</h2>{paid.length === 0 && <span className={styles.missing}>Sin archivo</span>}</div>
     {paid.length > 0 && <ExpenseTable>
-      {paid.map(report => <div key={reportKey(report)}><dt><span>{invoiceDate(report.documentDate || report.period.slice(0, 10))}</span><CardTag card="personal"/><button type="button" className={styles.csv} onClick={() => onDownload(report)}><Download/>PDF</button></dt><dd>{money(report.totals.closing)} MXN</dd></div>)}
+      {paid.map(report => {
+        const card = report.receipt?.cardLast4 || report.cardLast4;
+        return <div key={reportKey(report)}><dt><span>{invoiceDate(report.documentDate || report.period.slice(0, 10))}</span>{card === "6271" ? <CardTag card="negocio"/> : card === "0698" ? <CardTag card="personal"/> : <span>{card ? `Tarjeta ···· ${card}` : "Tarjeta no indicada"}</span>}<button type="button" className={styles.csv} onClick={() => onDownload(report)}><Download/>PDF</button></dt><dd>{money(report.totals.closing)} MXN</dd></div>;
+      })}
       <div className={styles.deposit}><dt><span>Total</span></dt><dd>{money(paid.reduce((sum, report) => sum + report.totals.closing, 0))} MXN</dd></div>
     </ExpenseTable>}
     {paid.length>0&&paid.every(r=>!r.totals.tax)&&<ForeignVatNote name="ChatGPT"/>}
@@ -272,7 +269,7 @@ function FacebookExpenses({ reports, month, onDownload }: { reports: Report[]; m
 function GoogleExpenses({ reports, month, onDownload }: { reports: Report[]; month: string; onDownload: (report: Report) => void }) {
   const paid = reports.filter(report => report.receipt?.month === month).sort((a, b) => a.period.localeCompare(b.period));
   return <section className={styles.entry}>
-    <div className={styles.row}><h2>Google Ads</h2>{paid.length === 0 && <span className={styles.missing}>Sin archivo</span>}</div>
+    <div className={styles.row}><h2>Google Ads</h2></div>
     {paid.length > 0 && <>
     <ExpenseTable>
       {paid.map(report => <div key={reportKey(report)}><dt><span>{invoiceDate(report.period.slice(0, 10))}</span><CardTag card="personal"/><button type="button" className={styles.csv} onClick={() => onDownload(report)}><Download/>XML</button></dt><dd>{money(report.totals.closing)} MXN</dd></div>)}
@@ -280,7 +277,6 @@ function GoogleExpenses({ reports, month, onDownload }: { reports: Report[]; mon
     </ExpenseTable>
     <IncludedVatNote amount={paid.reduce((sum, report) => sum + (report.totals.tax || 0), 0)}/>
     </>}
-    <div className={styles.downloadActions}><DownloadGuide title="Google Ads"/></div>
   </section>;
 }
 
@@ -303,6 +299,26 @@ function CloudExpenses({ reports, month, onDownload }: { reports: Report[]; mont
       <IncludedVatNote amount={paid.reduce((sum, r) => sum + r.totals.tax, 0)}/>
     </>}
     <div className={styles.downloadActions}><DownloadGuide title="Google Cloud"/></div>
+  </section>;
+}
+
+function BankExpenses({title,rows,loading}:{title:string;rows:BankRow[];loading:boolean}) {
+  if(!loading&&rows.length===0)return null;
+  return <section className={styles.entry}>
+    <div className={styles.row}><h2>{title}</h2></div>
+    {loading?<p className={styles.taxNote}>Cargando…</p>:<>
+      <ExpenseTable>{rows.map((row,index)=><div key={row.id||index}><dt><span>{invoiceDate(row.date)}</span><CardTag card="negocio"/><span className={styles.noReceipt}>Falta</span></dt><dd>{money(-row.amount)} MXN</dd></div>)}</ExpenseTable>
+      <p className={styles.taxNote}>Pago identificado en Banamex. Falta el comprobante.</p>
+    </>}
+  </section>;
+}
+
+function NoPayments({titles}:{titles:string[]}) {
+  if(titles.length===0)return null;
+  return <section className={styles.entry}>
+    <div className={styles.row}><h2>Sin pagos este mes</h2></div>
+    <p className={styles.taxNote}>{titles.join(", ")}</p>
+    {titles.map(title=><div className={styles.downloadActions} key={title}><DownloadGuide title={title}/></div>)}
   </section>;
 }
 
@@ -343,6 +359,7 @@ export default function AccountingPortal({ role, local = false }: { role: "owner
   const [facebook, setFacebook] = useState<{ reports: Report[]; version: string }>({ reports: [], version: "" });
   const [bankFiles, setBankFiles] = useState<{documents:BankDocument[];version:string}>({documents:[],version:""});
   const [nuFiles,setNuFiles]=useState<NuReview>({rows:[],sources:[],version:""});
+  const [bankAccount,setBankAccount]=useState<"negocio"|"personal">("negocio");
   const [bankLoading,setBankLoading] = useState(true);
   const [loading, setLoading] = useState(true);
   const [ready, setReady] = useState(false);
@@ -359,7 +376,11 @@ export default function AccountingPortal({ role, local = false }: { role: "owner
   const accountantRows=bankRows.filter(r=>r.category==="accountant"&&r.amount<0);
   const pesoAmounts=expensePesos(expenses,[...bankRows,...nuView(nuFiles.rows,month).rows],month);
   const missingPesos=expenses.some(r=>pesoAmounts[reportKey(r)]==null);
-  const expenseTotal=expenses.reduce((sum,r)=>sum+(pesoAmounts[reportKey(r)]||0),0)+accountantRows.reduce((sum,row)=>sum-row.amount,0);
+  const claudeRows=bankRows.filter(r=>r.category==="anthropic"&&r.amount<0),cloudflareRows=bankRows.filter(r=>r.category==="cloudflare"&&r.amount<0),revenuecatRows=bankRows.filter(r=>r.category==="revenuecat"&&r.amount<0);
+  const bankExpenseRows=[...accountantRows,...claudeRows,...cloudflareRows,...revenuecatRows];
+  const expenseTotal=expenses.reduce((sum,r)=>sum+(pesoAmounts[reportKey(r)]||0),0)+bankExpenseRows.reduce((sum,row)=>sum-row.amount,0);
+  const expenseSections=[{title:"Cursor AI",reports:cursor.reports},{title:"ChatGPT",reports:chatgpt.reports},{title:"Facebook Ads",reports:facebook.reports},{title:"Supabase",reports:supabase.reports},{title:"Google Cloud",reports:cloud.reports}];
+  const hasPayment=(title:string)=>expenseSections.some(section=>section.title===title&&section.reports.some(report=>report.receipt?.month===month));
 
   useEffect(() => {
     const selected = new URLSearchParams(location.search).get("mes");
@@ -508,17 +529,21 @@ export default function AccountingPortal({ role, local = false }: { role: "owner
       </div>}
     </>}
     {ready && tab === "gastos" && <>
-      <CursorExpenses reports={cursor.reports} month={month} onDownload={download}/>
-      <ChatgptExpenses reports={chatgpt.reports} month={month} onDownload={download}/>
-      <FacebookExpenses reports={facebook.reports} month={month} onDownload={download}/>
-      <GoogleExpenses reports={google.reports} month={month} onDownload={download}/>
-      <SupabaseExpenses reports={supabase.reports} month={month} onDownload={download}/>
-      <CloudExpenses reports={cloud.reports} month={month} onDownload={download}/>
+      {hasPayment("Cursor AI")&&<CursorExpenses reports={cursor.reports} month={month} onDownload={download}/>}
+      {hasPayment("ChatGPT")&&<ChatgptExpenses reports={chatgpt.reports} month={month} onDownload={download}/>}
+      {hasPayment("Facebook Ads")&&<FacebookExpenses reports={facebook.reports} month={month} onDownload={download}/>}
+      {google.reports.some(report=>report.receipt?.month===month)&&<GoogleExpenses reports={google.reports} month={month} onDownload={download}/>}
+      {hasPayment("Supabase")&&<SupabaseExpenses reports={supabase.reports} month={month} onDownload={download}/>}
+      {hasPayment("Google Cloud")&&<CloudExpenses reports={cloud.reports} month={month} onDownload={download}/>}
+      <BankExpenses title="Claude" rows={claudeRows} loading={bankLoading}/>
+      <BankExpenses title="Cloudflare" rows={cloudflareRows} loading={bankLoading}/>
+      <BankExpenses title="RevenueCat" rows={revenuecatRows} loading={bankLoading}/>
       <AccountantExpenses rows={accountantRows} loading={bankLoading}/>
-      {(expenses.length>0||accountantRows.length>0)&&<div className={styles.totals}><div><span>Total de gastos{missingPesos&&<small>Faltan cargos en pesos</small>}</span><strong>{bankLoading?"Cargando…":`${money(expenseTotal)} MXN`}</strong></div></div>}
+      <NoPayments titles={expenseSections.map(section=>section.title).filter(title=>!hasPayment(title))}/>
+      {(expenses.length>0||bankExpenseRows.length>0)&&<div className={styles.totals}><div><span>Total de gastos{missingPesos&&<small>Faltan cargos en pesos</small>}</span><strong>{bankLoading?"Cargando…":`${money(expenseTotal)} MXN`}</strong></div></div>}
     </>}
-    {role==="owner"&&tab==="banco"&&<div className={styles.downloadActions}><UploadButton title="Banamex"/></div>}
-    {ready && tab === "banco" && <BankStatement documents={bankFiles.documents} reports={[...play.reports,...apple.reports,...stripe.reports,...mercado.reports,...cursor.reports,...facebook.reports,...chatgpt.reports,...google.reports,...cloud.reports,...supabase.reports]} month={month} loading={bankLoading}/>}
+    {role==="owner"&&tab==="banco"&&bankAccount==="negocio"&&<div className={styles.downloadActions}><UploadButton title="Banamex"/></div>}
+    {ready && tab === "banco" && <BankStatement onAccountChange={setBankAccount} documents={bankFiles.documents} nu={nuFiles} reports={[...play.reports,...apple.reports,...stripe.reports,...mercado.reports,...cursor.reports,...facebook.reports,...chatgpt.reports,...google.reports,...cloud.reports,...supabase.reports]} month={month} loading={bankLoading}/>}
     {uploadReview&&<div className={styles.uploadBackdrop}><section className={styles.uploadReview} role="dialog" aria-modal="true" aria-labelledby="upload-review-title"><h2 id="upload-review-title">Revisar archivos</h2><p>Se guardarán en <strong>{periodName(uploadReview.month)}</strong>.</p><ul>{uploadReview.files.map((file,i)=><li key={i}><strong>{uploadReview.labels[i]}</strong><small>{file.name}</small></li>)}</ul><div><button type="button" onClick={()=>setUploadReview(null)}>Cancelar</button><button type="button" className={styles.primary} onClick={()=>{const review=uploadReview;setUploadReview(null);upload(review.files);}}>Guardar archivos</button></div></section></div>}
     <input ref={input} hidden type="file" multiple accept={tab === "banco" ? ".xlsx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" : ".zip,application/zip,.csv,.txt,.pdf,.xml,text/csv,text/plain,application/pdf,application/xml,text/xml"} onChange={e => reviewUpload(e.target.files)}/>
   </main></div></PlatformUpload.Provider></PesoAmounts.Provider></AdminView.Provider>;

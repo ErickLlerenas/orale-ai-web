@@ -30,11 +30,17 @@ test('rejects changed column meanings, ambiguous amounts and inconsistent balanc
  assert.throws(()=>bank.parseBanamexRows([header,['02 Sep 2026','x',null,'10.00','90.01'],['01 Sep 2026','x','100.00',null,'100.00']]),/no cuadran/);
  assert.throws(()=>bank.bankDate('31 Sep 2026'),/Fecha/);
 });
-test('reconciliation uses description as well as amount, does not call own transfers income, and preserves USD',()=>{
+test('reconciliation identifies a deposit the Excel does not name by exact amount, does not call own transfers income, and preserves USD',()=>{
  const v=bank.mergeBankDocuments(docs,'2026-09');
  const report={id:'play:2026-08',kind:'earnings',receipt:{month:'2026-09',amount:20000},totals:{closing:20000}};
  const check=bank.reconcileBank(v,[report],'2026-09');assert.equal(check.checks[0].status,'matched');
- const noPdf=bank.reconcileBank(bank.mergeBankDocuments(docs.slice(0,2),'2026-09'),[report],'2026-09');assert.equal(noPdf.checks[0].status,'missing');
+ const noPdf=bank.reconcileBank(bank.mergeBankDocuments(docs.slice(0,2),'2026-09'),[report],'2026-09');assert.equal(noPdf.checks[0].status,'matched');assert.equal(noPdf.rows.find(r=>r.amount>0).category,'play');
+ assert.equal(bank.reconcileBank(bank.mergeBankDocuments(docs.slice(0,2),'2026-09'),[{...report,receipt:{...report.receipt,amount:20001}}],'2026-09').checks[0].status,'missing');
+ assert.equal(bank.bankCategory({amount:-100,description:'OPENAI *CHATGPT SUBSC SAN FRANCISCO'}),'chatgpt');assert.equal(bank.bankCategory({amount:-100,description:'SUPABASE SINGAPORE'}),'supabase');assert.equal(bank.bankCategory({amount:-100,description:'ANTHROPIC* CLAUDE SUB'}),'anthropic');assert.equal(bank.bankCategory({amount:-100,description:'CLOUDFLARE SAN FRANCISCO'}),'cloudflare');assert.equal(bank.bankCategory({amount:-100,description:'REVENUECAT'}),'revenuecat');
+ const chatgpt={id:'chatgpt:A',kind:'chatgpt',documentDate:'2026-09-09',receipt:{month:'2026-09',amount:36396},totals:{closing:36396}};
+ const supabase={id:'supabase:A',kind:'supabase',currency:'USD',documentDate:'2026-09-09',receipt:{month:'2026-09',amount:100},totals:{closing:100}};
+ const charges={...v,rows:[{id:'o',date:'2026-09-09',description:'OPENAI',amount:-36396,balance:10000},{id:'s',date:'2026-09-10',description:'SUPABASE SINGAPORE',amount:-1850,balance:8150}]};
+ assert.deepEqual(bank.reconcileBank(charges,[chatgpt,supabase],'2026-09').checks.map(c=>c.status).sort(),['fx','matched']);
  assert.equal(bank.bankCategory({description:'PAGO RECIBIDO DE NUBANK TRANSFERENCIA',amount:20000}),'transfer');
  const cursorView={...v,rows:[{id:'c',date:'2026-09-09',description:'CURSOR',amount:-36396,balance:10000}]};
  const cursor={id:'cursor:A',kind:'cursor',currency:'USD',documentDate:'2026-09-09',receipt:{month:'2026-09',amount:2000},totals:{closing:2000}};
