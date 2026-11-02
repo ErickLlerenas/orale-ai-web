@@ -282,12 +282,12 @@ function FacebookExpenses({ reports, month, onDownload }: { reports: Report[]; m
   </section>;
 }
 
-function BankExpenses({title,rows,loading,receipts,month}:{title:string;rows:BankRow[];loading:boolean;receipts:BankReceipt[];month:string}) {
+function BankExpenses({title,rows,loading,receipts,month,missing="Falta"}:{title:string;rows:BankRow[];loading:boolean;receipts:BankReceipt[];month:string;missing?:string}) {
   if(loading||rows.length===0)return null;
   return <section className={styles.entry}>
     <div className={styles.row}><h2>{title}</h2></div>
     <ExpenseTable>
-      {rows.map((row,index)=>{const receipt=receipts.find(item=>item.rowId===row.id);return <div key={row.id||index}><dt><span>{invoiceDate(row.date)}</span><CardTag card="negocio"/>{receipt?<a className={styles.csv} href={`/contadores/receipts?month=${month}&id=${receipt.id}`}><Download/>{receipt.type==="xml"?"XML":"PDF"}</a>:<span className={styles.noReceipt}>Falta</span>}</dt><dd>{money(-row.amount)} MXN</dd></div>;})}
+      {rows.map((row,index)=>{const receipt=receipts.find(item=>item.rowId===row.id);return <div key={row.id||index}><dt><span>{invoiceDate(row.date)}</span><CardTag card="negocio"/>{receipt?<a className={styles.csv} href={`/contadores/receipts?month=${month}&id=${receipt.id}`}><Download/>{receipt.type==="xml"?"XML":"PDF"}</a>:<span className={styles.noReceipt}>{missing}</span>}</dt><dd>{money(-row.amount)} MXN</dd></div>;})}
       <div className={styles.deposit}><dt><span>Total pagado</span></dt><dd>{money(rows.reduce((sum,row)=>sum-row.amount,0))} MXN</dd></div>
     </ExpenseTable>
     <div className={styles.downloadActions}><DownloadGuide title={title}/></div>
@@ -365,12 +365,12 @@ export default function AccountingPortal({ role, local = false }: { role: "owner
   const hasReceipt=(row:BankRow)=>receiptFiles.receipts.some(receipt=>receipt.rowId===row.id);
   const pending=monthPending({
     bankMissing:bankView.missing,
-    hasNu:nuFiles.rows.length>0,
+    // Nu is needed only when a charge paid with it still lacks its amount in pesos.
+    hasNu:nuFiles.rows.length>0||!expenses.some(report=>(report.receipt?.cardLast4||report.cardLast4)==="0698"&&pesoAmounts[reportKey(report)]==null),
     appleFiles:groupAppleFiles(apple.reports.filter(report=>report.receipt?.month===month).flatMap(report=>missingAppleFiles(report).map(file=>({file,period:monthName(report.period)})))),
     deposits:bankView.rows.length?incomeChecks.filter(check=>!check.row).map(check=>`${bankLabels[check.kind]} ${money(check.amount||0)}`):[],
     pesos:[...new Set(expenses.filter(report=>pesoAmounts[reportKey(report)]==null).map(report=>bankLabels[report.kind||""]||report.kind||""))],
     receipts:([["Claude",claudeRows],["Cloudflare",cloudflareRows],["RevenueCat",revenuecatRows]] as [string,BankRow[]][]).filter(([,rows])=>rows.some(row=>!hasReceipt(row))).map(([title])=>title),
-    accountant:accountantRows.some(row=>!hasReceipt(row)),
     unidentified,
   });
 
@@ -549,7 +549,7 @@ export default function AccountingPortal({ role, local = false }: { role: "owner
       <ExpenseSection title="Google Cloud" reports={cloud.reports} month={month} onDownload={download} file="XML"/>
       <BankExpenses title="RevenueCat" rows={revenuecatRows} loading={bankLoading} receipts={receiptFiles.receipts} month={month}/>
       <ExpenseSection title="Google Ads" reports={google.reports} month={month} onDownload={download} file="XML" fallback="0698"/>
-      <BankExpenses title="Contabilidad" rows={accountantRows} loading={bankLoading} receipts={receiptFiles.receipts} month={month}/>
+      <BankExpenses title="Contabilidad" rows={accountantRows} loading={bankLoading} receipts={receiptFiles.receipts} month={month} missing="—"/>
       <NoPayments titles={expenseSections.map(section=>section.title).filter(title=>!hasPayment(title))}/>
     </>}
     {role==="owner"&&tab==="banco"&&bankAccount==="negocio"&&<div className={styles.downloadActions}><UploadButton title="Banamex"/></div>}
