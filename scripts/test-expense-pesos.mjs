@@ -20,3 +20,15 @@ test('excludes adjustment documents and preserves MXN invoice amounts',()=>{
  const result=expensePesos([google,adjustment],[],'2026-09');
  assert.equal(result[reportKey(google)],60000);assert.equal(result[reportKey(adjustment)],undefined);
 });
+test('a charge posted days after the document is linked only when one charge and one document fit',()=>{
+ const late={kind:'cursor',period:'2026-10-11',documentDate:'2026-10-11',receipt:{month:'2026-10'},totals:{closing:50}};
+ const row={date:'2026-10-12',category:'cursor',amount:-925};
+ assert.equal(expensePesos([late],[row],'2026-10')[reportKey(late)],925);
+ assert.equal(expensePesos([late],[row,{...row,date:'2026-10-13'}],'2026-10')[reportKey(late)],null);
+ assert.equal(expensePesos([late],[{...row,date:'2026-10-20'}],'2026-10')[reportKey(late)],null);
+ const early={...late,period:'2026-10-09',documentDate:'2026-10-09'};
+ const both=expensePesos([early,late],[{...row,date:'2026-10-09',amount:-100},{...row,date:'2026-10-11',amount:-200}],'2026-10');
+ assert.equal(both[reportKey(early)],100);assert.equal(both[reportKey(late)],200);
+ const rival=expensePesos([early,late],[row],'2026-10');
+ assert.equal(rival[reportKey(early)],null);assert.equal(rival[reportKey(late)],null);
+});
