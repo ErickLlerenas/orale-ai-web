@@ -50,7 +50,7 @@ test('PDF parser reconciles individual movements with independent statement tota
 const memory=new Map();let seq=0;
 const source=ts.transpileModule(fs.readFileSync(new URL('../app/contadores/bank/route.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText;
 const deps={
- 'next/server':{NextResponse:{json:(data,options)=>({data,status:options.status})}},
+ 'next/server':{NextResponse:Object.assign(class{constructor(body,options){this.body=body;this.headers=options.headers;this.status=200;}},{json:(data,options)=>({data,status:options.status})})},
  '@/lib/accounting/access':{sessionCookie:'cookie',sessionRole:async value=>value},
  '@/lib/accounting/store':{emptyWorkspace:()=>({reports:[]}),latest:async key=>memory.get(key)||null,storeVersion:async(key,value)=>{const version=String(++seq);memory.set(key,{...value,key:version});return version;}},
  '@/lib/accounting/bank-ledger.mjs':bank,
@@ -65,6 +65,16 @@ test('bank route enforces permissions and saves a validated batch atomically and
  const again=await route.POST(req({...body,version:first.data.version}));assert.equal(again.status,200);assert.equal(again.data.documents.length,3);
  const failed=await route.POST(req({...body,version:again.data.version,files:[{name:'0'},{name:'bad'}]}));assert.equal(failed.status,400);assert.equal(memory.get('bank-banamex/2026-09').key,again.data.version);
  assert.equal((await route.POST(req(body))).status,409);assert.equal((await route.GET(req({},null))).status,401);
+});
+
+test('bank route lists documents without their bytes and downloads each original on its own',async()=>{
+ const key='bank-banamex/2026-08';
+ memory.set(key,{key:'9',bankDocuments:[{...docs[0],month:'2026-08',file:Buffer.from('original').toString('base64')}]});
+ const get=source=>route.GET({...req({}),nextUrl:new URL(`http://localhost/contadores/bank?month=2026-08${source?`&source=${source}`:''}`)});
+ const list=await get();assert.equal(list.status,200);assert.equal(list.data.documents.length,1);assert.equal('file' in list.data.documents[0],false);assert.equal(memory.get(key).bankDocuments[0].file.length>0,true);
+ const download=await get('a');assert.equal(download.status,200);assert.equal(Buffer.from(download.body).toString(),'original');assert.equal(download.headers['Content-Disposition'].includes('a.xlsx'),true);
+ assert.equal((await get('missing')).status,404);
+ memory.delete(key);
 });
 
 test('posting one of two identical pending charges does not erase the second charge',()=>{
@@ -117,4 +127,26 @@ test('monthly Excel import ignores incomplete adjacent months and preserves orig
  assert.throws(()=>bank.parseBanamexMonthRows(data,'2026-10'),/inválido/);
  assert.throws(()=>bank.parseBanamexMonthRows(data,'2026-08'),/no contiene/);
  assert.throws(()=>bank.parseBanamexMonthRows([header,['29 Sep 2026','FACEBOOK',null,null,null]],'2026-09'),/inválido/);
+});
+
+test('Excel overdrawn balances recover their sign and a wrong balance is still rejected', () => {
+ const data=[header,['05 Oct 2026','DEPOSITO','3000.00',null,'2700.00'],['05 Oct 2026','FACEBOOK',null,'1000.00','300.00'],['01 Oct 2026','OTRO',null,'10.00','700.00']];
+ const parsed=bank.parseBanamexMonthRows(data,'2026-10');
+ assert.equal(parsed.rows[1].balance,-30000);assert.equal(parsed.closing,270000);
+ assert.throws(()=>bank.parseBanamexMonthRows([header,data[1],['05 Oct 2026','FACEBOOK',null,'1000.00','300.01'],data[3]],'2026-10'),/no cuadran/);
+ assert.throws(()=>bank.parseBanamexMonthRows([header,['05 Oct 2026','DEPOSITO','1000.00',null,'300.00'],data[3]],'2026-10'),/no cuadran/);
+});
+
+test('PDF reads overdrawn balances, skips card checks with no money and rejects a check that changes the balance', () => {
+ const statement=`Switch Banamex\nFecha de corte: 24 de octubre de 2026\nNúmero de Tarjeta de Débito 0000000000001234\nSaldo anterior $100.00\nDepósitos $300.00\nRetiros $150.00\nSaldo al corte $250.00\n\f\nDETALLE DE OPERACIONES\nFECHA CONCEPTO RETIROS DEPÓSITOS SALDO\nSALDO ANTERIOR 100.00\n01 OCT FACEBOOK SUC 0342 150.00 -50.00\n01 OCT GOOGLE *CHROME TEMP LONDON\nCAJA 0020 AUT 00000001\nHORA 12:12 SUC 0342 -50.00\n05 OCT PAGO RECIBIDO DE NUBANK 300.00 250.00\n* Expresada`;
+ const parsed=bank.parseBanamexPdf(statement);
+ assert.equal(parsed.rows.length,2);assert.equal(parsed.rows[0].balance,-5000);assert.equal(parsed.rows[0].amount,-15000);assert.equal(parsed.closing,25000);
+ assert.throws(()=>bank.parseBanamexPdf(statement.replace('HORA 12:12 SUC 0342 -50.00','HORA 12:12 SUC 0342 -49.00')),/No se pudo leer/);
+});
+
+test('bank descriptions identify split Apple text, Mercado Pago, misspelled Nu transfers and Facebook aliases', () => {
+ assert.equal(bank.bankCategory({amount:100,description:'CCI : 123,PURP:DEVELOPER SUC 0 CAJA 0 AUT 0 HORA 0: 0 PROCEEDS RASTREO: 1'}),'apple');
+ assert.equal(bank.bankCategory({amount:100,description:'PAGO RECIBIDO DE Mercado Pago W POR ORDEN DE X'}),'mercado');
+ assert.equal(bank.bankCategory({amount:-100,description:'PAGO INTERBANCARIO A NUBANK AL BENEF. REF. 1 transfencia entre cuentas'}),'transfer');
+ assert.equal(bank.bankCategory({amount:-100,description:'FACEBK *ABC123'}),'facebook');
 });

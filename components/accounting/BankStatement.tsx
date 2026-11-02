@@ -6,7 +6,6 @@ import { bankLabels, bankOutflowTotals, bankDepositTotals, mergeBankDocuments, r
 import { nuView, nuLabels, type NuReview } from '@/lib/accounting/nu-ledger.mjs';
 import styles from './accounting.module.css';
 const date=(value:string)=>new Date(`${value}T12:00:00`).toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'});
-function sourceDownload(document:BankDocument){const bytes=Uint8Array.from(atob(document.file),c=>c.charCodeAt(0));const url=URL.createObjectURL(new Blob([bytes],{type:document.type==='pdf'?'application/pdf':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));const a=window.document.createElement('a');a.href=url;a.download=document.name;a.click();URL.revokeObjectURL(url);}
 export default function BankStatement({documents,nu,reports,month,loading,onAccountChange}:{onAccountChange:(account:"negocio"|"personal")=>void;documents:BankDocument[];nu:NuReview;reports:Report[];month:string;loading:boolean}) {
   const [account,setAccount]=useState<'negocio'|'personal'>('negocio');
   const personal=nuView(nu.rows,month,reports);
@@ -58,7 +57,7 @@ export default function BankStatement({documents,nu,reports,month,loading,onAcco
           <tr className={styles.bankSubtotal}><th colSpan={2}>Gastos y otros pagos</th><td>—</td><td><span className={styles.bankOut}>{money(otherPayments)}</span></td><td>—</td></tr></tfoot>
         </table>
       </div>
-      <div className={styles.bankOriginals}>{documents.map(document=><button type="button" className={styles.csv} key={document.id} onClick={()=>sourceDownload(document)}><Download/>{document.name}</button>)}</div>
+      <div className={styles.bankOriginals}>{documents.map(document=><a className={styles.csv} key={document.id} href={`/contadores/bank?month=${month}&source=${document.id}`}><Download/>{document.name}</a>)}</div>
     </>)}
   </>;
 }

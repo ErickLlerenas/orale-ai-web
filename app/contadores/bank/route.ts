@@ -11,11 +11,19 @@ async function current(month:string) {
   const record=await latest(`bank-banamex/${month}`) as unknown as {key:string;bankDocuments?:BankDocument[]}|null;
   return {documents:record?.bankDocuments??[],version:record?.key??""};
 }
+// Originals download one at a time: a month of statements exceeds Vercel's 4.5 MB response limit.
+const listed=(documents:BankDocument[])=>documents.map(document=>{const summary={...document};delete summary.file;return summary;});
 export async function GET(req:NextRequest) {
   if(!await sessionRole(req.cookies.get(sessionCookie)?.value,req.headers.get("host")))return json({error:"Acceso restringido."},401);
   const month=req.nextUrl.searchParams.get("month")||"";
   if(!validMonth(month))return json({error:"Mes inválido."},400);
-  try{return json(await current(month));}catch{return json({error:"No se pudieron abrir los archivos bancarios."},503);}
+  try{
+    const saved=await current(month),source=req.nextUrl.searchParams.get("source");
+    if(!source)return json({...saved,documents:listed(saved.documents)});
+    const document=saved.documents.find(d=>d.id===source);
+    if(!document?.file)return json({error:"Archivo no encontrado."},404);
+    return new NextResponse(Buffer.from(document.file,"base64"),{headers:{"Cache-Control":"private, no-store","X-Robots-Tag":"noindex, nofollow","Content-Type":document.type==="pdf"?"application/pdf":"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet","Content-Disposition":`attachment; filename*=UTF-8''${encodeURIComponent(document.name)}`}});
+  }catch{return json({error:"No se pudieron abrir los archivos bancarios."},503);}
 }
 export async function POST(req:NextRequest) {
   if(await sessionRole(req.cookies.get(sessionCookie)?.value,req.headers.get("host"))!=="owner")return json({error:"Solo el administrador puede subir archivos."},403);
@@ -38,6 +46,6 @@ export async function POST(req:NextRequest) {
     if(view.gap)throw new Error("Los archivos dejan diferencias en la secuencia de saldos. No se guardaron; revisa que sean de la misma cuenta y que no falten movimientos.");
     if(Buffer.byteLength(JSON.stringify(documents))>8_000_000)throw new Error("El conjunto de archivos es demasiado grande.");
     const version=await storeVersion(`bank-banamex/${body.month}`,{state:emptyWorkspace(),bankDocuments:documents});
-    return json({documents,version});
+    return json({documents:listed(documents),version});
   }catch(error){return json({error:error instanceof Error?error.message:"No se pudieron cargar los archivos."},400);}
 }
