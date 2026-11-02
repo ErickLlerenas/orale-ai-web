@@ -6,7 +6,7 @@ import { bankLabels, bankDepositTotals, mergeBankDocuments, reconcileBank, type 
 import { nuView, nuLabels, type NuReview } from '@/lib/accounting/nu-ledger.mjs';
 import styles from './accounting.module.css';
 const date=(value:string)=>new Date(`${value}T12:00:00`).toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'});
-export default function BankStatement({documents,nu,reports,month,loading,onAccountChange,expenses,paidWithNu}:{expenses:number;paidWithNu:number;onAccountChange:(account:"negocio"|"personal")=>void;documents:BankDocument[];nu:NuReview;reports:Report[];month:string;loading:boolean}) {
+export default function BankStatement({documents,nu,reports,month,loading,onAccountChange,expenses,paidWithNu,nuCharges}:{nuCharges:{id:string;date:string;title:string;amount:number}[];expenses:number;paidWithNu:number;onAccountChange:(account:"negocio"|"personal")=>void;documents:BankDocument[];nu:NuReview;reports:Report[];month:string;loading:boolean}) {
   const [account,setAccount]=useState<'negocio'|'personal'>('negocio');
   const personal=nuView(nu.rows,month,reports);
   const view=mergeBankDocuments(documents,month);
@@ -20,7 +20,12 @@ export default function BankStatement({documents,nu,reports,month,loading,onAcco
       <button type="button" role="tab" aria-selected={account==='personal'} onClick={()=>{setAccount('personal');onAccountChange('personal');}} className={styles.bankPersonalTab}>Personal <small>Nu ····0698</small></button>
     </div>
     {account==='negocio' && !loading && view.missing.length>0 && <p className={styles.fileStatus}>Falta: {view.missing.join(' y ')}.</p>}
-    {account==='personal' && !loading && <>{personal.rows.length===0?<p className={styles.empty}>Sin movimientos cargados.</p>:<><div className={`${styles.bankTableWrap} ${styles.bankBusiness}`}><table className={`${styles.bankTable} ${styles.bankRawTable}`}>
+    {account==='personal' && !loading && <>{personal.rows.length===0?(nuCharges.length===0?<p className={styles.empty}>Sin movimientos cargados.</p>:<div className={`${styles.bankTableWrap} ${styles.bankBusiness}`}><table className={`${styles.bankTable} ${styles.bankRawTable}`}>
+      <thead><tr><th>Fecha</th><th>Descripción</th><th>Abonos</th><th>Cargos</th></tr></thead>
+      <tbody>{nuCharges.map(charge=><tr key={charge.id}><td>{date(charge.date)}</td><td><div>{charge.title}</div><span className={styles.bankChip}>Gasto del negocio</span></td><td>—</td><td><span className={styles.bankOut}>−{money(charge.amount)}</span></td></tr>)}
+      <tr><td>—</td><td><div>Movimientos personales</div><span className={styles.bankChip}>No se muestran</span></td><td>***</td><td>***</td></tr></tbody>
+      <tfoot><tr><th colSpan={2}>Cargos del negocio</th><td>—</td><td><span className={styles.bankOut}>{money(nuCharges.reduce((sum,charge)=>sum+charge.amount,0))}</span></td></tr></tfoot>
+      </table></div>):<><div className={`${styles.bankTableWrap} ${styles.bankBusiness}`}><table className={`${styles.bankTable} ${styles.bankRawTable}`}>
       <thead><tr><th>Fecha</th><th>Descripción</th><th>Abonos</th><th>Cargos</th></tr></thead>
       <tbody>{personal.rows.map(row=><tr key={row.id} className={row.status==='cancelled'?styles.bankCancelled:undefined}>
         <td title={row.postedDate && row.date!==row.postedDate?`Fecha en la app: ${date(row.date)}`:undefined}>{date(row.postedDate||row.date)}</td>

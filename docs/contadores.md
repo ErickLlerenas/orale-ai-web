@@ -95,7 +95,7 @@ Los servicios sin pago en el mes se agrupan en «Sin pagos este mes». Google Ad
 
 ## Vista del cierre
 
-El portal abre siempre en el mes anterior, que es el que se está cerrando. Es informativo: lo usan el administrador, que sube los archivos, y los contadores, que solo consultan. Cada pestaña empieza con sus totales. Debajo del mes aparece una línea con lo que falta, calculada desde los archivos y el banco. Los movimientos de Nu solo se piden si un gasto pagado con Nu aún no tiene su importe en pesos. Los honorarios de los contadores no se piden: ellos tienen su factura.
+El portal abre siempre en el mes anterior, que es el que se está cerrando. Es informativo: lo usan el administrador, que sube los archivos, y los contadores, que solo consultan. Cada pestaña empieza con sus totales. Debajo del mes aparece una línea con lo que falta, calculada desde los archivos y el banco. Los movimientos de Nu solo se piden si un gasto pagado con Nu aún no tiene su importe en pesos. Si el mes no tiene movimientos de Nu cargados, la pestaña Personal muestra solo los cargos del negocio pagados con Nu y una fila de movimientos personales que no se muestran. Los honorarios de los contadores no se piden: ellos tienen su factura.
 
 Ingresos muestra la fecha del depósito confirmada por Banamex y, en Play y Apple, el mes de las ventas. Gastos conserva cada cobro en su renglón, con fecha, tarjeta y comprobante.
 
