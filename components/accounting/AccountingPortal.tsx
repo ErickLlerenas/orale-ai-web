@@ -282,7 +282,7 @@ function FacebookExpenses({ reports, month, onDownload }: { reports: Report[]; m
   </section>;
 }
 
-function BankExpenses({title,rows,loading,receipts,month,missing="Falta"}:{title:string;rows:BankRow[];loading:boolean;receipts:BankReceipt[];month:string;missing?:string}) {
+function BankExpenses({title,rows,loading,receipts,month,missing="Falta",foreign=false,note}:{title:string;rows:BankRow[];loading:boolean;receipts:BankReceipt[];month:string;missing?:string;foreign?:boolean;note?:string}) {
   if(loading||rows.length===0)return null;
   return <section className={styles.entry}>
     <div className={styles.row}><h2>{title}</h2></div>
@@ -290,6 +290,8 @@ function BankExpenses({title,rows,loading,receipts,month,missing="Falta"}:{title
       {rows.map((row,index)=>{const receipt=receipts.find(item=>item.rowId===row.id);return <div key={row.id||index}><dt><span>{invoiceDate(row.date)}</span><CardTag card="negocio"/>{receipt?<a className={styles.csv} href={`/contadores/receipts?month=${month}&id=${receipt.id}`}><Download/>{receipt.type==="xml"?"XML":"PDF"}</a>:<span className={styles.noReceipt}>{missing}</span>}</dt><dd>{money(-row.amount)} MXN</dd></div>;})}
       <div className={styles.deposit}><dt><span>Total pagado</span></dt><dd>{money(rows.reduce((sum,row)=>sum-row.amount,0))} MXN</dd></div>
     </ExpenseTable>
+    {foreign&&<ForeignVatNote name={title}/>}
+    {note&&<div className={styles.foreignVatNote} role="note"><Info aria-hidden="true"/><p>{note}</p></div>}
     <div className={styles.downloadActions}><DownloadGuide title={title}/></div>
   </section>;
 }
@@ -352,6 +354,9 @@ export default function AccountingPortal({ role, local = false }: { role: "owner
   const claudeRows=bankRows.filter(r=>r.category==="anthropic"&&r.amount<0),cloudflareRows=bankRows.filter(r=>r.category==="cloudflare"&&r.amount<0),revenuecatRows=bankRows.filter(r=>r.category==="revenuecat"&&r.amount<0);
   const bankExpenseRows=[...accountantRows,...claudeRows,...cloudflareRows,...revenuecatRows];
   const paidWithNu=expenses.filter(report=>(report.receipt?.cardLast4||report.cardLast4)==="0698"||report.kind==="google").reduce((sum,report)=>sum+(pesoAmounts[reportKey(report)]||0),0);
+  const sectionTitles:Record<string,string>={cursor:"Cursor AI",chatgpt:"ChatGPT",google:"Google Ads",supabase:"Supabase",cloud:"Google Cloud"};
+  // What Nu charged for the business: the amount paid on the card, not the invoice rounding.
+  const nuCharges=expenses.filter(report=>(report.receipt?.cardLast4||report.cardLast4)==="0698").map(report=>({id:reportKey(report),date:(report.receipt?.date||report.documentDate||report.period).slice(0,10),title:sectionTitles[report.kind||""]||report.kind||"",amount:report.receipt?.source==="user"||report.receipt?.source==="bank"?report.receipt.amount:pesoAmounts[reportKey(report)]||report.totals.closing})).sort((a,b)=>a.date.localeCompare(b.date));
   const expenseTotal=expenses.reduce((sum,r)=>sum+(pesoAmounts[reportKey(r)]||0),0)+bankExpenseRows.reduce((sum,row)=>sum-row.amount,0);
   const expenseSections=[{title:"Cursor AI",reports:cursor.reports},{title:"ChatGPT",reports:chatgpt.reports},{title:"Facebook Ads",reports:facebook.reports},{title:"Supabase",reports:supabase.reports},{title:"Google Cloud",reports:cloud.reports}];
   const hasPayment=(title:string)=>expenseSections.some(section=>section.title===title&&section.reports.some(report=>report.receipt?.month===month));
@@ -542,18 +547,18 @@ export default function AccountingPortal({ role, local = false }: { role: "owner
       {(expenses.length>0||bankExpenseRows.length>0)&&<div className={styles.totals}><div><span>Total de gastos{missingPesos&&<small>Faltan cargos en pesos</small>}</span><strong>{bankLoading?"Cargando…":`${money(expenseTotal)} MXN`}</strong></div></div>}
       <FacebookExpenses reports={facebook.reports} month={month} onDownload={download}/>
       <ExpenseSection title="ChatGPT" reports={chatgpt.reports} month={month} onDownload={download} file="PDF"/>
-      <BankExpenses title="Claude" rows={claudeRows} loading={bankLoading} receipts={receiptFiles.receipts} month={month}/>
+      <BankExpenses title="Claude" rows={claudeRows} loading={bankLoading} receipts={receiptFiles.receipts} month={month} foreign/>
       <ExpenseSection title="Cursor AI" reports={cursor.reports} month={month} onDownload={download} file="PDF" fallback="6271" dollars/>
       <ExpenseSection title="Supabase" reports={supabase.reports} month={month} onDownload={download} file="PDF" dollars/>
-      <BankExpenses title="Cloudflare" rows={cloudflareRows} loading={bankLoading} receipts={receiptFiles.receipts} month={month}/>
+      <BankExpenses title="Cloudflare" rows={cloudflareRows} loading={bankLoading} receipts={receiptFiles.receipts} month={month} foreign/>
       <ExpenseSection title="Google Cloud" reports={cloud.reports} month={month} onDownload={download} file="XML"/>
-      <BankExpenses title="RevenueCat" rows={revenuecatRows} loading={bankLoading} receipts={receiptFiles.receipts} month={month}/>
+      <BankExpenses title="RevenueCat" rows={revenuecatRows} loading={bankLoading} receipts={receiptFiles.receipts} month={month} foreign/>
       <ExpenseSection title="Google Ads" reports={google.reports} month={month} onDownload={download} file="XML" fallback="0698"/>
-      <BankExpenses title="Contabilidad" rows={accountantRows} loading={bankLoading} receipts={receiptFiles.receipts} month={month} missing="—"/>
+      <BankExpenses title="Contabilidad" rows={accountantRows} loading={bankLoading} receipts={receiptFiles.receipts} month={month} missing="—" note="La factura de estos honorarios la tienen los contadores."/>
       <NoPayments titles={expenseSections.map(section=>section.title).filter(title=>!hasPayment(title))}/>
     </>}
     {role==="owner"&&tab==="banco"&&bankAccount==="negocio"&&<div className={styles.downloadActions}><UploadButton title="Banamex"/></div>}
-    {ready && tab === "banco" && <BankStatement onAccountChange={setBankAccount} documents={bankFiles.documents} nu={nuFiles} reports={allReports} month={month} loading={bankLoading} expenses={expenseTotal} paidWithNu={paidWithNu}/>}
+    {ready && tab === "banco" && <BankStatement onAccountChange={setBankAccount} documents={bankFiles.documents} nu={nuFiles} reports={allReports} month={month} loading={bankLoading} expenses={expenseTotal} paidWithNu={paidWithNu} nuCharges={nuCharges}/>}
     {uploadReview&&<div className={styles.uploadBackdrop}><section className={styles.uploadReview} role="dialog" aria-modal="true" aria-labelledby="upload-review-title"><h2 id="upload-review-title">Revisar archivos</h2><p>Se guardarán en <strong>{periodName(uploadReview.month)}</strong>.</p><ul>{uploadReview.files.map((file,i)=><li key={i}><strong>{uploadReview.labels[i]}</strong><small>{file.name}</small></li>)}</ul><div><button type="button" onClick={()=>setUploadReview(null)}>Cancelar</button><button type="button" className={styles.primary} onClick={()=>{const review=uploadReview;setUploadReview(null);upload(review.files);}}>Guardar archivos</button></div></section></div>}
     <input ref={input} hidden type="file" multiple accept={tab === "banco" ? ".xlsx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" : ".zip,application/zip,.csv,.txt,.pdf,.xml,text/csv,text/plain,application/pdf,application/xml,text/xml"} onChange={e => reviewUpload(e.target.files)}/>
   </main></div></PlatformUpload.Provider></DepositDates.Provider></PesoAmounts.Provider></AdminView.Provider>;
