@@ -33,12 +33,11 @@ test("unknown movements preserved; discrepancies are not silently hidden", () =>
 test("CSV export neutralizes spreadsheet formulas", () => { assert.match(csv([{ Nota: '=IMPORTXML("x")' }]), /'=IMPORTXML/); });
 test("auth fails closed and accountant cannot become owner", () => {
   const output = ts.transpileModule(readFileSync(new URL('../lib/accounting/access.ts', import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText;
-  const context = { exports: {}, process: { env: { ADMIN_PASSWORD: 'owner:secret', CONTADORES_PASSWORD: 'reader-secret' } }, atob };
+  const context = { exports: {}, process: { env: { ADMIN_PASSWORD: 'admin-secret', CONTADORES_PASSWORD: 'reader-secret' } }, atob };
   vm.runInNewContext(output, context);
   const role = context.exports.accountingRole; const auth = v => 'Basic ' + btoa(v);
   assert.equal(role(null), null); assert.equal(role('Basic !'), null);
-  assert.equal(role(auth('admin:owner:secret')), 'owner'); assert.equal(role(auth('contadores:reader-secret')), 'reader');
-  assert.equal(role(auth(':ejele123')), 'owner'); assert.equal(role(auth(':contador')), 'reader'); assert.equal(role(auth('admin:contador')), 'reader');
-  assert.equal(role(auth('admin:reader-secret')), null);
-  context.process.env = {}; assert.equal(role(auth('admin:')), null);
+  assert.equal(role(auth(':admin-secret')), 'owner'); assert.equal(role(auth(':reader-secret')), 'reader');
+  assert.equal(role(auth('cualquiera:reader-secret')), 'reader'); assert.equal(role(auth(':otra')), null); assert.equal(role(auth(':')), null);
+  context.process.env = {}; assert.equal(role(auth(':admin-secret')), null); assert.equal(role(auth(':')), null);
 });

@@ -1,7 +1,8 @@
 export type AccountingRole = "owner" | "reader";
 export const sessionCookie = "orale_accounting_session";
 async function signingKey() {
-  const secret = process.env.ADMIN_PASSWORD || "ejele123";
+  const secret = process.env.ACCOUNTING_SESSION_SECRET || process.env.ADMIN_PASSWORD;
+  if (!secret) throw new Error("Falta configurar la contraseña del portal.");
   return crypto.subtle.importKey("raw", new TextEncoder().encode(`accounting-session-v1:${secret}:${process.env.CONTADORES_PASSWORD || ""}`), { name: "HMAC", hash: "SHA-256" }, false, ["sign", "verify"]);
 }
 export async function createSession(role: AccountingRole) {
@@ -26,11 +27,10 @@ export function accountingRole(auth: string | null): AccountingRole | null {
     const value = atob(auth.slice(6));
     const separator = value.indexOf(":");
     if (separator < 0) return null;
-    const user = value.slice(0, separator), pass = value.slice(separator + 1);
-    if (pass === "ejele123") return "owner";
-    if (pass === "contador") return "reader";
-    if (process.env.ADMIN_PASSWORD && user === (process.env.ADMIN_USER || "admin") && pass === process.env.ADMIN_PASSWORD) return "owner";
-    if (process.env.CONTADORES_PASSWORD && user === (process.env.CONTADORES_USER || "contadores") && pass === process.env.CONTADORES_PASSWORD) return "reader";
+    const pass = value.slice(separator + 1);
+    // Passwords live only in Vercel: the repository is public.
+    if (process.env.ADMIN_PASSWORD && pass === process.env.ADMIN_PASSWORD) return "owner";
+    if (process.env.CONTADORES_PASSWORD && pass === process.env.CONTADORES_PASSWORD) return "reader";
   } catch { return null; }
   return null;
 }

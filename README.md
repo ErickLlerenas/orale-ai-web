@@ -36,9 +36,12 @@ SUPABASE_URL=https://xxxx.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=...        # service role (secreto, solo servidor)
 ADMIN_USER=admin
 ADMIN_PASSWORD=
+CONTADORES_PASSWORD=
 NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...    # anon key pública (la misma de la app)
 ```
+
+`ADMIN_PASSWORD` entra al portal `/contadores` como administrador y `CONTADORES_PASSWORD` como contadores. Las contraseñas solo viven en Vercel: el código no trae ninguna.
 
 En Supabase → Authentication → URL Configuration:
 
