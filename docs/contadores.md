@@ -85,10 +85,18 @@ Nu usa una revisión manual de capturas con fecha, hora, importe en centavos, es
 
 La tabla personal muestra Abonos y Cargos. Los abonos son pagos a la tarjeta, no ventas. Pendientes y cancelados se excluyen del total confirmado. Gastos toma de ahí el cargo en pesos de Cursor o Supabase cuando se pagan con esa tarjeta, y la pestaña sigue siendo necesaria porque Google Cloud cobra automáticamente a Nu.
 
-Los totales de Banamex separan transferencias con Nu (entradas y salidas), ingresos de plataformas, bonificaciones, otros depósitos cuando existen y gastos u otros pagos. Las transferencias y los abonos a la tarjeta Nu se muestran en azul, los ingresos externos en verde y los cargos en rojo. Estos subtotales se calculan por mes desde las filas identificadas del banco, sin montos fijos.
+Estado de cuenta resume solo ingresos, gastos e impuestos, con los mismos importes de las otras pestañas. Si parte de los gastos se pagó con Nu, se aclara cuánto. Las transferencias y los abonos a la tarjeta Nu se muestran en azul, los ingresos externos en verde y los cargos en rojo.
 
 ## Cruce de gastos con el banco
 
 Cada cargo de la cuenta del negocio se identifica con su plataforma: Facebook, Cursor, ChatGPT, Supabase, Claude, Cloudflare y RevenueCat. Los comprobantes confirman el cargo por importe y fecha; los que están en dólares toman los pesos del cargo del banco, aceptando hasta tres días entre el comprobante y el cargo cuando solo hay una opción. Claude, Cloudflare y RevenueCat aparecen en Gastos desde el banco y marcan «Falta» hasta que exista su comprobante.
 
 Los servicios sin pago en el mes se agrupan en «Sin pagos este mes». Google Ads dejó de usarse: ya no se sube ni aparece, salvo los comprobantes históricos del mes en que se pagó. Era prepago, así que la factura y las notas de crédito de fin de mes reflejan consumo del saldo, no un pago.
+
+## Vista del cierre
+
+El portal abre siempre en el mes anterior, que es el que se está cerrando. Es informativo: lo usan el administrador, que sube los archivos, y los contadores, que solo consultan. Cada pestaña empieza con sus totales. Debajo del mes aparece una línea con lo que falta, calculada desde los archivos y el banco.
+
+Ingresos muestra la fecha del depósito confirmada por Banamex y, en Play y Apple, el mes de las ventas. Gastos conserva cada cobro en su renglón, con fecha, tarjeta y comprobante.
+
+La vista inicial se carga con una sola petición (`view=all`) sin los archivos originales. Cada original se baja al pedir su descarga.

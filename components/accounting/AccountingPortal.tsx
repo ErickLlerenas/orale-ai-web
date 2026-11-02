@@ -1,19 +1,21 @@
 "use client";
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
-import { Upload, Download, AlertCircle, LogOut, CreditCard, Info, CircleCheck, CalendarDays, ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
+import { Upload, Download, AlertCircle, LogOut, CreditCard, Info, CircleCheck, CalendarDays, ChevronLeft, ChevronRight, ChevronDown, Check } from "lucide-react";
 import { money, parseReport, appleSales, reportKey, paymentAmount, incomeFigures, missingAppleFiles, type Report } from "@/lib/accounting/ledger.mjs";
 import styles from "./accounting.module.css";
 
 import BankStatement from "./BankStatement";
+import { groupAppleFiles, monthPending } from "@/lib/accounting/month-review.mjs";
 import type { NuReview } from "@/lib/accounting/nu-ledger.mjs";
 import { expensePesos } from "@/lib/accounting/expense-pesos.mjs";
-import { mergeBankDocuments, bankCategory } from "@/lib/accounting/bank-ledger.mjs";
+import { mergeBankDocuments, bankCategory, bankLabels, reconcileBank } from "@/lib/accounting/bank-ledger.mjs";
 import { nuView } from "@/lib/accounting/nu-ledger.mjs";
 import type { BankDocument, BankRow } from "@/lib/accounting/bank-ledger.mjs";
 
 const AdminView = createContext(false);
 const PlatformUpload = createContext<{choose:(title:string)=>void;loaded:Set<string>;busy:boolean}>({choose:()=>{},loaded:new Set(),busy:false});
 const PesoAmounts = createContext<Record<string,number|null>>({});
+const DepositDates = createContext<Record<string,string>>({});
 const downloadGuides: Record<string, { href: string; steps: string; file: string; detail: string | null }> = {
   "Google Play": {
     "href": "https://play.google.com/console/u/0/developers/6708397449839658524/download-reports/financial",
@@ -127,6 +129,14 @@ async function request(platform: string, body?: object) {
 const usd = (cents: number) => `${new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100)} USD`;
 const invoiceDate = (period: string) => new Date(`${period}T12:00:00`).toLocaleDateString("es-MX", { day: "numeric", month: "short", year: "numeric" }).replace(".", "");
 
+// The month being closed is always the previous one.
+const closingMonth = () => {
+  const today = new Date(), previous = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+  return `${previous.getFullYear()}-${String(previous.getMonth() + 1).padStart(2, "0")}`;
+};
+const monthName = (value: string) => new Date(`${value.slice(0, 7)}-15T12:00:00`).toLocaleDateString("es-MX", { month: "long" });
+const platformOf = (report: Report) => report.kind === "earnings" || !report.kind ? "play" : report.kind;
+
 function unconfirmedPlay(report: Report) {
   return report.kind === "earnings" && report.receipt?.source !== "bank" && report.receipt?.source !== "user";
 }
@@ -142,6 +152,13 @@ function AppleFileStatus({ report }: { report?: Report }) {
   const missing = missingAppleFiles(report);
   if (missing.length === 0) return null;
   return <p className={styles.fileStatus} role="status"><strong>{missing.length === 1 ? "Falta 1 archivo" : `Faltan ${missing.length} archivos`}</strong>: {missing.join("; ")}.<span>El desglose de Apple está incompleto.</span></p>;
+}
+
+function DepositLine({ report }: { report: Report }) {
+  const confirmed = useContext(DepositDates)[reportKey(report)];
+  const date = confirmed || report.receipt?.date;
+  const sales = report.kind === "earnings" || report.kind === "apple" ? `Ventas de ${monthName(report.period)}` : null;
+  return <p className={styles.depositLine}>{date ? <>Depositado el {invoiceDate(date)}</> : "Sin fecha de depósito"}{confirmed && <Check aria-label="Confirmado con Banamex"/>}{sales && <span>{sales}</span>}</p>;
 }
 
 function Figures({ report, onDownload, title }: { report: Report; title: string; onDownload: (report: Report) => void }) {
@@ -169,6 +186,7 @@ function Figures({ report, onDownload, title }: { report: Report; title: string;
     { label: unconfirmedPlay(report) ? "Neto del reporte" : "Depositado en tu cuenta", amount: deposit, kind: "deposit" },
   ];
   return <>
+    <DepositLine report={report}/>
     {report.kind === "apple" && <AppleFileStatus report={report}/>}
     <dl className={styles.breakdown}>
       {rows.map(row => <div key={row.label} className={row.kind === "deposit" ? styles.deposit : row.kind === "due" ? styles.due : undefined}><dt><span>{row.label}{row.hint && <small>{row.hint}</small>}</span></dt><dd>{row.amount == null ? "Pendiente" : money(row.amount)}</dd></div>)}
@@ -191,7 +209,7 @@ function IncludedVatNote({amount}:{amount:number}) {
 }
 
 function ForeignVatNote({name}:{name:string}) {
-  return <div className={styles.foreignVatNote} role="note"><Info aria-hidden="true"/><p>El comprobante de {name} no muestra IVA cobrado. Al ser un servicio del extranjero, tu contador debe revisar si corresponde declarar IVA por separado.</p></div>;
+  return <div className={styles.foreignVatNote} role="note"><Info aria-hidden="true"/><p>{name} no trae IVA mexicano. Al ser un servicio del extranjero, hay que revisar si se declara IVA por importación de servicios.</p></div>;
 }
 
 function ExpenseTable({children}:{children:ReactNode}) {
@@ -204,112 +222,49 @@ function DollarAmount({reports,total=false}:{reports:Report[];total?:boolean}) {
   return <>{complete?`${money(reports.reduce((sum,r)=>sum+(pesos[reportKey(r)]||0),0))} MXN`:original}<small>{complete?`${total?"Comprobantes":"Comprobante"}: ${original}`:"Falta identificar el cargo en pesos"}</small></>;
 }
 
-function CursorExpenses({ reports, month, onDownload }: { reports: Report[]; month: string; onDownload: (report: Report) => void }) {
-  const paid = reports.filter(report => report.receipt?.month === month).sort((a, b) => a.period.localeCompare(b.period));
-  return <section className={styles.entry}>
-    <div className={styles.row}><h2>Cursor AI</h2>{paid.length === 0 && <span className={styles.missing}>Sin archivo</span>}</div>
-    {paid.length > 0 && <ExpenseTable>
-      {paid.map(report => <div key={reportKey(report)}><dt><span>{invoiceDate(report.documentDate || report.period.slice(0, 10))}</span><CardTag card="negocio"/><button type="button" className={styles.csv} onClick={() => onDownload(report)}><Download/>PDF</button></dt><dd><DollarAmount reports={[report]}/></dd></div>)}
-      <div className={styles.deposit}><dt><span>Total</span></dt><dd><DollarAmount reports={paid} total/></dd></div>
-    </ExpenseTable>}
-    {paid.length>0&&paid.every(r=>!r.totals.tax)&&<ForeignVatNote name="Cursor"/>}
-    <div className={styles.downloadActions}><DownloadGuide title="Cursor AI"/></div>
-  </section>;
+function ExpenseCard({card}:{card:string}) {
+  return card==="6271"?<CardTag card="negocio"/>:card==="0698"?<CardTag card="personal"/>:<span>{card?`Tarjeta ···· ${card}`:"Tarjeta no indicada"}</span>;
 }
 
-function SupabaseExpenses({ reports, month, onDownload }: { reports: Report[]; month: string; onDownload: (report: Report) => void }) {
-  const paid = reports.filter(report => report.receipt?.month === month).sort((a, b) => a.period.localeCompare(b.period));
+function ExpenseSection({title,reports,month,onDownload,file,fallback="",dollars=false}:{title:string;reports:Report[];month:string;onDownload:(report:Report)=>void;file:string;fallback?:string;dollars?:boolean}) {
+  const paid=reports.filter(report=>report.receipt?.month===month&&!report.isAdjustment).sort((a,b)=>a.period.localeCompare(b.period));
+  if(paid.length===0)return null;
+  const vat=paid.reduce((sum,report)=>sum+(report.totals.tax||0),0);
   return <section className={styles.entry}>
-    <div className={styles.row}><h2>Supabase</h2>{paid.length === 0 && <span className={styles.missing}>Sin archivo</span>}</div>
-    {paid.length > 0 && <ExpenseTable>
-      {paid.map(report => {
-        const card = report.receipt?.cardLast4 || report.cardLast4;
-        return <div key={reportKey(report)}><dt><span>{invoiceDate(report.documentDate || report.period)}{!card && <small>El recibo no indica la tarjeta</small>}</span>{card === "0698" || card === "6271" ? <CardTag card={card === "0698" ? "personal" : "negocio"}/> : card ? <span>Tarjeta ···· {card}</span> : <span>Sin identificar</span>}<button type="button" className={styles.csv} onClick={() => onDownload(report)}><Download/>PDF</button></dt><dd><DollarAmount reports={[report]}/></dd></div>;
-      })}
-      <div className={styles.deposit}><dt><span>Total</span></dt><dd><DollarAmount reports={paid} total/></dd></div>
-    </ExpenseTable>}
-    {paid.length>0&&paid.every(r=>!r.totals.tax)&&<ForeignVatNote name="Supabase"/>}
-    <div className={styles.downloadActions}><DownloadGuide title="Supabase"/></div>
-  </section>;
-}
-
-function ChatgptExpenses({ reports, month, onDownload }: { reports: Report[]; month: string; onDownload: (report: Report) => void }) {
-  const paid = reports.filter(report => report.receipt?.month === month).sort((a, b) => a.period.localeCompare(b.period));
-  return <section className={styles.entry}>
-    <div className={styles.row}><h2>ChatGPT</h2>{paid.length === 0 && <span className={styles.missing}>Sin archivo</span>}</div>
-    {paid.length > 0 && <ExpenseTable>
-      {paid.map(report => {
-        const card = report.receipt?.cardLast4 || report.cardLast4;
-        return <div key={reportKey(report)}><dt><span>{invoiceDate(report.documentDate || report.period.slice(0, 10))}</span>{card === "6271" ? <CardTag card="negocio"/> : card === "0698" ? <CardTag card="personal"/> : <span>{card ? `Tarjeta ···· ${card}` : "Tarjeta no indicada"}</span>}<button type="button" className={styles.csv} onClick={() => onDownload(report)}><Download/>PDF</button></dt><dd>{money(report.totals.closing)} MXN</dd></div>;
-      })}
-      <div className={styles.deposit}><dt><span>Total</span></dt><dd>{money(paid.reduce((sum, report) => sum + report.totals.closing, 0))} MXN</dd></div>
-    </ExpenseTable>}
-    {paid.length>0&&paid.every(r=>!r.totals.tax)&&<ForeignVatNote name="ChatGPT"/>}
-    <div className={styles.downloadActions}><DownloadGuide title="ChatGPT"/></div>
+    <div className={styles.row}><h2>{title}</h2></div>
+    <ExpenseTable>
+      {paid.map(report=><div key={reportKey(report)}><dt><span>{invoiceDate(report.receipt?.date||report.documentDate||report.period.slice(0,10))}</span><ExpenseCard card={report.receipt?.cardLast4||report.cardLast4||fallback}/><button type="button" className={styles.csv} onClick={()=>onDownload(report)}><Download/>{file}</button></dt><dd>{dollars?<DollarAmount reports={[report]}/>:`${money(report.totals.closing)} MXN`}</dd></div>)}
+      <div className={styles.deposit}><dt><span>{dollars?"Total":"Total pagado"}</span></dt><dd>{dollars?<DollarAmount reports={paid} total/>:`${money(paid.reduce((sum,report)=>sum+report.totals.closing,0))} MXN`}</dd></div>
+    </ExpenseTable>
+    {vat>0?<IncludedVatNote amount={vat}/>:<ForeignVatNote name={title}/>}
+    <div className={styles.downloadActions}><DownloadGuide title={title}/></div>
   </section>;
 }
 
 function FacebookExpenses({ reports, month, onDownload }: { reports: Report[]; month: string; onDownload: (report: Report) => void }) {
   const paid = reports.filter(report => report.receipt?.month === month).sort((a, b) => a.period.localeCompare(b.period));
+  if (paid.length === 0) return null;
   return <section className={styles.entry}>
-    <div className={styles.row}><h2>Facebook Ads</h2>{paid.length === 0 && <span className={styles.missing}>Sin archivo</span>}</div>
-    {paid.length === 0 && <div className={styles.downloadActions}><DownloadGuide title="Facebook Ads"/></div>}
+    <div className={styles.row}><h2>Facebook Ads</h2></div>
     {paid.map(report => <div key={reportKey(report)}>
       <ExpenseTable>
         {report.rows.map(row => <div key={row.line}><dt><span>{invoiceDate(row.iso || row.date)}</span><CardTag card="negocio"/><span className={styles.noReceipt}>—</span></dt><dd>{money(row.amount)} MXN</dd></div>)}
         <div className={styles.deposit}><dt><span>Total pagado</span></dt><dd>{money(report.totals.closing)} MXN</dd></div>
       </ExpenseTable>
-      {report.totals.tax>0&&<IncludedVatNote amount={report.totals.tax}/>}
-      {report.totals.tax===0&&<ForeignVatNote name="Facebook Ads"/>}
+      {report.totals.tax>0?<IncludedVatNote amount={report.totals.tax}/>:<ForeignVatNote name="Facebook Ads"/>}
       <div className={styles.downloadActions}><button type="button" className={styles.csv} onClick={() => onDownload(report)}><Download/>CSV</button><DownloadGuide title="Facebook Ads"/></div>
     </div>)}
   </section>;
 }
 
-function GoogleExpenses({ reports, month, onDownload }: { reports: Report[]; month: string; onDownload: (report: Report) => void }) {
-  const paid = reports.filter(report => report.receipt?.month === month).sort((a, b) => a.period.localeCompare(b.period));
-  return <section className={styles.entry}>
-    <div className={styles.row}><h2>Google Ads</h2></div>
-    {paid.length > 0 && <>
-    <ExpenseTable>
-      {paid.map(report => <div key={reportKey(report)}><dt><span>{invoiceDate(report.period.slice(0, 10))}</span><CardTag card="personal"/><button type="button" className={styles.csv} onClick={() => onDownload(report)}><Download/>XML</button></dt><dd>{money(report.totals.closing)} MXN</dd></div>)}
-      <div className={styles.deposit}><dt><span>Total pagado</span></dt><dd>{money(paid.reduce((sum, report) => sum + report.totals.closing, 0))} MXN</dd></div>
-    </ExpenseTable>
-    <IncludedVatNote amount={paid.reduce((sum, report) => sum + (report.totals.tax || 0), 0)}/>
-    </>}
-  </section>;
-}
-
-function CloudExpenses({ reports, month, onDownload }: { reports: Report[]; month: string; onDownload: (report: Report) => void }) {
-  const documents = reports.filter(r => r.receipt?.month === month).sort((a, b) => a.period.localeCompare(b.period));
-  const paid = documents.filter(r => !r.isAdjustment);
-  return <section className={styles.entry}>
-    <div className={styles.row}><h2>Google Cloud</h2>{documents.length === 0 && <span className={styles.missing}>Sin archivo</span>}</div>
-    {paid.length > 0 && <>
-      <ExpenseTable>
-        {paid.map(report => {
-          const card = report.receipt?.cardLast4 || report.cardLast4;
-          return <div key={reportKey(report)}><dt><span>{invoiceDate(report.receipt?.date || report.documentDate || report.period.slice(0, 10))}</span>
-            {card === "0698" ? <CardTag card="personal"/> : card === "6271" ? <CardTag card="negocio"/> : <span>{card ? `Tarjeta ···· ${card}` : "Tarjeta no indicada"}</span>}
-            <button type="button" className={styles.csv} onClick={() => onDownload(report)}><Download/>XML</button>
-          </dt><dd>{money(report.totals.closing)} MXN</dd></div>;
-        })}
-        <div className={styles.deposit}><dt><span>Total pagado</span></dt><dd>{money(paid.reduce((sum, r) => sum + r.totals.closing, 0))} MXN</dd></div>
-      </ExpenseTable>
-      <IncludedVatNote amount={paid.reduce((sum, r) => sum + r.totals.tax, 0)}/>
-    </>}
-    <div className={styles.downloadActions}><DownloadGuide title="Google Cloud"/></div>
-  </section>;
-}
-
 function BankExpenses({title,rows,loading}:{title:string;rows:BankRow[];loading:boolean}) {
-  if(!loading&&rows.length===0)return null;
+  if(loading||rows.length===0)return null;
   return <section className={styles.entry}>
     <div className={styles.row}><h2>{title}</h2></div>
-    {loading?<p className={styles.taxNote}>Cargando…</p>:<>
-      <ExpenseTable>{rows.map((row,index)=><div key={row.id||index}><dt><span>{invoiceDate(row.date)}</span><CardTag card="negocio"/><span className={styles.noReceipt}>Falta</span></dt><dd>{money(-row.amount)} MXN</dd></div>)}</ExpenseTable>
-      <p className={styles.taxNote}>Pago identificado en Banamex. Falta el comprobante.</p>
-    </>}
+    <ExpenseTable>
+      {rows.map((row,index)=><div key={row.id||index}><dt><span>{invoiceDate(row.date)}</span><CardTag card="negocio"/><span className={styles.noReceipt}>Falta</span></dt><dd>{money(-row.amount)} MXN</dd></div>)}
+      <div className={styles.deposit}><dt><span>Total pagado</span></dt><dd>{money(rows.reduce((sum,row)=>sum-row.amount,0))} MXN</dd></div>
+    </ExpenseTable>
   </section>;
 }
 
@@ -319,16 +274,6 @@ function NoPayments({titles}:{titles:string[]}) {
     <div className={styles.row}><h2>Sin pagos este mes</h2></div>
     <p className={styles.taxNote}>{titles.join(", ")}</p>
     {titles.map(title=><div className={styles.downloadActions} key={title}><DownloadGuide title={title}/></div>)}
-  </section>;
-}
-
-function AccountantExpenses({rows,loading}:{rows:BankRow[];loading:boolean}) {
-  return <section className={styles.entry}>
-    <div className={styles.row}><h2>Contabilidad</h2>{!loading&&rows.length===0&&<span className={styles.missing}>Sin pago identificado</span>}</div>
-    {loading?<p className={styles.taxNote}>Cargando…</p>:rows.length>0&&<>
-      <ExpenseTable>{rows.map((row,index)=><div key={row.id||index}><dt><span>{invoiceDate(row.date)}</span><CardTag card="negocio"/><span className={styles.noReceipt}>Falta</span></dt><dd>{money(-row.amount)} MXN</dd></div>)}<div className={styles.deposit}><dt><span>Total pagado</span></dt><dd>{money(rows.reduce((sum,row)=>sum-row.amount,0))} MXN</dd></div></ExpenseTable>
-      <p className={styles.taxNote}>Pago identificado en Banamex. Falta el comprobante del contador.</p>
-    </>}
   </section>;
 }
 
@@ -346,7 +291,7 @@ function Platform({ title, reports, month, onDownload, card }: { title: string; 
 }
 
 export default function AccountingPortal({ role, local = false }: { role: "owner" | "reader"; local?: boolean }) {
-  const [month, setMonth] = useState(new Date().toLocaleDateString("en-CA").slice(0, 7));
+  const [month, setMonth] = useState(closingMonth);
   const [play, setPlay] = useState<{ reports: Report[]; version: string }>({ reports: [], version: "" });
   const [apple, setApple] = useState<{ reports: Report[]; version: string }>({ reports: [], version: "" });
   const [stripe, setStripe] = useState<{ reports: Report[]; version: string }>({ reports: [], version: "" });
@@ -372,15 +317,34 @@ export default function AccountingPortal({ role, local = false }: { role: "owner
   const paid = [...play.reports, ...apple.reports, ...stripe.reports, ...mercado.reports].filter(report => report.receipt?.month === month);
 
   const expenses=[...cursor.reports,...chatgpt.reports,...facebook.reports,...google.reports,...supabase.reports,...cloud.reports].filter(r=>r.receipt?.month===month&&!r.isAdjustment);
-  const bankRows=mergeBankDocuments(bankFiles.documents,month).rows.map(r=>({...r,category:bankCategory(r)}));
+  const bankView=mergeBankDocuments(bankFiles.documents,month);
+  const bankRows=bankView.rows.map(r=>({...r,category:bankCategory(r)}));
   const accountantRows=bankRows.filter(r=>r.category==="accountant"&&r.amount<0);
   const pesoAmounts=expensePesos(expenses,[...bankRows,...nuView(nuFiles.rows,month).rows],month);
   const missingPesos=expenses.some(r=>pesoAmounts[reportKey(r)]==null);
   const claudeRows=bankRows.filter(r=>r.category==="anthropic"&&r.amount<0),cloudflareRows=bankRows.filter(r=>r.category==="cloudflare"&&r.amount<0),revenuecatRows=bankRows.filter(r=>r.category==="revenuecat"&&r.amount<0);
   const bankExpenseRows=[...accountantRows,...claudeRows,...cloudflareRows,...revenuecatRows];
+  const paidWithNu=expenses.filter(report=>(report.receipt?.cardLast4||report.cardLast4)==="0698"||report.kind==="google").reduce((sum,report)=>sum+(pesoAmounts[reportKey(report)]||0),0);
   const expenseTotal=expenses.reduce((sum,r)=>sum+(pesoAmounts[reportKey(r)]||0),0)+bankExpenseRows.reduce((sum,row)=>sum-row.amount,0);
   const expenseSections=[{title:"Cursor AI",reports:cursor.reports},{title:"ChatGPT",reports:chatgpt.reports},{title:"Facebook Ads",reports:facebook.reports},{title:"Supabase",reports:supabase.reports},{title:"Google Cloud",reports:cloud.reports}];
   const hasPayment=(title:string)=>expenseSections.some(section=>section.title===title&&section.reports.some(report=>report.receipt?.month===month));
+  const allReports=[...play.reports,...apple.reports,...stripe.reports,...mercado.reports,...cursor.reports,...facebook.reports,...chatgpt.reports,...google.reports,...cloud.reports,...supabase.reports];
+  const reconciliation=reconcileBank(bankView,allReports,month);
+  const depositDates=Object.fromEntries(reconciliation.checks.filter(check=>check.row&&["play","apple","stripe","mercado"].includes(check.kind)).map(check=>[check.id,check.row!.date]));
+  const incomeTotal=paid.reduce((sum,report)=>sum+depositOf(report),0);
+  const vatTotal=paid.some(report=>vatDue(report)==null)?null:paid.reduce((sum,report)=>sum+(vatDue(report)||0),0);
+  const incomeChecks=reconciliation.checks.filter(check=>["play","apple","stripe","mercado"].includes(check.kind));
+  const unidentified=reconciliation.rows.filter(row=>row.category==="other").length;
+  const pending=monthPending({
+    bankMissing:bankView.missing,
+    hasNu:nuFiles.rows.length>0,
+    appleFiles:groupAppleFiles(apple.reports.filter(report=>report.receipt?.month===month).flatMap(report=>missingAppleFiles(report).map(file=>({file,period:monthName(report.period)})))),
+    deposits:bankView.rows.length?incomeChecks.filter(check=>!check.row).map(check=>`${bankLabels[check.kind]} ${money(check.amount||0)}`):[],
+    pesos:[...new Set(expenses.filter(report=>pesoAmounts[reportKey(report)]==null).map(report=>bankLabels[report.kind||""]||report.kind||""))],
+    receipts:[...(claudeRows.length?["Claude"]:[]),...(cloudflareRows.length?["Cloudflare"]:[]),...(revenuecatRows.length?["RevenueCat"]:[])],
+    accountant:accountantRows.length>0,
+    unidentified,
+  });
 
   useEffect(() => {
     const selected = new URLSearchParams(location.search).get("mes");
@@ -389,9 +353,11 @@ export default function AccountingPortal({ role, local = false }: { role: "owner
   useEffect(() => {
     let cancelled = false;
     setLoading(true); setError("");
-    Promise.all([request("play"), request("apple"), request("stripe"), request("mercado"), request("cursor"), request("facebook"), request("chatgpt"), request("google"), request("supabase"), request("cloud")]).then(([playData, appleData, stripeData, mercadoData, cursorData, facebookData, chatgptData, googleData, supabaseData, cloudData]) => {
+    fetch("/contadores/api?view=all", { cache: "no-store" }).then(async response => {
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "No se pudo abrir el cierre.");
       if (cancelled) return;
-      setPlay(playData); setApple(appleData); setStripe(stripeData); setMercado(mercadoData); setCursor(cursorData); setFacebook(facebookData); setChatgpt(chatgptData); setGoogle(googleData); setSupabase(supabaseData); setCloud(cloudData); setReady(true);
+      setPlay(data.play); setApple(data.apple); setStripe(data.stripe); setMercado(data.mercado); setCursor(data.cursor); setFacebook(data.facebook); setChatgpt(data.chatgpt); setGoogle(data.google); setSupabase(data.supabase); setCloud(data.cloud); setReady(true);
     }).catch(e => { if (!cancelled) setError(e.message); }).finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, []);
@@ -483,7 +449,10 @@ export default function AccountingPortal({ role, local = false }: { role: "owner
     await fetch("/contadores/session", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "logout" }) });
     location.assign("/contadores/login");
   }
-  function download(report: Report) {
+  async function download(summary: Report) {
+    let report = summary;
+    try { report = (await request(platformOf(summary))).reports.find(item => reportKey(item) === reportKey(summary)) ?? summary; }
+    catch (e) { setError(e instanceof Error ? e.message : "No se pudo descargar el archivo."); return; }
     const bytes = report.file ? Uint8Array.from(atob(report.file), char => char.charCodeAt(0)) : null;
     const type = bytes ? "application/pdf" : report.name.toLowerCase().endsWith(".xml") ? "application/xml" : "text/csv;charset=utf-8";
     const url = URL.createObjectURL(bytes ? new Blob([bytes], { type }) : new Blob([report.text], { type }));
@@ -502,7 +471,7 @@ export default function AccountingPortal({ role, local = false }: { role: "owner
     setTimeout(() => URL.revokeObjectURL(url), 2000);
   }
 
-  return <AdminView.Provider value={role === "owner"}><PesoAmounts.Provider value={pesoAmounts}><PlatformUpload.Provider value={{choose:title=>{uploadTarget.current=title;input.current?.click();},busy:busy||loading||bankLoading,loaded:new Set(([ ["Google Play",play.reports],["App Store",apple.reports],["Stripe",stripe.reports],["Mercado Libre Afiliados",mercado.reports],["Cursor AI",cursor.reports],["ChatGPT",chatgpt.reports],["Facebook Ads",facebook.reports],["Google Ads",google.reports],["Supabase",supabase.reports],["Google Cloud",cloud.reports] ] as [string,Report[]][]).filter(([,reports])=>reports.some(r=>r.receipt?.month===month)).map(([title])=>title))}}><div className={styles.portal}><main className={styles.main}>
+  return <AdminView.Provider value={role === "owner"}><PesoAmounts.Provider value={pesoAmounts}><DepositDates.Provider value={depositDates}><PlatformUpload.Provider value={{choose:title=>{uploadTarget.current=title;input.current?.click();},busy:busy||loading||bankLoading,loaded:new Set(([ ["Google Play",play.reports],["App Store",apple.reports],["Stripe",stripe.reports],["Mercado Libre Afiliados",mercado.reports],["Cursor AI",cursor.reports],["ChatGPT",chatgpt.reports],["Facebook Ads",facebook.reports],["Google Ads",google.reports],["Supabase",supabase.reports],["Google Cloud",cloud.reports] ] as [string,Report[]][]).filter(([,reports])=>reports.some(r=>r.receipt?.month===month)).map(([title])=>title))}}><div className={styles.portal}><main className={styles.main}>
     <header className={styles.header}>
       <a href="/contadores" className={styles.brand}>Órale AI<span>Contabilidad</span></a>
       <div className={styles.tools}>
@@ -517,34 +486,36 @@ export default function AccountingPortal({ role, local = false }: { role: "owner
       <button type="button" role="tab" aria-selected={tab === "gastos"} onClick={() => setTab("gastos")}>Gastos</button>
       <button type="button" role="tab" aria-selected={tab === "banco"} onClick={() => setTab("banco")}>Estado de cuenta</button>
     </div>
-    <h1>{periodName(month)}{tab === "ingresos" && <small>MXN</small>}</h1>
-    {loading ? <div role="status" className={styles.empty}>Cargando</div> : ready && tab === "ingresos" && <>
+    <h1>{periodName(month)}</h1>
+    {loading && <div role="status" className={styles.empty}>Cargando</div>}
+    {ready && !bankLoading && pending.length > 0 && <p className={styles.fileStatus}>Falta: {pending.map(item => item.text).join(" · ")}.</p>}
+    {ready && tab === "ingresos" && <>
+      {paid.length > 0 && <div className={styles.totals}>
+        <div><span>{paid.some(unconfirmedPlay) ? "Total neto" : "Total depositado"}</span><strong>{money(incomeTotal)}</strong></div>
+        <div><span>IVA estimado</span><strong>{vatTotal == null ? "Pendiente" : money(vatTotal)}</strong></div>
+      </div>}
       <Platform title="Google Play" reports={play.reports} month={month} onDownload={download}/>
       <Platform title="App Store" reports={apple.reports} month={month} onDownload={download}/>
       <Platform title="Stripe" reports={stripe.reports} month={month} onDownload={download}/>
       <Platform title="Mercado Libre Afiliados" reports={mercado.reports} month={month} onDownload={download}/>
-      {paid.length > 0 && <div className={styles.totals}>
-        <div><span>{paid.some(unconfirmedPlay) ? "Total neto" : "Total depositado"}</span><strong>{money(paid.reduce((sum, report) => sum + depositOf(report), 0))}</strong></div>
-        <div><span>IVA estimado</span><strong>{paid.some(report => vatDue(report) == null) ? "Pendiente" : money(paid.reduce((sum, report) => sum + (vatDue(report) || 0), 0))}</strong></div>
-      </div>}
     </>}
     {ready && tab === "gastos" && <>
-      {hasPayment("Cursor AI")&&<CursorExpenses reports={cursor.reports} month={month} onDownload={download}/>}
-      {hasPayment("ChatGPT")&&<ChatgptExpenses reports={chatgpt.reports} month={month} onDownload={download}/>}
-      {hasPayment("Facebook Ads")&&<FacebookExpenses reports={facebook.reports} month={month} onDownload={download}/>}
-      {google.reports.some(report=>report.receipt?.month===month)&&<GoogleExpenses reports={google.reports} month={month} onDownload={download}/>}
-      {hasPayment("Supabase")&&<SupabaseExpenses reports={supabase.reports} month={month} onDownload={download}/>}
-      {hasPayment("Google Cloud")&&<CloudExpenses reports={cloud.reports} month={month} onDownload={download}/>}
-      <BankExpenses title="Claude" rows={claudeRows} loading={bankLoading}/>
-      <BankExpenses title="Cloudflare" rows={cloudflareRows} loading={bankLoading}/>
-      <BankExpenses title="RevenueCat" rows={revenuecatRows} loading={bankLoading}/>
-      <AccountantExpenses rows={accountantRows} loading={bankLoading}/>
-      <NoPayments titles={expenseSections.map(section=>section.title).filter(title=>!hasPayment(title))}/>
       {(expenses.length>0||bankExpenseRows.length>0)&&<div className={styles.totals}><div><span>Total de gastos{missingPesos&&<small>Faltan cargos en pesos</small>}</span><strong>{bankLoading?"Cargando…":`${money(expenseTotal)} MXN`}</strong></div></div>}
+      <FacebookExpenses reports={facebook.reports} month={month} onDownload={download}/>
+      <ExpenseSection title="ChatGPT" reports={chatgpt.reports} month={month} onDownload={download} file="PDF"/>
+      <BankExpenses title="Claude" rows={claudeRows} loading={bankLoading}/>
+      <ExpenseSection title="Cursor AI" reports={cursor.reports} month={month} onDownload={download} file="PDF" fallback="6271" dollars/>
+      <ExpenseSection title="Supabase" reports={supabase.reports} month={month} onDownload={download} file="PDF" dollars/>
+      <BankExpenses title="Cloudflare" rows={cloudflareRows} loading={bankLoading}/>
+      <ExpenseSection title="Google Cloud" reports={cloud.reports} month={month} onDownload={download} file="XML"/>
+      <BankExpenses title="RevenueCat" rows={revenuecatRows} loading={bankLoading}/>
+      <ExpenseSection title="Google Ads" reports={google.reports} month={month} onDownload={download} file="XML" fallback="0698"/>
+      <BankExpenses title="Contabilidad" rows={accountantRows} loading={bankLoading}/>
+      <NoPayments titles={expenseSections.map(section=>section.title).filter(title=>!hasPayment(title))}/>
     </>}
     {role==="owner"&&tab==="banco"&&bankAccount==="negocio"&&<div className={styles.downloadActions}><UploadButton title="Banamex"/></div>}
-    {ready && tab === "banco" && <BankStatement onAccountChange={setBankAccount} documents={bankFiles.documents} nu={nuFiles} reports={[...play.reports,...apple.reports,...stripe.reports,...mercado.reports,...cursor.reports,...facebook.reports,...chatgpt.reports,...google.reports,...cloud.reports,...supabase.reports]} month={month} loading={bankLoading}/>}
+    {ready && tab === "banco" && <BankStatement onAccountChange={setBankAccount} documents={bankFiles.documents} nu={nuFiles} reports={allReports} month={month} loading={bankLoading} expenses={expenseTotal} paidWithNu={paidWithNu}/>}
     {uploadReview&&<div className={styles.uploadBackdrop}><section className={styles.uploadReview} role="dialog" aria-modal="true" aria-labelledby="upload-review-title"><h2 id="upload-review-title">Revisar archivos</h2><p>Se guardarán en <strong>{periodName(uploadReview.month)}</strong>.</p><ul>{uploadReview.files.map((file,i)=><li key={i}><strong>{uploadReview.labels[i]}</strong><small>{file.name}</small></li>)}</ul><div><button type="button" onClick={()=>setUploadReview(null)}>Cancelar</button><button type="button" className={styles.primary} onClick={()=>{const review=uploadReview;setUploadReview(null);upload(review.files);}}>Guardar archivos</button></div></section></div>}
     <input ref={input} hidden type="file" multiple accept={tab === "banco" ? ".xlsx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" : ".zip,application/zip,.csv,.txt,.pdf,.xml,text/csv,text/plain,application/pdf,application/xml,text/xml"} onChange={e => reviewUpload(e.target.files)}/>
-  </main></div></PlatformUpload.Provider></PesoAmounts.Provider></AdminView.Provider>;
+  </main></div></PlatformUpload.Provider></DepositDates.Provider></PesoAmounts.Provider></AdminView.Provider>;
 }

@@ -51,6 +51,13 @@ export async function storeVersion(folder: string, value: object) {
   if (error) throw new Error("No se pudo guardar; conserva tus archivos y vuelve a intentar.");
   return key;
 }
+// The month view reads figures; original files are fetched only when downloaded.
+export function reportSummary<T extends { text?: string; file?: unknown; salesSource?: { name: string } | null; commissionSource?: { name: string } | null; earningsSource?: { name: string } | null }>(report: T): T {
+  const source = (value?: { name: string } | null) => value ? { name: value.name, text: "" } : value;
+  const summary = { ...report, text: "", salesSource: source(report.salesSource), commissionSource: source(report.commissionSource), earningsSource: source(report.earningsSource) };
+  delete summary.file;
+  return summary;
+}
 export function validateWorkspace(raw: unknown): Workspace {
   const body = raw as Workspace;
   if (!body || !Array.isArray(body.reports) || body.reports.length > 120) throw new Error("Máximo 120 reportes por espacio.");
