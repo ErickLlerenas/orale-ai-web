@@ -343,7 +343,6 @@ export default function AccountingPortal({ role, local = false }: { role: "owner
   const [facebook, setFacebook] = useState<{ reports: Report[]; version: string }>({ reports: [], version: "" });
   const [bankFiles, setBankFiles] = useState<{documents:BankDocument[];version:string}>({documents:[],version:""});
   const [nuFiles,setNuFiles]=useState<NuReview>({rows:[],sources:[],version:""});
-  const [bankAccount,setBankAccount]=useState<"negocio"|"personal">("negocio");
   const [bankLoading,setBankLoading] = useState(true);
   const [loading, setLoading] = useState(true);
   const [ready, setReady] = useState(false);
@@ -518,8 +517,8 @@ export default function AccountingPortal({ role, local = false }: { role: "owner
       <AccountantExpenses rows={accountantRows} loading={bankLoading}/>
       {(expenses.length>0||accountantRows.length>0)&&<div className={styles.totals}><div><span>Total de gastos{missingPesos&&<small>Faltan cargos en pesos</small>}</span><strong>{bankLoading?"Cargando…":`${money(expenseTotal)} MXN`}</strong></div></div>}
     </>}
-    {role==="owner"&&tab==="banco"&&bankAccount==="negocio"&&<div className={styles.downloadActions}><UploadButton title="Banamex"/></div>}
-    {ready && tab === "banco" && <BankStatement onAccountChange={setBankAccount} documents={bankFiles.documents} nu={nuFiles} reports={[...play.reports,...apple.reports,...stripe.reports,...mercado.reports,...cursor.reports,...facebook.reports,...chatgpt.reports,...google.reports,...cloud.reports,...supabase.reports]} month={month} loading={bankLoading}/>}
+    {role==="owner"&&tab==="banco"&&<div className={styles.downloadActions}><UploadButton title="Banamex"/></div>}
+    {ready && tab === "banco" && <BankStatement documents={bankFiles.documents} reports={[...play.reports,...apple.reports,...stripe.reports,...mercado.reports,...cursor.reports,...facebook.reports,...chatgpt.reports,...google.reports,...cloud.reports,...supabase.reports]} month={month} loading={bankLoading}/>}
     {uploadReview&&<div className={styles.uploadBackdrop}><section className={styles.uploadReview} role="dialog" aria-modal="true" aria-labelledby="upload-review-title"><h2 id="upload-review-title">Revisar archivos</h2><p>Se guardarán en <strong>{periodName(uploadReview.month)}</strong>.</p><ul>{uploadReview.files.map((file,i)=><li key={i}><strong>{uploadReview.labels[i]}</strong><small>{file.name}</small></li>)}</ul><div><button type="button" onClick={()=>setUploadReview(null)}>Cancelar</button><button type="button" className={styles.primary} onClick={()=>{const review=uploadReview;setUploadReview(null);upload(review.files);}}>Guardar archivos</button></div></section></div>}
     <input ref={input} hidden type="file" multiple accept={tab === "banco" ? ".xlsx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" : ".zip,application/zip,.csv,.txt,.pdf,.xml,text/csv,text/plain,application/pdf,application/xml,text/xml"} onChange={e => reviewUpload(e.target.files)}/>
   </main></div></PlatformUpload.Provider></PesoAmounts.Provider></AdminView.Provider>;

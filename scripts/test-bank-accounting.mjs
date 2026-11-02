@@ -150,3 +150,24 @@ test('bank descriptions identify split Apple text, Mercado Pago, misspelled Nu t
  assert.equal(bank.bankCategory({amount:-100,description:'PAGO INTERBANCARIO A NUBANK AL BENEF. REF. 1 transfencia entre cuentas'}),'transfer');
  assert.equal(bank.bankCategory({amount:-100,description:'FACEBK *ABC123'}),'facebook');
 });
+
+test('an owner-marked transfer counts as one until a statement PDF names the movement', async () => {
+ const excel=bank.parseBanamexRows([header,['26 Oct 2026','PAGO INTERBANCARIO AUT 1',null,'100.00','900.00'],['25 Oct 2026','FACEBOOK',null,'10.00','1000.00']]);
+ const documents=[make('x','xlsx',{...excel,month:'2026-10'})];
+ const id=bank.mergeBankDocuments(documents,'2026-10').rows.find(r=>r.amount===-10000).id;
+ const marked=bank.markBankTransfer(documents,'2026-10',id);
+ const row=bank.mergeBankDocuments(marked,'2026-10').rows.find(r=>r.id===id);
+ assert.equal(bank.bankCategory(row),'transfer');assert.equal(bank.bankOutflowTotals([row]).transfers,10000);
+ assert.equal(bank.bankCategory({...row,pdfDescription:'PAGO A OTRA PERSONA'}),'other');
+ assert.equal(bank.bankCategory(bank.mergeBankDocuments([...marked,make('y','xlsx',{...excel,month:'2026-10'})],'2026-10').rows.find(r=>r.id===id)),'transfer');
+ const facebook=bank.mergeBankDocuments(documents,'2026-10').rows.find(r=>r.amount===-1000).id;
+ assert.throws(()=>bank.markBankTransfer(documents,'2026-10',facebook),/no se puede marcar/);
+ assert.throws(()=>bank.markBankTransfer(documents,'2026-10','nada'),/no se puede marcar/);
+ memory.set('bank-banamex/2026-10',{key:'7',bankDocuments:documents});
+ const post=body=>route.POST({...req(body),nextUrl:new URL('http://localhost/contadores/bank?month=2026-10')});
+ assert.equal((await route.POST(req({action:'mark-transfer',month:'2026-10',version:'7',rowId:id},'reader'))).status,403);
+ assert.equal((await post({action:'mark-transfer',month:'2026-10',version:'old',rowId:id})).status,409);
+ const saved=await post({action:'mark-transfer',month:'2026-10',version:'7',rowId:id});
+ assert.equal(saved.status,200);assert.equal(saved.data.documents[0].rows.some(r=>r.userCategory==='transfer'),true);
+ memory.delete('bank-banamex/2026-10');
+});
