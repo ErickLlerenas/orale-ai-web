@@ -116,6 +116,8 @@ test('Supabase PDF upload routes to expenses, retains the original and does not 
  const all = await route.GET({...req({}),nextUrl:new URL('http://localhost/contadores/api?view=all')});
  assert.equal(all.status,200);assert.equal(all.data.supabase.reports.length,read.data.reports.length);assert.equal(all.data.supabase.version,read.data.version);
  assert.equal('file' in all.data.supabase.reports[0],false);assert.equal(all.data.supabase.reports[0].text,'');assert.equal(all.data.play.reports.length,0);
+ const summary=validator.reportSummary({text:'csv',file:'pdf',commissionSource:{name:'invoice.pdf',text:'Apple Commission',file:'pdf'},salesSource:{name:'FD.txt',text:'sales'}});
+ assert.equal(summary.commissionSource.text,'Apple Commission');assert.equal('file' in summary.commissionSource,false);assert.equal('file' in summary,false);assert.equal(summary.salesSource.text,'');
  assert.equal(read.data.reports[0].id,'supabase:TEST-00012');assert.equal(read.data.reports[0].file,pdf);
 });
 test('API upload assigns month atomically, rejects cross-month duplicates and preserves same-day receipts', async () => {
