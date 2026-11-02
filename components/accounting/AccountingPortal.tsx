@@ -6,6 +6,7 @@ import styles from "./accounting.module.css";
 
 import BankStatement from "./BankStatement";
 import { groupAppleFiles, monthPending } from "@/lib/accounting/month-review.mjs";
+import { receiptCategories, type BankReceipt } from "@/lib/accounting/bank-receipts.mjs";
 import type { NuReview } from "@/lib/accounting/nu-ledger.mjs";
 import { expensePesos } from "@/lib/accounting/expense-pesos.mjs";
 import { mergeBankDocuments, bankCategory, bankLabels, reconcileBank } from "@/lib/accounting/bank-ledger.mjs";
@@ -59,6 +60,30 @@ const downloadGuides: Record<string, { href: string; steps: string; file: string
     "file": "Archivo: AAAA-MM-DD--AAAA-MM-DD_Resumen_Facturación.csv.",
     "detail": "Sube un resumen del mes completo, no los PDF de cada cobro."
   },
+  "Claude": {
+    "href": "https://claude.ai/settings/billing",
+    "steps": "Configuración → Facturación → Invoices → Download PDF del cobro del mes.",
+    "file": "Archivo: Invoice-….pdf.",
+    "detail": "El importe en pesos se toma del cargo en Banamex."
+  },
+  "Cloudflare": {
+    "href": "https://dash.cloudflare.com/?to=/:account/billing/invoices",
+    "steps": "Billing → Invoices → descarga el PDF del cobro del mes.",
+    "file": "Archivo: la factura en PDF.",
+    "detail": "Cobra en dólares; el importe en pesos se toma del cargo en Banamex."
+  },
+  "RevenueCat": {
+    "href": "https://app.revenuecat.com/",
+    "steps": "Configuración de la cuenta → Billing → descarga la factura del cobro del mes.",
+    "file": "Archivo: la factura en PDF.",
+    "detail": "Cobra en dólares; el importe en pesos se toma del cargo en Banamex."
+  },
+  "Contabilidad": {
+    "href": "",
+    "steps": "Pide a tus contadores la factura de sus honorarios del mes.",
+    "file": "Archivo: el PDF o el XML de la factura.",
+    "detail": null
+  },
   "Supabase": {
     "href": "https://supabase.com/dashboard/org/jaddfmfmvtdzyuhexakn/billing",
     "steps": "Billing → historial de facturas → abre el pago del mes → descarga Receipt.",
@@ -89,7 +114,7 @@ function DownloadGuide({ title }: { title: string }) {
       <p>{guide.steps}</p>
       <p className={styles.downloadFile}>{guide.file}</p>
       {guide.detail && <p>{guide.detail}</p>}
-      <a href={guide.href} target="_blank" rel="noopener noreferrer">Abrir sitio de descarga ↗</a>
+      {guide.href && <a href={guide.href} target="_blank" rel="noopener noreferrer">Abrir sitio de descarga ↗</a>}
     </div>
   </details></>;
 }
@@ -257,14 +282,15 @@ function FacebookExpenses({ reports, month, onDownload }: { reports: Report[]; m
   </section>;
 }
 
-function BankExpenses({title,rows,loading}:{title:string;rows:BankRow[];loading:boolean}) {
+function BankExpenses({title,rows,loading,receipts,month}:{title:string;rows:BankRow[];loading:boolean;receipts:BankReceipt[];month:string}) {
   if(loading||rows.length===0)return null;
   return <section className={styles.entry}>
     <div className={styles.row}><h2>{title}</h2></div>
     <ExpenseTable>
-      {rows.map((row,index)=><div key={row.id||index}><dt><span>{invoiceDate(row.date)}</span><CardTag card="negocio"/><span className={styles.noReceipt}>Falta</span></dt><dd>{money(-row.amount)} MXN</dd></div>)}
+      {rows.map((row,index)=>{const receipt=receipts.find(item=>item.rowId===row.id);return <div key={row.id||index}><dt><span>{invoiceDate(row.date)}</span><CardTag card="negocio"/>{receipt?<a className={styles.csv} href={`/contadores/receipts?month=${month}&id=${receipt.id}`}><Download/>{receipt.type==="xml"?"XML":"PDF"}</a>:<span className={styles.noReceipt}>Falta</span>}</dt><dd>{money(-row.amount)} MXN</dd></div>;})}
       <div className={styles.deposit}><dt><span>Total pagado</span></dt><dd>{money(rows.reduce((sum,row)=>sum-row.amount,0))} MXN</dd></div>
     </ExpenseTable>
+    <div className={styles.downloadActions}><DownloadGuide title={title}/></div>
   </section>;
 }
 
@@ -306,6 +332,7 @@ export default function AccountingPortal({ role, local = false }: { role: "owner
   const [nuFiles,setNuFiles]=useState<NuReview>({rows:[],sources:[],version:""});
   const [bankAccount,setBankAccount]=useState<"negocio"|"personal">("negocio");
   const [bankLoading,setBankLoading] = useState(true);
+  const [receiptFiles,setReceiptFiles]=useState<{receipts:BankReceipt[];version:string}>({receipts:[],version:""});
   const [loading, setLoading] = useState(true);
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -335,14 +362,15 @@ export default function AccountingPortal({ role, local = false }: { role: "owner
   const vatTotal=paid.some(report=>vatDue(report)==null)?null:paid.reduce((sum,report)=>sum+(vatDue(report)||0),0);
   const incomeChecks=reconciliation.checks.filter(check=>["play","apple","stripe","mercado"].includes(check.kind));
   const unidentified=reconciliation.rows.filter(row=>row.category==="other").length;
+  const hasReceipt=(row:BankRow)=>receiptFiles.receipts.some(receipt=>receipt.rowId===row.id);
   const pending=monthPending({
     bankMissing:bankView.missing,
     hasNu:nuFiles.rows.length>0,
     appleFiles:groupAppleFiles(apple.reports.filter(report=>report.receipt?.month===month).flatMap(report=>missingAppleFiles(report).map(file=>({file,period:monthName(report.period)})))),
     deposits:bankView.rows.length?incomeChecks.filter(check=>!check.row).map(check=>`${bankLabels[check.kind]} ${money(check.amount||0)}`):[],
     pesos:[...new Set(expenses.filter(report=>pesoAmounts[reportKey(report)]==null).map(report=>bankLabels[report.kind||""]||report.kind||""))],
-    receipts:[...(claudeRows.length?["Claude"]:[]),...(cloudflareRows.length?["Cloudflare"]:[]),...(revenuecatRows.length?["RevenueCat"]:[])],
-    accountant:accountantRows.length>0,
+    receipts:([["Claude",claudeRows],["Cloudflare",cloudflareRows],["RevenueCat",revenuecatRows]] as [string,BankRow[]][]).filter(([,rows])=>rows.some(row=>!hasReceipt(row))).map(([title])=>title),
+    accountant:accountantRows.some(row=>!hasReceipt(row)),
     unidentified,
   });
 
@@ -363,8 +391,8 @@ export default function AccountingPortal({ role, local = false }: { role: "owner
   }, []);
 
   useEffect(() => {
-    let cancelled=false;setBankLoading(true);setBankFiles({documents:[],version:""});setNuFiles({rows:[],sources:[],version:""});
-    Promise.all([`/contadores/bank?month=${month}`,`/contadores/nu?month=${month}`].map(url=>fetch(url).then(async response=>{const data=await response.json();if(!response.ok)throw new Error(data.error);return data;}))).then(([bank,nu])=>{if(!cancelled){setBankFiles(bank);setNuFiles(nu);}}).catch(e=>{if(!cancelled)setError(e.message);}).finally(()=>{if(!cancelled)setBankLoading(false);});
+    let cancelled=false;setBankLoading(true);setBankFiles({documents:[],version:""});setNuFiles({rows:[],sources:[],version:""});setReceiptFiles({receipts:[],version:""});
+    Promise.all([`/contadores/bank?month=${month}`,`/contadores/nu?month=${month}`,`/contadores/receipts?month=${month}`].map(url=>fetch(url).then(async response=>{const data=await response.json();if(!response.ok)throw new Error(data.error);return data;}))).then(([bank,nu,receipts])=>{if(!cancelled){setBankFiles(bank);setNuFiles(nu);setReceiptFiles(receipts);}}).catch(e=>{if(!cancelled)setError(e.message);}).finally(()=>{if(!cancelled)setBankLoading(false);});
     return ()=>{cancelled=true;};
   },[month]);
 
@@ -384,6 +412,7 @@ export default function AccountingPortal({ role, local = false }: { role: "owner
       const labels=[];
       for(const file of list){
         if(tab==="banco"){if(file.size>3_000_000)throw new Error("Cada archivo debe pesar menos de 3 MB.");labels.push("Banamex");continue;}
+        if(receiptCategories[uploadTarget.current]){if(file.size>2_000_000)throw new Error("El comprobante debe pesar menos de 2 MB.");labels.push(uploadTarget.current);continue;}
         if(file.size>2_000_000)throw new Error("Cada archivo debe pesar menos de 2 MB.");
         let report;
         if(/\.(pdf|zip)$/i.test(file.name)){const bytes=new Uint8Array(await file.arrayBuffer());let binary="";bytes.forEach(byte=>{binary+=String.fromCharCode(byte);});report={name:file.name,[/\.zip$/i.test(file.name)?"zip":"pdf"]:btoa(binary)};}
@@ -408,6 +437,16 @@ export default function AccountingPortal({ role, local = false }: { role: "owner
         for(const file of list){if(file.size>3_000_000)throw new Error("Cada archivo debe pesar menos de 3 MB.");const bytes=new Uint8Array(await file.arrayBuffer());let binary="";bytes.forEach(byte=>{binary+=String.fromCharCode(byte);});files.push({name:file.name,data:btoa(binary)});}
         const response=await fetch("/contadores/bank",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({month,version:bankFiles.version,files})});
         const data=await response.json();if(!response.ok)throw new Error(data.error);setBankFiles(data);return;
+      }
+      const category=receiptCategories[uploadTarget.current];
+      if(category){
+        let saved=receiptFiles;
+        for(const file of list){
+          const bytes=new Uint8Array(await file.arrayBuffer());let binary="";bytes.forEach(byte=>{binary+=String.fromCharCode(byte);});
+          const response=await fetch("/contadores/receipts",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({month,version:saved.version,category,file:{name:file.name,data:btoa(binary)}})});
+          const data=await response.json();if(!response.ok)throw new Error(data.error);saved=data;setReceiptFiles(data);
+        }
+        return;
       }
       for (const file of list) {
         if (file.size > 2_000_000) throw new Error("El archivo debe pesar menos de 2 MB.");
@@ -471,7 +510,7 @@ export default function AccountingPortal({ role, local = false }: { role: "owner
     setTimeout(() => URL.revokeObjectURL(url), 2000);
   }
 
-  return <AdminView.Provider value={role === "owner"}><PesoAmounts.Provider value={pesoAmounts}><DepositDates.Provider value={depositDates}><PlatformUpload.Provider value={{choose:title=>{uploadTarget.current=title;input.current?.click();},busy:busy||loading||bankLoading,loaded:new Set(([ ["Google Play",play.reports],["App Store",apple.reports],["Stripe",stripe.reports],["Mercado Libre Afiliados",mercado.reports],["Cursor AI",cursor.reports],["ChatGPT",chatgpt.reports],["Facebook Ads",facebook.reports],["Google Ads",google.reports],["Supabase",supabase.reports],["Google Cloud",cloud.reports] ] as [string,Report[]][]).filter(([,reports])=>reports.some(r=>r.receipt?.month===month)).map(([title])=>title))}}><div className={styles.portal}><main className={styles.main}>
+  return <AdminView.Provider value={role === "owner"}><PesoAmounts.Provider value={pesoAmounts}><DepositDates.Provider value={depositDates}><PlatformUpload.Provider value={{choose:title=>{uploadTarget.current=title;input.current?.click();},busy:busy||loading||bankLoading,loaded:new Set(([ ["Google Play",play.reports],["App Store",apple.reports],["Stripe",stripe.reports],["Mercado Libre Afiliados",mercado.reports],["Cursor AI",cursor.reports],["ChatGPT",chatgpt.reports],["Facebook Ads",facebook.reports],["Google Ads",google.reports],["Supabase",supabase.reports],["Google Cloud",cloud.reports] ] as [string,Report[]][]).filter(([,reports])=>reports.some(r=>r.receipt?.month===month)).map(([title])=>title).concat(Object.entries(receiptCategories).filter(([,category])=>receiptFiles.receipts.some(receipt=>receipt.category===category)).map(([title])=>title)))}}><div className={styles.portal}><main className={styles.main}>
     <header className={styles.header}>
       <a href="/contadores" className={styles.brand}>Órale AI<span>Contabilidad</span></a>
       <div className={styles.tools}>
@@ -503,14 +542,14 @@ export default function AccountingPortal({ role, local = false }: { role: "owner
       {(expenses.length>0||bankExpenseRows.length>0)&&<div className={styles.totals}><div><span>Total de gastos{missingPesos&&<small>Faltan cargos en pesos</small>}</span><strong>{bankLoading?"Cargando…":`${money(expenseTotal)} MXN`}</strong></div></div>}
       <FacebookExpenses reports={facebook.reports} month={month} onDownload={download}/>
       <ExpenseSection title="ChatGPT" reports={chatgpt.reports} month={month} onDownload={download} file="PDF"/>
-      <BankExpenses title="Claude" rows={claudeRows} loading={bankLoading}/>
+      <BankExpenses title="Claude" rows={claudeRows} loading={bankLoading} receipts={receiptFiles.receipts} month={month}/>
       <ExpenseSection title="Cursor AI" reports={cursor.reports} month={month} onDownload={download} file="PDF" fallback="6271" dollars/>
       <ExpenseSection title="Supabase" reports={supabase.reports} month={month} onDownload={download} file="PDF" dollars/>
-      <BankExpenses title="Cloudflare" rows={cloudflareRows} loading={bankLoading}/>
+      <BankExpenses title="Cloudflare" rows={cloudflareRows} loading={bankLoading} receipts={receiptFiles.receipts} month={month}/>
       <ExpenseSection title="Google Cloud" reports={cloud.reports} month={month} onDownload={download} file="XML"/>
-      <BankExpenses title="RevenueCat" rows={revenuecatRows} loading={bankLoading}/>
+      <BankExpenses title="RevenueCat" rows={revenuecatRows} loading={bankLoading} receipts={receiptFiles.receipts} month={month}/>
       <ExpenseSection title="Google Ads" reports={google.reports} month={month} onDownload={download} file="XML" fallback="0698"/>
-      <BankExpenses title="Contabilidad" rows={accountantRows} loading={bankLoading}/>
+      <BankExpenses title="Contabilidad" rows={accountantRows} loading={bankLoading} receipts={receiptFiles.receipts} month={month}/>
       <NoPayments titles={expenseSections.map(section=>section.title).filter(title=>!hasPayment(title))}/>
     </>}
     {role==="owner"&&tab==="banco"&&bankAccount==="negocio"&&<div className={styles.downloadActions}><UploadButton title="Banamex"/></div>}

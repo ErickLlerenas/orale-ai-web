@@ -100,3 +100,7 @@ El portal abre siempre en el mes anterior, que es el que se está cerrando. Es i
 Ingresos muestra la fecha del depósito confirmada por Banamex y, en Play y Apple, el mes de las ventas. Gastos conserva cada cobro en su renglón, con fecha, tarjeta y comprobante.
 
 La vista inicial se carga con una sola petición (`view=all`) sin los archivos originales. Cada original se baja al pedir su descarga.
+
+## Comprobantes de cargos del banco
+
+Claude, Cloudflare, RevenueCat y Contabilidad no tienen lector propio: el importe sale del cargo de Banamex y el comprobante se sube en su apartado de Gastos, en PDF o XML. Cada archivo se liga al primer cargo del mes de ese apartado que aún no tenga comprobante; subir el mismo archivo otra vez no lo duplica. Se guarda en almacenamiento privado y lo puede descargar quien tenga sesión.
