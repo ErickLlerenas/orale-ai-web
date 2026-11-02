@@ -150,16 +150,17 @@ test('Apple commission invoice rejects another period, earnings amount, currency
  const report=parseReport(apple,'financial_report.csv');
  const attach=text=>ledger.attachAppleCommission(report,{name:'invoice.pdf',text});
  assert.throws(()=>attach(appleCommissionText.replace('July','August')),/no corresponde/);
- assert.throws(()=>attach(appleCommissionText.replace('2,999.72','2,998.72')),/no corresponde/);
+ assert.throws(()=>attach(appleCommissionText.replace('2,999.72','1,999.72')),/no corresponde/);
  assert.throws(()=>attach(appleCommissionText.replace('LLCMXN','LLCUSD')),/MXN/);
  assert.throws(()=>attach(appleCommissionText.replaceAll('84.71','84.00')),/tasa/);
 });
-test('August Apple invoice cannot silently replace figures from a different set of earnings', () => {
+test('An Apple invoice that cut the month differently gives the commission and its VAT, while the sales detail keeps the base', () => {
  const financial=apple.replace('July','August').replace('19,2999.72,0,479.92,0,3479.64,3479.64','83,13967.52,0,2238.73,0,16206.25,16206.25');
- const report=parseReport(financial,'financial_report.csv');
+ const report={...parseReport(financial,'financial_report.csv'),sales:2000000,salesBase:1724138};
  const invoice='Fiscal Month: August, 2026\nPaid AppsApple Services LATAM LLCMXN13,821.702,439.4216,260.7016390.31390.31\nMexico Commission Invoice';
  assert.equal(ledger.appleCommissionInvoice(invoice,'invoice.pdf').feeVat,39031);
- assert.throws(()=>ledger.attachAppleCommission(report,{name:'invoice.pdf',text:invoice}),/no corresponde/);
+ const f=incomeFigures(ledger.attachAppleCommission(report,{name:'invoice.pdf',text:invoice}));
+ assert.equal(f.fee,243942);assert.equal(f.feeVat,39031);assert.equal(f.base,1724138);assert.equal(f.salesVat,275862);assert.equal(f.preliminaryVat,236831);
  assert.equal(paymentAmount(report),1620625);
 });
 test('API attaches Apple commission PDF text to the assigned month without adding an income', async () => {
