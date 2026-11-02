@@ -52,9 +52,11 @@ export async function storeVersion(folder: string, value: object) {
   return key;
 }
 // The month view reads figures; original files are fetched only when downloaded.
-export function reportSummary<T extends { text?: string; file?: unknown; salesSource?: { name: string } | null; commissionSource?: { name: string } | null; earningsSource?: { name: string } | null }>(report: T): T {
+// The Apple commission text stays: the view reads the commission and its VAT from it.
+export function reportSummary<T extends { text?: string; file?: unknown; salesSource?: { name: string } | null; commissionSource?: { name: string; text: string; file?: unknown } | null; earningsSource?: { name: string } | null }>(report: T): T {
   const source = (value?: { name: string } | null) => value ? { name: value.name, text: "" } : value;
-  const summary = { ...report, text: "", salesSource: source(report.salesSource), commissionSource: source(report.commissionSource), earningsSource: source(report.earningsSource) };
+  const commission = report.commissionSource ? { name: report.commissionSource.name, text: report.commissionSource.text } : report.commissionSource;
+  const summary = { ...report, text: "", salesSource: source(report.salesSource), commissionSource: commission, earningsSource: source(report.earningsSource) };
   delete summary.file;
   return summary;
 }
