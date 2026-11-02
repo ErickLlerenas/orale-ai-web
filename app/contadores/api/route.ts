@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sessionRole, sessionCookie } from "@/lib/accounting/access";
-import { emptyWorkspace, latest, storeVersion, validateWorkspace, monthSnapshot } from "@/lib/accounting/store";
+import { emptyWorkspace, latest, reportSummary, storeVersion, validateWorkspace, monthSnapshot } from "@/lib/accounting/store";
 import { parseReport, appleSales, reportKey, upsertReport, attachPlayEarnings, attachAppleSales, appleCommissionInvoice, attachAppleCommission } from "@/lib/accounting/ledger.mjs";
 import { zipSources } from "@/lib/accounting/zip.mjs";
 import { extractPdfText } from "@/lib/accounting/pdf.mjs";
@@ -18,6 +18,14 @@ export async function GET(req: NextRequest) {
       const play = await latest("simple-reports");
       const apple = await latest("apple-reports");
       return json({ play: play?.state.reports ?? [], apple: apple?.state.reports ?? [] });
+    }
+    if (req.nextUrl.searchParams.get("view") === "all") {
+      const platforms = ["play", "apple", "stripe", "mercado", "cursor", "facebook", "chatgpt", "google", "supabase", "cloud"];
+      const collections = await Promise.all(platforms.map(async platform => {
+        const record = await latest(collectionOf(platform));
+        return [platform, { reports: record ? validateWorkspace(record.state).reports.map(reportSummary) : [], version: record?.key ?? "" }];
+      }));
+      return json(Object.fromEntries(collections));
     }
     if (req.nextUrl.searchParams.get("view") === "report") {
       const record = await latest(collectionOf(req.nextUrl.searchParams.get("platform")));

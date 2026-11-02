@@ -2,19 +2,18 @@
 import { useState } from 'react';
 import { Check, Download } from 'lucide-react';
 import { money, type Report } from '@/lib/accounting/ledger.mjs';
-import { bankLabels, bankOutflowTotals, bankDepositTotals, mergeBankDocuments, reconcileBank, type BankDocument } from '@/lib/accounting/bank-ledger.mjs';
+import { bankLabels, bankDepositTotals, mergeBankDocuments, reconcileBank, type BankDocument } from '@/lib/accounting/bank-ledger.mjs';
 import { nuView, nuLabels, type NuReview } from '@/lib/accounting/nu-ledger.mjs';
 import styles from './accounting.module.css';
 const date=(value:string)=>new Date(`${value}T12:00:00`).toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'});
-export default function BankStatement({documents,nu,reports,month,loading,onAccountChange}:{onAccountChange:(account:"negocio"|"personal")=>void;documents:BankDocument[];nu:NuReview;reports:Report[];month:string;loading:boolean}) {
+export default function BankStatement({documents,nu,reports,month,loading,onAccountChange,expenses,paidWithNu}:{expenses:number;paidWithNu:number;onAccountChange:(account:"negocio"|"personal")=>void;documents:BankDocument[];nu:NuReview;reports:Report[];month:string;loading:boolean}) {
   const [account,setAccount]=useState<'negocio'|'personal'>('negocio');
   const personal=nuView(nu.rows,month,reports);
   const view=mergeBankDocuments(documents,month);
   const reconciliation=reconcileBank(view,reports,month);
   const rows=account==='negocio'?[...reconciliation.rows].reverse():[];
-  const incoming=bankDepositTotals(rows);
-  const {transfers,otherPayments}=bankOutflowTotals(rows);
   const card=documents.find(d=>d.cardLast4)?.cardLast4;
+  const taxes=rows.reduce((sum,row)=>row.category==='tax'&&row.amount<0?sum-row.amount:sum,0);
   return <>
     <div className={styles.bankChooser} role="tablist" aria-label="Cuenta bancaria">
       <button type="button" role="tab" aria-selected={account==='negocio'} onClick={()=>{setAccount('negocio');onAccountChange('negocio');}} className={styles.bankBusinessTab}>Negocio <small>Banamex{card?` ····${card}`:''}</small></button>
@@ -34,6 +33,11 @@ export default function BankStatement({documents,nu,reports,month,loading,onAcco
       {personal.pending>0&&<tr><th colSpan={2}>Por procesar</th><td>—</td><td><span className={styles.bankOut}>{money(personal.pending)}</span></td></tr>}</tfoot>
       </table></div><details className={styles.bankSources}><summary>Capturas y estado de cuenta · {nu.sources.length}</summary><div className={styles.bankOriginals}>{nu.sources.map(source=><a className={styles.csv} key={source.id} href={`/contadores/nu?month=${month}&source=${source.id}`}><Download/>{source.name}</a>)}</div></details></>}</>}
     {account==='negocio' && (loading?<p className={styles.empty}>Cargando…</p>:rows.length===0?<p className={styles.empty}>Sin movimientos cargados.</p>:<>
+      <div className={styles.totals}>
+        <div><span>Ingresos</span><strong>{money(bankDepositTotals(rows).platforms)}</strong></div>
+        <div><span>Gastos{paidWithNu>0&&<small>Incluye {money(paidWithNu)} pagados con Nu</small>}</span><strong>{money(expenses)}</strong></div>
+        {taxes>0&&<div><span>Impuestos</span><strong>{money(taxes)}</strong></div>}
+      </div>
       <div className={`${styles.bankTableWrap} ${styles.bankBusiness}`}>
         <table className={`${styles.bankTable} ${styles.bankRawTable}`}>
           <thead><tr><th>Fecha</th><th>Descripción</th><th>Depósitos</th><th>Retiros</th><th>Saldo</th></tr></thead>
@@ -50,11 +54,6 @@ export default function BankStatement({documents,nu,reports,month,loading,onAcco
             <td>{row.amount<0?<span className={row.category==='transfer'?styles.bankTransfer:styles.bankOut}>−{money(-row.amount)}</span>:'—'}</td>
             <td>{row.balance===null?'—':money(row.balance)}</td>
           </tr>)}</tbody>
-          <tfoot><tr><th colSpan={2}>Transferencias con Nu</th><td><span className={styles.bankTransfer}>{money(incoming.transfers)}</span></td><td><span className={styles.bankTransfer}>−{money(transfers)}</span></td><td>—</td></tr>
-          <tr className={styles.bankSubtotal}><th colSpan={2}>Ingresos de plataformas</th><td><span className={styles.bankIn}>{money(incoming.platforms)}</span></td><td>—</td><td>—</td></tr>
-          {incoming.bonuses>0&&<tr className={styles.bankSubtotal}><th colSpan={2}>Bonificaciones del banco</th><td><span className={styles.bankIn}>{money(incoming.bonuses)}</span></td><td>—</td><td>—</td></tr>}
-          {incoming.other>0&&<tr className={styles.bankSubtotal}><th colSpan={2}>Otros depósitos</th><td><span className={styles.bankIn}>{money(incoming.other)}</span></td><td>—</td><td>—</td></tr>}
-          <tr className={styles.bankSubtotal}><th colSpan={2}>Gastos y otros pagos</th><td>—</td><td><span className={styles.bankOut}>{money(otherPayments)}</span></td><td>—</td></tr></tfoot>
         </table>
       </div>
       <div className={styles.bankOriginals}>{documents.map(document=><a className={styles.csv} key={document.id} href={`/contadores/bank?month=${month}&source=${document.id}`}><Download/>{document.name}</a>)}</div>
