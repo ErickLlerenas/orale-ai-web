@@ -138,6 +138,31 @@
   color: var(--ink);
   font-weight: 700;
 }
+/* De qué tienda son las descargas, con los colores de la gráfica del mes. */
+.plats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 0 0 6px;
+  font-size: 13.5px;
+  color: var(--soft);
+  font-variant-numeric: tabular-nums;
+}
+.plats span {
+  display: inline-flex;
+  align-items: center;
+}
+.plats b {
+  margin-left: 5px;
+  color: var(--ink);
+  font-weight: 700;
+}
+.dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+  margin-right: 6px;
+}
 
 /* ---- Quién se suscribió (igual que en /admin) ---- */
 .subs {

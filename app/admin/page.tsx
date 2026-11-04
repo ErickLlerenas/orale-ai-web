@@ -13,6 +13,7 @@ import {
   mxDay,
   newOwners,
   pct,
+  PLATFORMS,
   revenueCatGrowth,
   revenueCatOverview,
   type Install,
@@ -124,6 +125,14 @@ export default async function NewAdmin({ searchParams = {} }: { searchParams?: P
 
         <section className={s.card}>
           <Stat label="Descargas" value={downloads} tone="var(--peach)">
+            <p className={s.plats}>
+              {PLATFORMS.map((p) => (
+                <span key={p}>
+                  <i className={s.dot} style={{ background: `var(--${p})` }} />
+                  {PLATFORM_LABEL[p]} <b>{pulse.downloads.byPlatform[p]}</b>
+                </span>
+              ))}
+            </p>
             <p className={s.detail}>
               <b>{owners}</b> dueños · <b>{downloads - owners}</b> meseros
             </p>
