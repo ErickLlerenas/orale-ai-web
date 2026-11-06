@@ -259,11 +259,8 @@ async function whoSubscribed(supabase: ReturnType<typeof adminClient>, subs: New
   return { list, names };
 }
 
-/// Cuántos de cada lista se ven sin desplegar: tres renglones de dos.
-const SUBS_SHOWN = 6;
-
 /// Quién empezó prueba y quién pagó, a todo el ancho y en dos columnas para
-/// que la tarjeta no se estire: con muchas altas, el resto se despliega.
+/// que la tarjeta no se estire. Todos a la vista, sin desplegar.
 function SubsList({ list, names }: { list: NewSub[]; names: Map<string, string> }) {
   const groups = [
     { title: "Empezaron prueba", rows: list.filter((x) => x.kind === "trial") },
@@ -278,13 +275,7 @@ function SubsList({ list, names }: { list: NewSub[]; names: Map<string, string> 
           <p className={s.subsTitle}>
             {g.title} · {g.rows.length}
           </p>
-          <ul className={s.subs}>{g.rows.slice(0, SUBS_SHOWN).map(row)}</ul>
-          {g.rows.length > SUBS_SHOWN ? (
-            <details className={s.subsMore}>
-              <summary>Ver {g.rows.length - SUBS_SHOWN} más</summary>
-              <ul className={s.subs}>{g.rows.slice(SUBS_SHOWN).map(row)}</ul>
-            </details>
-          ) : null}
+          <ul className={s.subs}>{g.rows.map(row)}</ul>
         </div>
       ))}
     </div>
