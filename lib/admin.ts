@@ -221,57 +221,6 @@ export function monthWindow(today: string, ym: string) {
   };
 }
 
-/// Ventas a la semana debajo de las cuales un cliente que paga «vende poco».
-/// 10 a la semana ≈ 20 en 2 semanas: de los que vendían menos de 20, se fue
-/// 60–79% en octubre; de los que vendían 100 o más, 18% (29 oct).
-export const LOW_USE_WEEK = 10;
-
-export type LowUseWeek = { end: string; paying: number; low: number };
-
-/// Por semana (7 días que terminan en [end]): cuántas cuentas que pagan y
-/// cuántas de ellas vendieron menos de [limit] veces. De la más vieja a la
-/// más nueva. Sin cambios de aparato.
-export function lowUseWeeks(
-  rows: PingRow[],
-  end: string,
-  weeks = 8,
-  limit = LOW_USE_WEEK,
-): LowUseWeek[] {
-  const first = dayPlus(end, -7 * weeks + 1);
-  // Ventas del día por cuenta: lo más alto que reportó alguno de sus
-  // aparatos (la caja y el mesero cuentan las mismas ventas).
-  const sold = new Map<string, Map<string, number>>();
-  const paidOn = new Map<string, Set<string>>();
-  for (const r of rows) {
-    if (r.ping_date < first || r.ping_date > end || r.inherited_access) continue;
-    const k = r.account_key ?? r.install_id;
-    let byDay = sold.get(k);
-    if (!byDay) sold.set(k, (byDay = new Map()));
-    byDay.set(r.ping_date, Math.max(byDay.get(r.ping_date) ?? 0, r.orders_today ?? 0));
-    if (r.subscription_active) {
-      let days = paidOn.get(k);
-      if (!days) paidOn.set(k, (days = new Set()));
-      days.add(r.ping_date);
-    }
-  }
-  const out: LowUseWeek[] = [];
-  for (let w = weeks - 1; w >= 0; w--) {
-    const to = dayPlus(end, -7 * w);
-    const from = dayPlus(to, -6);
-    let paying = 0;
-    let low = 0;
-    for (const [k, days] of paidOn) {
-      if (![...days].some((d) => d >= from && d <= to)) continue;
-      paying++;
-      let n = 0;
-      for (const [d, v] of sold.get(k) ?? []) if (d >= from && d <= to) n += v;
-      if (n < limit) low++;
-    }
-    out.push({ end: to, paying, low });
-  }
-  return out;
-}
-
 /// yyyy-mm-dd más N días.
 export function dayPlus(day: string, n: number): string {
   const d = new Date(`${day}T12:00:00Z`);

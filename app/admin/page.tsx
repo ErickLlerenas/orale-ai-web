@@ -7,8 +7,6 @@ import {
   dayPulse,
   firstSubscriptions,
   journeySteps,
-  LOW_USE_WEEK,
-  lowUseWeeks,
   monthWindow,
   mxDay,
   newOwners,
@@ -18,7 +16,6 @@ import {
   revenueCatOverview,
   type Install,
   type PingRow,
-  type LowUseWeek,
   type RcGrowth,
 } from "@/lib/admin";
 import {
@@ -37,13 +34,14 @@ import {
   memo,
   pendingSupport,
   storeNewSubs,
+  trialConversion,
   type SupportCase,
   type SupportPerson,
   type SupportReply,
   subsOnDay,
   usageHistory,
 } from "@/lib/admin-data";
-import { GOAL, MonthNumbers, PlanChurn, RcCard, appActive, pace, shortDay } from "./cards";
+import { GOAL, MonthNumbers, PlanChurn, RcCard, appActive, pace } from "./cards";
 import { markSupportReviewed, replySupport } from "./actions";
 import s from "./new.module.css";
 
@@ -76,12 +74,17 @@ export default async function NewAdmin({ searchParams = {} }: { searchParams?: P
     memo(`subs:${month.prevStart}`, () => storeNewSubs(supabase, month.prevStart)),
     memo("rc", revenueCatOverview),
   ]);
-  const [churn, reasons, growth, rhythm, support] = await Promise.all([
+  const [churn, reasons, growth, rhythm, weekAgo, trialStats, support] = await Promise.all([
     memo(`churn:${month.start}`, () => planChurn(supabase, month.start)),
     memo(`motivos:${month.start}`, () => cancelReasons(supabase, month.start)),
     memo(`crece:${month.start}:${today}`, () => revenueCatGrowth(month.start, today)),
     // El ritmo sale de 30 días corridos: no depende de en qué día del mes vas.
     memo(`ritmo:${today}`, () => revenueCatGrowth(dayPlus(today, -29), today)),
+    // El mismo ritmo una semana antes, para ver hacia dónde se mueve el techo.
+    memo(`ritmo:${dayPlus(today, -7)}`, () =>
+      revenueCatGrowth(dayPlus(today, -36), dayPlus(today, -7)),
+    ),
+    memo("pruebas", () => trialConversion(supabase)),
     // Sin memo: lo que se acaba de marcar como revisado no debe volver a salir.
     pendingSupport(supabase),
   ]);
@@ -89,11 +92,19 @@ export default async function NewAdmin({ searchParams = {} }: { searchParams?: P
   const subsList = firstSubscriptions(rows);
   const subsOn = subsOnDay(storeSubs, subsList);
   const daySubs = subsOn(day);
+  // Las pruebas que la tienda cobró ese día vienen aparte de las altas.
+  const converted = storeSubs.filter((x) => x.day === day && x.kind === "converted");
+  const trials = daySubs.filter((x) => x.kind === "trial").length;
+  const direct = daySubs.length - trials;
   const pulse = dayPulse(rows, installs, subsList, day);
   const downloads = pulse.downloads.total;
   const owners = newOwners(installs, day, day).length;
   const { list, names } = await memo(`new:subs:${day}`, () =>
-    whoSubscribed(supabase, daySubs, rows),
+    whoSubscribed(supabase, [...daySubs, ...converted], rows),
+  );
+  // Los aparatos que empezaron prueba ese día, para el último paso del embudo.
+  const trialInstalls = new Set(
+    list.filter((x) => x.kind === "trial").flatMap((x) => x.installIds ?? []),
   );
   const updated = new Date(pings.at).toLocaleTimeString("es-MX", {
     timeZone: "America/Mexico_City",
@@ -124,23 +135,30 @@ export default async function NewAdmin({ searchParams = {} }: { searchParams?: P
         </nav>
 
         <section className={s.card}>
-          <Stat label="Descargas" value={downloads} tone="var(--peach)">
-            <p className={s.plats}>
-              {PLATFORMS.map((p) => (
-                <span key={p}>
-                  <i className={s.dot} style={{ background: `var(--${p})` }} />
-                  {PLATFORM_LABEL[p]} <b>{pulse.downloads.byPlatform[p]}</b>
-                </span>
-              ))}
-            </p>
-            <p className={s.detail}>
-              <b>{owners}</b> dueños · <b>{downloads - owners}</b> meseros
-            </p>
-          </Stat>
-          <Stat label="Abrieron la app" value={pulse.opened.total} tone="var(--sky)" />
-          <Stat label="Se suscribieron" value={daySubs.length} tone="var(--amber)">
-            <SubsList list={list} names={names} />
-          </Stat>
+          <div className={s.stats}>
+            <Stat label="Descargas" value={downloads} tone="var(--peach)">
+              <p className={s.plats}>
+                {PLATFORMS.map((p) => (
+                  <span key={p}>
+                    <i className={s.dot} style={{ background: `var(--${p})` }} />
+                    {PLATFORM_LABEL[p]} <b>{pulse.downloads.byPlatform[p]}</b>
+                  </span>
+                ))}
+              </p>
+              <p className={s.detail}>
+                <b>{owners}</b> dueños · <b>{downloads - owners}</b> meseros
+              </p>
+            </Stat>
+            <Stat label="Empezaron prueba" value={trials} tone="var(--amber)">
+              <p className={s.detail}>Gratis 7 días; se cobra si no cancelan</p>
+            </Stat>
+            <Stat label="Pagaron" value={converted.length + direct} tone="var(--mint)">
+              <p className={s.detail}>
+                <b>{converted.length}</b> pruebas cobradas · <b>{direct}</b> sin prueba
+              </p>
+            </Stat>
+          </div>
+          <SubsList list={list} names={names} />
         </section>
 
         <Funnel
@@ -149,6 +167,7 @@ export default async function NewAdmin({ searchParams = {} }: { searchParams?: P
           installs={installs}
           day={day}
           version={searchParams.v}
+          trialInstalls={trialInstalls}
           href={(v) => link({ v }, "embudo")}
         />
 
@@ -161,10 +180,11 @@ export default async function NewAdmin({ searchParams = {} }: { searchParams?: P
           }
           growth={growth}
           rhythm={rhythm}
+          weekAgo={weekAgo}
+          inTrial={rc.ok ? rc.metrics.find((m) => m.id === "active_trials")?.value : undefined}
+          trials={trialStats}
           monthName={month.name}
         />
-
-        <LowUse weeks={lowUseWeeks(rows, dayPlus(today, -1))} />
 
         <PlanChurn
           rows={churn}
@@ -239,46 +259,69 @@ async function whoSubscribed(supabase: ReturnType<typeof adminClient>, subs: New
   return { list, names };
 }
 
-/// Quién se suscribió, como «Nuevos suscriptores» de /admin: el plan, el
-/// negocio y desde cuándo usa la app (verde si llegó ese día).
+/// Cuántos de cada lista se ven sin desplegar: tres renglones de dos.
+const SUBS_SHOWN = 6;
+
+/// Quién empezó prueba y quién pagó, a todo el ancho y en dos columnas para
+/// que la tarjeta no se estire: con muchas altas, el resto se despliega.
 function SubsList({ list, names }: { list: NewSub[]; names: Map<string, string> }) {
-  if (!list.length) return null;
+  const groups = [
+    { title: "Empezaron prueba", rows: list.filter((x) => x.kind === "trial") },
+    { title: "Pagaron", rows: list.filter((x) => x.kind !== "trial") },
+  ].filter((g) => g.rows.length);
+  if (!groups.length) return null;
+  const row = (x: NewSub) => <SubsRow key={`${x.key}-${x.kind ?? ""}`} x={x} name={names.get(x.key)} />;
   return (
-    <ul className={s.subs}>
-      {list.map((x) => {
-        const plan = PLANS.find((p) => p.key === x.plan);
-        const store = PLATFORM_LABEL[x.platform ?? ""] ?? x.platform;
-        const name = names.get(x.key);
-        return (
-          <li
-            key={`${x.key}-${x.kind ?? ""}`}
-            className={x.canceled ? `${s.subsRow} ${s.subsCanceled}` : s.subsRow}
-            title={x.canceled ? "Canceló" : undefined}
-          >
-            <span className={s.subsPlan} style={{ ["--plan" as string]: plan?.color ?? "var(--mute)" }}>
-              {x.label ?? plan?.label ?? "Plan sin dato"}
-            </span>
-            <span className={s.subsName}>{name ?? store}</span>
-            {name && store ? <span className={s.subsStore}>{store}</span> : null}
-            <span
-              className={
-                x.tenure == null
-                  ? s.ageUnknown
-                  : x.tenure === 0
-                    ? s.ageNew
-                    : x.tenure < 30
-                      ? s.ageWeeks
-                      : s.ageOld
-              }
-            >
-              {x.tenure == null
-                ? "sin identificar"
-                : x.tenure === 0 ? "nuevo" : tenureLabel(x.tenure)}
-            </span>
-          </li>
-        );
-      })}
-    </ul>
+    <div className={s.subsWrap}>
+      {groups.map((g) => (
+        <div key={g.title}>
+          <p className={s.subsTitle}>
+            {g.title} · {g.rows.length}
+          </p>
+          <ul className={s.subs}>{g.rows.slice(0, SUBS_SHOWN).map(row)}</ul>
+          {g.rows.length > SUBS_SHOWN ? (
+            <details className={s.subsMore}>
+              <summary>Ver {g.rows.length - SUBS_SHOWN} más</summary>
+              <ul className={s.subs}>{g.rows.slice(SUBS_SHOWN).map(row)}</ul>
+            </details>
+          ) : null}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/// Un alta: el plan, el negocio y desde cuándo usa la app (verde si llegó
+/// ese día).
+function SubsRow({ x, name }: { x: NewSub; name?: string }) {
+  const plan = PLANS.find((p) => p.key === x.plan);
+  const store = PLATFORM_LABEL[x.platform ?? ""] ?? x.platform;
+  return (
+    <li
+      className={x.canceled ? `${s.subsRow} ${s.subsCanceled}` : s.subsRow}
+      title={x.canceled ? "Canceló" : undefined}
+    >
+      <span className={s.subsPlan} style={{ ["--plan" as string]: plan?.color ?? "var(--mute)" }}>
+        {x.label ?? plan?.label ?? "Plan sin dato"}
+      </span>
+      <span className={s.subsName}>{name ?? store}</span>
+      {name && store ? <span className={s.subsStore}>{store}</span> : null}
+      <span
+        className={
+          x.tenure == null
+            ? s.ageUnknown
+            : x.tenure === 0
+              ? s.ageNew
+              : x.tenure < 30
+                ? s.ageWeeks
+                : s.ageOld
+        }
+      >
+        {x.tenure == null
+          ? "sin identificar"
+          : x.tenure === 0 ? "nuevo" : tenureLabel(x.tenure)}
+      </span>
+    </li>
   );
 }
 
@@ -329,6 +372,7 @@ function Funnel({
   installs,
   day,
   version,
+  trialInstalls,
   href,
 }: {
   id: string;
@@ -336,10 +380,11 @@ function Funnel({
   installs: Install[];
   day: string;
   version?: string;
+  /** Aparatos que empezaron prueba ese día (de la tienda). */
+  trialInstalls: Set<string>;
   /** El link para ver otra versión (sin versión = todas). */
   href: (version?: string) => string;
 }) {
-  const downloads = installs.filter((i) => i.firstDay === day && !i.inherited).length;
   const all = newOwners(installs, day, day);
   // Antes de 3.0.9x la app no mandaba los pasos de la bienvenida: contarían
   // como si se hubieran ido en la primera pregunta.
@@ -358,7 +403,12 @@ function Funnel({
   const picked = groups.some((g) => g.key === version) ? version : undefined;
   const list = picked ? owners.filter((i) => group(i) === picked) : owners;
 
-  const steps = journeySteps(list).filter((st) => !st.later);
+  const steps = [
+    ...journeySteps(list).filter((st) => !st.later),
+    // Desde la 3.0.114 la prueba se ofrece al cobrar la primera venta. Solo
+    // cuentan las de quien descargó ese día; las demás salen arriba.
+    { label: "Empezaron prueba", n: list.filter((i) => trialInstalls.has(i.id)).length },
+  ];
   const questions = new Set(list.map((i) => firstQuestion(versionOf(i))));
   const labels = [
     "Dueños nuevos",
@@ -370,8 +420,8 @@ function Funnel({
     <section className={s.card2} id={id}>
       <h2 className={s.h2}>{title}</h2>
       <p className={s.subtitle}>
-        {downloads} descargas · {downloads - all.length} meseros · {all.length} dueños nuevos
-        {noData ? ` · ${noData} con versión vieja sin pasos de la bienvenida (no salen abajo)` : ""}
+        Solo los dueños que descargaron {day === mxDay(0) ? "hoy" : "ese día"}: hasta dónde llegaron ese mismo día.
+        {noData ? ` ${noData} con versión vieja no mandan los pasos y no salen.` : ""}
       </p>
 
       {groups.length > 1 ? (
@@ -431,6 +481,9 @@ function Goal({
   active,
   growth,
   rhythm,
+  weekAgo,
+  inTrial,
+  trials,
   monthName,
 }: {
   active: number;
@@ -438,16 +491,22 @@ function Goal({
   growth: RcGrowth;
   /** Los últimos 30 días corridos. */
   rhythm: RcGrowth;
+  /** Los 30 días que terminaron hace una semana. */
+  weekAgo: RcGrowth;
+  /** Pruebas gratis corriendo hoy (RevenueCat). */
+  inTrial?: number;
+  /** De las pruebas que ya terminaron, cuántas se cobraron. */
+  trials: { done: number; converted: number };
   monthName: string;
 }) {
   const p = rhythm.ok ? pace(rhythm) : null;
   const ceiling = p?.ceiling ?? null;
+  const ceilingBefore = weekAgo.ok ? pace(weekAgo).ceiling : null;
+  const payShare = trials.done ? trials.converted / trials.done : null;
   const stuck = ceiling != null && ceiling < GOAL;
   // Conteos reales del mes (RevenueCat); el ritmo de 30 días solo da el techo.
   const entered = growth.ok ? growth.added + growth.back : 0;
   const net = growth.ok ? growth.now - growth.start : 0;
-  const outShare = growth.ok && growth.start ? Math.round((growth.churned / growth.start) * 100) : 0;
-  const oneIn = growth.ok && growth.churned ? Math.round(growth.start / growth.churned) : null;
   const top = Math.max(GOAL, ceiling ?? 0);
   const at = (n: number) => `${Math.min(100, (n / top) * 100)}%`;
   const churn = p ? Math.round(p.churnRate * 100) : 0;
@@ -469,6 +528,9 @@ function Goal({
               <b className={stuck ? s.toneBad : s.toneGood}>
                 {stuck ? `te quedas en ~${ceiling!.toLocaleString("es-MX")}` : "sí llegas"}
               </b>
+              {ceilingBefore != null ? (
+                <span>Hace una semana: ~{ceilingBefore.toLocaleString("es-MX")}</span>
+              ) : null}
             </>
           ) : null}
           <p className={s.goalHint}>
@@ -518,12 +580,6 @@ function Goal({
               <span>hoy ({net >= 0 ? "+" : ""}{net})</span>
             </div>
           </div>
-          <p className={s.goalHint} style={{ textAlign: "center" }}>
-            De los {growth.start.toLocaleString("es-MX")} clientes que tenías al empezar{" "}
-            {monthName} se fueron {growth.churned}: {outShare}%
-            {oneIn ? `, 1 de cada ${oneIn}` : ""}. Los {entered} que entraron ({growth.added} nuevos y{" "}
-            {growth.back} que regresaron) son aparte.
-          </p>
           {ceiling != null ? (
             <p className={s.goalHint} style={{ textAlign: "center" }}>
               ¿Por qué el techo es ~{ceiling.toLocaleString("es-MX")}? En los últimos 30 días entraron{" "}
@@ -531,6 +587,32 @@ function Goal({
               {ceiling.toLocaleString("es-MX")} clientes ese {churn}% ya son {inMonth} bajas al mes:
               entra lo mismo que se va y dejas de crecer.
             </p>
+          ) : null}
+
+          {inTrial != null && payShare != null ? (
+            <>
+              <p className={s.optionsTitle}>Lo que viene: las pruebas gratis</p>
+              <div className={`${s.flow} ${s.flowTrials}`}>
+                <div>
+                  <b>{inTrial}</b>
+                  <span>en prueba hoy</span>
+                </div>
+                <i>×</i>
+                <div>
+                  <b>{pct(trials.converted, trials.done)}</b>
+                  <span>de las pruebas se cobra</span>
+                </div>
+                <i>≈</i>
+                <div>
+                  <b className={s.toneGood}>~{Math.round(inTrial * payShare)}</b>
+                  <span>entrarían en 7 días</span>
+                </div>
+              </div>
+              <p className={s.goalHint} style={{ textAlign: "center" }}>
+                Desde el 24 oct terminaron {trials.done} pruebas y {trials.converted} se cobraron.
+                Aún no cuentan en «entraron» ni en el techo.
+              </p>
+            </>
           ) : null}
 
           <p className={s.optionsTitle}>
@@ -650,53 +732,6 @@ function GoalRing({ value, goal }: { value: number; goal: number }) {
         </span>
       </div>
     </div>
-  );
-}
-
-/// Los que pagan pero casi no venden: son los que más se dan de baja. Es el
-/// número a bajar; semana por semana para ver si los cambios ayudan.
-function LowUse({ weeks }: { weeks: LowUseWeek[] }) {
-  const last = weeks[weeks.length - 1];
-  const prev = weeks[weeks.length - 2];
-  if (!last?.paying) return null;
-  const share = (w: LowUseWeek) => (w.paying ? w.low / w.paying : 0);
-  const diff = prev ? Math.round((share(last) - share(prev)) * 100) : 0;
-  const top = Math.max(0.01, ...weeks.map(share));
-  return (
-    <section className={s.card2} id="venden-poco">
-      <div className={s.lowHead}>
-        <div>
-          <h2 className={s.h2}>Pagan pero venden poco</h2>
-          <p className={s.subtitle}>
-            {last.low} de {last.paying} clientes que pagan vendieron menos de {LOW_USE_WEEK} veces
-            en los últimos 7 días. Son los que más se dan de baja: el número a bajar.
-          </p>
-        </div>
-        <div className={s.lowBig}>
-          <b>{pct(last.low, last.paying)}</b>
-          {prev ? (
-            <span className={diff > 0 ? s.toneBad : diff < 0 ? s.toneGood : undefined}>
-              {diff > 0 ? "▲" : diff < 0 ? "▼" : "="} {Math.abs(diff)} pts vs. la semana anterior
-            </span>
-          ) : null}
-        </div>
-      </div>
-      <div className={s.lowBars}>
-        {weeks.map((w) => (
-          <div key={w.end} className={s.lowCol} title={`${w.low} de ${w.paying}`}>
-            <span>{pct(w.low, w.paying)}</span>
-            <div className={s.lowTrack}>
-              <div className={s.lowFill} style={{ height: `${(share(w) / top) * 100}%` }} />
-            </div>
-            <small>{shortDay(w.end)}</small>
-          </div>
-        ))}
-      </div>
-      <p className={s.goalHint}>
-        Cada barra son los 7 días que terminan ese día. En octubre se fue 60–79% de los que
-        vendían poco, contra 18% de los que vendían 100 o más en 2 semanas.
-      </p>
-    </section>
   );
 }
 

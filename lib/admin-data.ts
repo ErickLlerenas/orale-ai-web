@@ -317,6 +317,46 @@ export async function planChurn(supabase: Db, from: string): Promise<PlanChurnRo
   return [...out.values()];
 }
 
+/// Pruebas gratis desde que llegan los avisos de la tienda (STORE_SINCE): de
+/// las que ya terminaron, cuántas se cobraron. Cada prueba es una compra
+/// (original_transaction_id); las que siguen corriendo no cuentan.
+export async function trialConversion(supabase: Db) {
+  const since = new Date(`${STORE_SINCE}T00:00:00-06:00`).toISOString();
+  const res = await fetchAll<{
+    id: string;
+    type: string;
+    period_type: string | null;
+    original_transaction_id: string | null;
+    conversion: unknown;
+  }>(
+    supabase
+      .from("revenuecat_events")
+      .select("id, type, period_type, original_transaction_id, conversion:raw->is_trial_conversion")
+      .eq("environment", "PRODUCTION")
+      .in("type", ["INITIAL_PURCHASE", "RENEWAL", "EXPIRATION"])
+      .gte("event_at", since)
+      .order("event_at")
+      .order("id"),
+  );
+  const trials = new Set<string>();
+  const paid = new Set<string>();
+  const expired = new Set<string>();
+  for (const e of res.data) {
+    const tx = e.original_transaction_id;
+    if (!tx) continue;
+    if (e.type === "INITIAL_PURCHASE" && e.period_type === "TRIAL") trials.add(tx);
+    else if (e.type === "RENEWAL" && e.conversion === true) paid.add(tx);
+    else if (e.type === "EXPIRATION") expired.add(tx);
+  }
+  let done = 0;
+  let converted = 0;
+  for (const tx of trials) {
+    if (paid.has(tx)) converted++;
+    if (paid.has(tx) || expired.has(tx)) done++;
+  }
+  return { done, converted, error: res.error?.message ?? null };
+}
+
 export type CancelReason = {
   installId: string;
   /** monthly, yearly, pro_monthly, pro_yearly. */
