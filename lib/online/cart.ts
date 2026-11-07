@@ -273,6 +273,25 @@ export function quoteCart(
   return { priced, subtotal, discount, promotion, total: subtotal - discount };
 }
 
+/** WhatsApp de México en 10 dígitos. Acepta espacios, guiones y +52 o 521 al
+ * inicio. "" si no se puede leer como 10 dígitos. */
+export function mxPhone(input: string): string {
+  let digits = input.replace(/\D/g, "");
+  if (digits.length === 13 && digits.startsWith("521")) digits = digits.slice(3);
+  else if (digits.length === 12 && digits.startsWith("52")) digits = digits.slice(2);
+  return digits.length === 10 ? digits : "";
+}
+
+/** El WhatsApp que se guarda con el pedido: solo a domicilio. */
+export function checkoutPhone(checkout: Checkout): string {
+  return checkout.fulfillment === "delivery" && typeof checkout.phone === "string"
+    ? mxPhone(checkout.phone)
+    : "";
+}
+
+const phoneLabel = (digits: string) =>
+  `${digits.slice(0, 3)} ${digits.slice(3, 6)} ${digits.slice(6)}`;
+
 export function whatsappOrder(
   catalog: Catalog,
   lines: CartLine[],
@@ -294,6 +313,16 @@ export function whatsappOrder(
   }
   if (checkout.fulfillment === "delivery" && catalog.acceptsDelivery !== true) {
     throw new Error("Este negocio solo acepta pedidos para recoger.");
+  }
+  // Una página abierta antes de pedir el WhatsApp no manda el campo: ese
+  // pedido entra como antes, sin teléfono.
+  const phone = checkoutPhone(checkout);
+  if (
+    checkout.fulfillment === "delivery" &&
+    typeof checkout.phone === "string" &&
+    !phone
+  ) {
+    throw new Error("Escribe tu WhatsApp a 10 dígitos.");
   }
   const q = quoteCart(catalog, lines, now);
   const parts = [
@@ -320,6 +349,7 @@ export function whatsappOrder(
     `*Total de productos: ${money(q.total)}*`,
     "",
     `👤 *Cliente:* ${checkout.name.trim()}`,
+    ...(phone ? [`📱 *WhatsApp:* ${phoneLabel(phone)}`] : []),
     ...(checkout.fulfillment === "delivery"
       ? [
         "🛵 *Entrega: A domicilio*",

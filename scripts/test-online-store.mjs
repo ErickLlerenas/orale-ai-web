@@ -21,7 +21,9 @@ writeFileSync(
   ).outputText,
 );
 const {
+  checkoutPhone,
   missingRequiredOption,
+  mxPhone,
   quoteCart,
   whatsappOrder,
   demoPhoneNumber,
@@ -223,6 +225,42 @@ test("delivery requires address and never claims shipping is included or order a
     address: "Calle de prueba 1",
   });
   assert.match(decodeURIComponent(result.url), /Costo de envío por confirmar/);
+});
+test("delivery asks the buyer's WhatsApp in 10 digits and puts it in the order", () => {
+  const delivery = {
+    ...checkout,
+    fulfillment: "delivery",
+    address: "Calle de prueba 1",
+  };
+  for (const bad of ["", "618 123", "618 123 45678", "abc"]) {
+    assert.throws(
+      () => whatsappOrder(catalog(), [line()], { ...delivery, phone: bad }),
+      /WhatsApp a 10 dígitos/,
+    );
+  }
+  const result = whatsappOrder(catalog(), [line()], {
+    ...delivery,
+    phone: "+52 1 (618) 123-4567",
+  });
+  assert.match(result.message, /WhatsApp:\* 618 123 4567/);
+  assert.equal(
+    checkoutPhone({ ...delivery, phone: "+52 1 (618) 123-4567" }),
+    "6181234567",
+  );
+  // Una página abierta antes del cambio no manda el campo: entra sin él.
+  const old = whatsappOrder(catalog(), [line()], delivery);
+  assert.doesNotMatch(old.message, /WhatsApp:/);
+  // Para recoger no se pide ni se guarda.
+  const pickup = whatsappOrder(catalog(), [line()], { ...checkout, phone: "" });
+  assert.doesNotMatch(pickup.message, /WhatsApp:/);
+  assert.equal(checkoutPhone({ ...checkout, phone: "6181234567" }), "");
+});
+test("mxPhone reads 10 digits with or without the country code", () => {
+  assert.equal(mxPhone("618-123-4567"), "6181234567");
+  assert.equal(mxPhone("526181234567"), "6181234567");
+  assert.equal(mxPhone("5216181234567"), "6181234567");
+  assert.equal(mxPhone("16181234567"), "");
+  assert.equal(mxPhone("618123456"), "");
 });
 test("reject oversized input and empty orders", () => {
   assert.throws(() => quoteCart(catalog(), []));

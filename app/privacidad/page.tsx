@@ -14,7 +14,7 @@ export default function Privacy() {
 
       <main className="prose">
         <h1>Aviso de privacidad</h1>
-        <p className="muted">Última actualización: octubre 2026</p>
+        <p className="muted">Última actualización: noviembre 2026</p>
 
         <p>
           Órale AI es un punto de venta para iPhone/iPad, Android, Windows y Mac.
@@ -59,9 +59,12 @@ export default function Privacy() {
           publicas el nombre, teléfono, dirección y catálogo que configures, con precios
           y fotos. Cualquier persona con el enlace puede consultar el menú mientras
           esté disponible. Conservamos una copia en Supabase para servirlo con la app
-          cerrada. El nombre, teléfono, domicilio y notas que el comprador ingresa
-          se usan para preparar su mensaje de WhatsApp; no los guardamos como pedidos
-          en nuestra base de datos. El comprador decide enviarlo al negocio.
+          cerrada. El nombre, domicilio, WhatsApp (en pedidos a domicilio) y notas
+          que el comprador ingresa se usan para preparar su mensaje de WhatsApp y se
+          guardan como solicitud de pedido en Supabase, para que la caja del negocio
+          lo reciba. Al aceptarlo, el negocio guarda al comprador como cliente en su
+          dispositivo. No usamos esos datos para publicidad ni los vendemos. El
+          comprador decide enviar su pedido al negocio.
           Puedes pausar la tienda desde Ajustes; las imágenes ya públicas pueden
           seguir disponibles mediante sus enlaces.
         </p>

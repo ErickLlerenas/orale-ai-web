@@ -2,6 +2,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import type { CartLine, Checkout, Menu, Product, Catalog } from "@/lib/online/types";
 import {
+  checkoutPhone,
   money,
   missingRequiredOption,
   quoteCart,
@@ -16,6 +17,8 @@ import {
   storeHours,
 } from "@/lib/online/cart";
 import styles from "./storefront.module.css";
+
+const savedPhoneKey = "orale.menu.whatsapp";
 
 const plusBadge = (
   <span className={styles.plus} aria-hidden="true">
@@ -412,7 +415,16 @@ export default function Storefront({
     name: "",
     fulfillment: "pickup",
     address: "",
+    phone: "",
   });
+  // El WhatsApp del último pedido a domicilio en este celular: el cliente no
+  // lo vuelve a escribir. Sin acceso al almacenamiento, el campo sale vacío.
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(savedPhoneKey) ?? "";
+      if (saved) setCheckout((c) => (c.phone ? c : { ...c, phone: saved }));
+    } catch {}
+  }, []);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [demoPhone, setDemoPhone] = useState("");
@@ -536,6 +548,12 @@ export default function Storefront({
         }
       }
       if (!response.ok) throw new Error(data.error);
+      const phone = checkoutPhone(checkout);
+      if (phone) {
+        try {
+          window.localStorage.setItem(savedPhoneKey, phone);
+        } catch {}
+      }
       // Navigation opens WhatsApp; the buyer still presses Send. Keep a
       // fallback link in case this browser cannot open the app.
       setWhatsapp(data.url);
@@ -875,6 +893,29 @@ export default function Storefront({
                         setWhatsapp(null);
                       }}
                     />
+                  </label>
+                )}
+                {checkout.fulfillment === "delivery" && (
+                  <label className={styles.field}>
+                    Tu WhatsApp
+                    <input
+                      type="tel"
+                      inputMode="tel"
+                      autoComplete="tel-national"
+                      required
+                      maxLength={20}
+                      placeholder="10 dígitos"
+                      value={checkout.phone ?? ""}
+                      onChange={(e) => {
+                        setCheckout({ ...checkout, phone: e.target.value });
+                        setWhatsapp(null);
+                      }}
+                      aria-describedby="buyer-phone-hint"
+                    />
+                    <small id="buyer-phone-hint">
+                      Va en tu pedido para que el negocio te contacte si hace
+                      falta.
+                    </small>
                   </label>
                 )}
                 <p className={styles.notice}>

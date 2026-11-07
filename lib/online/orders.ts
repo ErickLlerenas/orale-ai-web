@@ -2,7 +2,7 @@ import "server-only";
 import { createHash } from "node:crypto";
 import { adminClient } from "@/lib/supabase";
 import { MenuError } from "./server";
-import { opensLabel, quoteCart, storeHours, whatsappOrder } from "./cart";
+import { checkoutPhone, opensLabel, quoteCart, storeHours, whatsappOrder } from "./cart";
 import { siteUrl } from "@/lib/seo";
 import type { Menu, CartLine, Checkout } from "./types";
 
@@ -30,7 +30,8 @@ export async function storeOrder(slug: string, menu: Menu, lines: CartLine[], ch
   const q = quoteCart(menu.catalog, lines, now);
   const payload = {
     version: 1,
-    checkout: { name: checkout.name.trim(), fulfillment: checkout.fulfillment, address: checkout.fulfillment === "delivery" ? checkout.address.trim() : "" },
+    // phone: 10 dígitos o "". La caja lo usa para guardar al cliente.
+    checkout: { name: checkout.name.trim(), fulfillment: checkout.fulfillment, address: checkout.fulfillment === "delivery" ? checkout.address.trim() : "", phone: checkoutPhone(checkout) },
     lines: q.priced.map(p => ({ productId: p.product.id, productName: p.product.name, variantId: p.variant.id, variantName: p.variant.name, variantPrice: p.variant.price, choices: p.choices.map(c => ({id: c.id, name: c.name, price: c.price})), quantity: p.line.quantity, notes: p.line.notes.trim(), total: p.total })),
     subtotal: q.subtotal, discount: q.discount, total: q.total, promotion: q.promotion,
   };
