@@ -432,9 +432,6 @@ export default function Storefront({
   // toma como abierto: el servidor igual rechaza un pedido fuera de horario.
   const hours = now ? storeHours(catalog, now) : null;
   const closedText = hours && !hours.open && now ? opensLabel(catalog, hours, now) : null;
-  // A menu without photos reads better as a dense list than as a column of
-  // empty frames. Decided for the whole menu so rows keep one rhythm.
-  const anyPhoto = catalog.products.some((p) => p.image);
   // Categoría en pantalla: se resalta y su botón se centra en la barra.
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const categoryBar = useRef<HTMLElement>(null);
@@ -641,17 +638,18 @@ export default function Storefront({
             className={styles.section}
           >
             <h2>{displayName(category.name)}</h2>
-            <div
-              className={
-                anyPhoto
-                  ? styles.products
-                  : `${styles.products} ${styles.compact}`
-              }
-            >
+            <div className={styles.products}>
               {products.map((p) => (
                 <button
                   disabled={!p.available}
-                  className={styles.product}
+                  // Cada platillo es su propia tarjeta. Sin foto, la tarjeta
+                  // se encoge: antes ocupaba un cuadro con la inicial que
+                  // parecía una imagen que no cargó.
+                  className={
+                    p.image
+                      ? styles.product
+                      : `${styles.product} ${styles.compact}`
+                  }
                   key={p.id}
                   onClick={() => setSelected(p)}
                   aria-label={`Elegir ${p.name}`}
@@ -667,26 +665,15 @@ export default function Storefront({
                     {catalog.promotions.some(offer => offer.productIds.includes(p.id)) && <span className={styles.individualPrice}>Precio individual</span>}
                     <ProductPromotions catalog={catalog} productId={p.id} now={now} />
                   </div>
-                  {anyPhoto ? (
+                  {p.image ? (
                     <span className={styles.productVisual}>
-                      {p.image ? (
-                        <img
-                          src={p.image}
-                          alt={p.name}
-                          loading="lazy"
-                          width={112}
-                          height={112}
-                        />
-                      ) : (
-                        // Same width as a photo, so every name starts on the
-                        // same column when only some products have one.
-                        <span
-                          className={styles.productPlaceholder}
-                          aria-hidden="true"
-                        >
-                          {p.name.trim().charAt(0).toUpperCase()}
-                        </span>
-                      )}
+                      <img
+                        src={p.image}
+                        alt={p.name}
+                        loading="lazy"
+                        width={104}
+                        height={104}
+                      />
                       {p.available && plusBadge}
                     </span>
                   ) : (
