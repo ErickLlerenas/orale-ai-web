@@ -21,6 +21,7 @@ writeFileSync(
   ).outputText,
 );
 const {
+  missingRequiredOption,
   quoteCart,
   whatsappOrder,
   demoPhoneNumber,
@@ -100,6 +101,30 @@ test("reject unavailable, unknown variant and missing or duplicated required cho
   ) {
     assert.throws(() => quoteCart(catalog(), [bad]));
   }
+});
+test("the form points at the first required option with nothing chosen", () => {
+  const product = catalog().products[0];
+  product.options.unshift({
+    id: "x",
+    name: "Extras",
+    required: false,
+    multiple: true,
+    choices: [{ id: "q", name: "Queso", price: 500 }],
+  });
+  product.options.push({
+    id: "t",
+    name: "Tortilla",
+    required: true,
+    multiple: false,
+    choices: [{ id: "m", name: "Maíz", price: 0 }],
+  });
+  assert.equal(missingRequiredOption(product, [])?.id, "o");
+  assert.equal(missingRequiredOption(product, ["q", "s"])?.id, "t");
+  assert.equal(missingRequiredOption(product, ["s", "m"]), null);
+  // Lo que el formulario deja pasar, el cotizador lo acepta.
+  assert.doesNotThrow(() =>
+    quoteCart(catalog(), [line({ choiceIds: ["s"] })])
+  );
 });
 test("stock checked across separate cart rows and quantities are bounded", () => {
   assert.throws(() =>
