@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "re
 import type { CartLine, Checkout, Menu, Product, Catalog } from "@/lib/online/types";
 import {
   money,
+  missingRequiredOption,
   quoteCart,
   whatsappOrder,
   demoPhoneNumber,
@@ -226,6 +227,12 @@ function ProductForm({
   const [quantity, setQuantity] = useState(1);
   const [notes, setNotes] = useState("");
   const [error, setError] = useState("");
+  // La opción obligatoria que faltó: se marca, se lleva a la vista y el aviso
+  // sale junto al botón. Antes el aviso quedaba hasta abajo de la lista, fuera
+  // de la vista, y parecía que el botón no hacía nada.
+  const [missing, setMissing] = useState<string | null>(null);
+  const [nudges, setNudges] = useState(0);
+  const groups = useRef(new Map<string, HTMLFieldSetElement>());
   const variant = product.variants.find((v) => v.id === variantId)!;
   const unit =
     variant.price +
@@ -238,13 +245,18 @@ function ProductForm({
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          if (
-            product.options.some(
-              (o) =>
-                o.required && !o.choices.some((c) => choiceIds.includes(c.id)),
-            )
-          ) {
-            setError("Selecciona las opciones obligatorias.");
+          const option = missingRequiredOption(product, choiceIds);
+          if (option) {
+            setMissing(option.id);
+            setError(`Elige una opción de ${displayName(option.name)}`);
+            setNudges((n) => n + 1);
+            const calm = window.matchMedia(
+              "(prefers-reduced-motion: reduce)",
+            ).matches;
+            groups.current.get(option.id)?.scrollIntoView({
+              behavior: calm ? "auto" : "smooth",
+              block: "start",
+            });
             return;
           }
           add({ productId: product.id, variantId, choiceIds, quantity, notes });
@@ -283,7 +295,14 @@ function ProductForm({
         {product.options
           .filter((o) => o.choices.length)
           .map((o) => (
-            <fieldset key={o.id}>
+            <fieldset
+              key={o.id}
+              ref={(el) => {
+                if (el) groups.current.set(o.id, el);
+                else groups.current.delete(o.id);
+              }}
+              className={missing === o.id ? styles.missing : undefined}
+            >
               <legend>
                 {displayName(o.name)}{" "}
                 <small>
@@ -317,7 +336,11 @@ function ProductForm({
                       type={o.multiple ? "checkbox" : "radio"}
                       name={o.id}
                       checked={choiceIds.includes(c.id)}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        if (e.target.checked && missing === o.id) {
+                          setMissing(null);
+                          setError("");
+                        }
                         setChoices((ids) => {
                           const next = o.multiple
                             ? ids.filter((id) => id !== c.id)
@@ -325,8 +348,8 @@ function ProductForm({
                                 (id) => !o.choices.some((x) => x.id === id),
                               );
                           return e.target.checked ? [...next, c.id] : next;
-                        })
-                      }
+                        });
+                      }}
                     />
                     {displayName(c.name)}
                   </span>
@@ -344,21 +367,26 @@ function ProductForm({
             placeholder="Por ejemplo, sin cebolla"
           />
         </label>
-        {error && (
-          <p role="alert" className={styles.error}>
-            {error}
-          </p>
-        )}
         {/* Fijo abajo: en un platillo con muchas opciones el botón quedaba
-            hasta el final y había que bajar todo para encontrarlo. */}
+            hasta el final y había que bajar todo para encontrarlo. El aviso
+            vive aquí por lo mismo. */}
         <div className={styles.formFooter}>
+          {error && (
+            <p role="alert" className={styles.footerAlert} key={`a${nudges}`}>
+              {error}
+            </p>
+          )}
           <QuantityStepper
             value={quantity}
             max={product.stock ?? 99}
             label={`Cantidad de ${product.name}`}
             onChange={setQuantity}
           />
-          <button className={styles.primary} type="submit">
+          <button
+            className={`${styles.primary}${nudges ? ` ${styles.shake}` : ""}`}
+            type="submit"
+            key={`b${nudges}`}
+          >
             Agregar · {money(unit * quantity)}
           </button>
         </div>
