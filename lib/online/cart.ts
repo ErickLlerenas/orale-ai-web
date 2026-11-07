@@ -1,4 +1,4 @@
-import type { CartLine, Catalog, Checkout, HoursDay } from "./types";
+import type { CartLine, Catalog, Checkout, HoursDay, Product } from "./types";
 export const money = (cents: number) =>
   new Intl.NumberFormat("es-MX", {
     style: "currency",
@@ -136,6 +136,16 @@ export function promotionConditions(catalog: Catalog, p: Promotion): string {
       ? " Extras por separado. Solo grupos completos; si el precio individual resulta menor, se respeta."
       : ""
   } Se aplica la mejor promoción al confirmar el pedido.`;
+}
+
+/** La primera opción obligatoria sin nada elegido; null si ya se puede
+ * agregar. Misma regla que [quoteCart]. */
+export function missingRequiredOption(product: Product, choiceIds: string[]) {
+  return (
+    product.options.find(
+      (o) => o.required && !o.choices.some((c) => choiceIds.includes(c.id)),
+    ) ?? null
+  );
 }
 
 export function quoteCart(
