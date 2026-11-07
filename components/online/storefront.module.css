@@ -147,76 +147,67 @@ a.infoChip:hover {
 .products {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 0 32px;
+  gap: 12px 16px;
 }
+/* Cada platillo es una tarjeta: borde, esquinas y aire propio. Antes solo los
+   separaba una raya y en el celular se leían como un solo bloque. */
 .product {
   position: relative;
-  background: white;
+  background: #fff;
   color: inherit;
-  border: 0;
-  border-bottom: 1px solid #e4e7eb;
-  padding: 20px 0;
+  border: 1px solid #e8eaed;
+  border-radius: 16px;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+  padding: 14px;
   display: flex;
   align-items: flex-start;
-  gap: 16px;
+  gap: 14px;
   text-align: left;
   cursor: pointer;
   font: inherit;
-  min-height: 157px;
+  min-height: 132px;
   width: 100%;
   -webkit-tap-highlight-color: transparent;
 }
-.product:active {
-  background: #fff;
+.product:active:not(:disabled) {
+  background: #fafafa;
 }
 .product:disabled {
   opacity: 0.55;
   cursor: default;
+}
+.product:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--menu-accent) 40%, #e8eaed);
 }
 .product:hover:not(:disabled) h3 {
   color: var(--menu-accent);
 }
 .productVisual {
   position: relative;
-  flex: 0 0 112px;
+  flex: 0 0 104px;
   margin: 0 4px 4px 0;
 }
 .productAction {
   flex: 0 0 36px;
   align-self: center;
 }
-/* No photos at all: rows stop reserving the height of an image. */
-.compact .product {
+/* Sin foto: la tarjeta no aparta el alto de una imagen. */
+.product.compact {
   min-height: 0;
-  padding: 14px 0;
   align-items: center;
 }
-.compact .product h3 {
+.product.compact h3 {
   margin-bottom: 4px;
 }
-.compact .product p {
+.product.compact p {
   -webkit-line-clamp: 2;
   margin-bottom: 6px;
 }
-.productPlaceholder {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 112px;
-  height: 112px;
-  border-radius: 14px;
-  background: #f4f5f7;
-  background: color-mix(in srgb, var(--menu-accent) 9%, #fff);
-  color: var(--menu-accent);
-  font-size: 34px;
-  font-weight: 800;
-  line-height: 1;
-}
 .product img {
   display: block;
-  width: 112px;
-  height: 112px;
-  border-radius: 14px;
+  width: 104px;
+  height: 104px;
+  border-radius: 12px;
   object-fit: cover;
   flex-shrink: 0;
 }
