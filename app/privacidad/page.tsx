@@ -59,12 +59,17 @@ export default function Privacy() {
           publicas el nombre, teléfono, dirección y catálogo que configures, con precios
           y fotos. Cualquier persona con el enlace puede consultar el menú mientras
           esté disponible. Conservamos una copia en Supabase para servirlo con la app
-          cerrada. El nombre, domicilio, WhatsApp (en pedidos a domicilio) y notas
-          que el comprador ingresa se usan para preparar su mensaje de WhatsApp y se
-          guardan como solicitud de pedido en Supabase, para que la caja del negocio
-          lo reciba. Al aceptarlo, el negocio guarda al comprador como cliente en su
-          dispositivo. No usamos esos datos para publicidad ni los vendemos. El
-          comprador decide enviar su pedido al negocio.
+          cerrada. El nombre, domicilio, WhatsApp (solo en pedidos a domicilio) y
+          notas que el comprador ingresa se usan para preparar su mensaje de
+          WhatsApp y se guardan como solicitud de pedido en Supabase, para que la
+          caja del negocio lo reciba; las solicitudes se borran unos 7 días después.
+          En un pedido a domicilio, al aceptarlo el negocio guarda al comprador
+          (nombre, WhatsApp y domicilio) como cliente en su app; con Pro y meseros,
+          su lista de clientes se sincroniza por nuestros servidores con los
+          celulares de sus meseros. El
+          navegador del comprador recuerda su WhatsApp para su siguiente pedido. No
+          usamos esos datos para publicidad ni los vendemos. El comprador decide
+          enviar su pedido al negocio.
           Puedes pausar la tienda desde Ajustes; las imágenes ya públicas pueden
           seguir disponibles mediante sus enlaces.
         </p>

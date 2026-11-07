@@ -273,13 +273,17 @@ export function quoteCart(
   return { priced, subtotal, discount, promotion, total: subtotal - discount };
 }
 
-/** WhatsApp de México en 10 dígitos. Acepta espacios, guiones y +52 o 521 al
- * inicio. "" si no se puede leer como 10 dígitos. */
+/** WhatsApp de México en 10 dígitos. Acepta espacios y guiones, y quita lo que
+ * la gente todavía escribe adelante: +52, 521, 044, 045 o 01. "" si no queda
+ * un número de México (10 dígitos que no empiezan con 0 ni 1). */
 export function mxPhone(input: string): string {
   let digits = input.replace(/\D/g, "");
-  if (digits.length === 13 && digits.startsWith("521")) digits = digits.slice(3);
-  else if (digits.length === 12 && digits.startsWith("52")) digits = digits.slice(2);
-  return digits.length === 10 ? digits : "";
+  if (digits.length === 13 && /^(521|044|045)/.test(digits)) {
+    digits = digits.slice(3);
+  } else if (digits.length === 12 && /^(52|01)/.test(digits)) {
+    digits = digits.slice(2);
+  }
+  return /^[2-9]\d{9}$/.test(digits) ? digits : "";
 }
 
 /** El WhatsApp que se guarda con el pedido: solo a domicilio. */

@@ -261,6 +261,15 @@ test("mxPhone reads 10 digits with or without the country code", () => {
   assert.equal(mxPhone("5216181234567"), "6181234567");
   assert.equal(mxPhone("16181234567"), "");
   assert.equal(mxPhone("618123456"), "");
+  // Lo que la gente todavía escribe adelante.
+  assert.equal(mxPhone("044 618 123 4567"), "6181234567");
+  assert.equal(mxPhone("045 55 1234 5678"), "5512345678");
+  assert.equal(mxPhone("01 618 123 4567"), "6181234567");
+  // En México ningún número empieza con 0 o 1: un dígito de menos tras el 521
+  // ya no pasa como otro número.
+  assert.equal(mxPhone("521 618 123 456"), "");
+  assert.equal(mxPhone("0181234567"), "");
+  assert.equal(mxPhone("1181234567"), "");
 });
 test("reject oversized input and empty orders", () => {
   assert.throws(() => quoteCart(catalog(), []));

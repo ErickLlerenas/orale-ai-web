@@ -30,8 +30,10 @@ export async function storeOrder(slug: string, menu: Menu, lines: CartLine[], ch
   const q = quoteCart(menu.catalog, lines, now);
   const payload = {
     version: 1,
-    // phone: 10 dígitos o "". La caja lo usa para guardar al cliente.
-    checkout: { name: checkout.name.trim(), fulfillment: checkout.fulfillment, address: checkout.fulfillment === "delivery" ? checkout.address.trim() : "", phone: checkoutPhone(checkout) },
+    // phone (10 dígitos) solo si lo hay: la caja lo usa para guardar al
+    // cliente. Sin él, el pedido es idéntico al de antes y un reintento con el
+    // mismo requestKey no choca con el que ya se guardó.
+    checkout: { name: checkout.name.trim(), fulfillment: checkout.fulfillment, address: checkout.fulfillment === "delivery" ? checkout.address.trim() : "", ...(checkoutPhone(checkout) ? { phone: checkoutPhone(checkout) } : {}) },
     lines: q.priced.map(p => ({ productId: p.product.id, productName: p.product.name, variantId: p.variant.id, variantName: p.variant.name, variantPrice: p.variant.price, choices: p.choices.map(c => ({id: c.id, name: c.name, price: c.price})), quantity: p.line.quantity, notes: p.line.notes.trim(), total: p.total })),
     subtotal: q.subtotal, discount: q.discount, total: q.total, promotion: q.promotion,
   };

@@ -520,6 +520,10 @@ export default function Storefront({
         setCartOpen(false);
         return;
       }
+      // Las mismas reglas que el servidor, aquí, para que el comprador vea qué
+      // corregir («Escribe tu WhatsApp a 10 dígitos.»). El servidor solo
+      // regresa un aviso general.
+      whatsappOrder(catalog, lines, checkout, now ?? new Date());
       const fingerprint = JSON.stringify({revision: menu.revision, lines, checkout});
       if (orderRequest.current?.fingerprint !== fingerprint) {
         const bytes = crypto.getRandomValues(new Uint8Array(32));
