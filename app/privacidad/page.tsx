@@ -87,6 +87,18 @@ export default function Privacy() {
           datos para publicidad ni los vendemos.
         </p>
         <p>
+          <strong>Avisos al celular:</strong> si das permiso de avisos en tu
+          iPhone o Android, guardamos en nuestros servidores (Supabase) el
+          identificador de avisos de ese aparato, junto con su identificador
+          aleatorio de instalación y, si es la caja, el menú en línea que atiende.
+          Lo usamos <strong>solo</strong> para avisarte de un pedido nuevo de tu
+          menú en línea, de una respuesta de soporte o de un pago que no pasó. El
+          aviso viaja por los servicios de Google (Firebase Cloud Messaging) y, en
+          iPhone, de Apple. Puedes apagar los avisos cuando quieras en los Ajustes
+          de tu celular; cuando un identificador deja de servir, lo borramos. No
+          lo usamos para publicidad ni lo vendemos. En Windows no hay avisos.
+        </p>
+        <p>
           <strong>Funciones con IA:</strong> cuando usas el armado de menú con
           IA, la foto de tu menú se procesa a través de nuestro servidor con un
           proveedor de IA (Google Gemini) solo para generar tus productos.
@@ -153,6 +165,11 @@ export default function Privacy() {
               <td>Asociado al negocio / dispositivo</td>
             </tr>
             <tr>
+              <td>Identificador de avisos del aparato (si das permiso)</td>
+              <td>Avisarte de pedidos, respuestas de soporte y pagos</td>
+              <td>Asociado al dispositivo</td>
+            </tr>
+            <tr>
               <td>Correo y cuenta de Google (solo Windows)</td>
               <td>Crear tu cuenta y gestionar la suscripción</td>
               <td>Sí</td>
@@ -197,6 +214,10 @@ export default function Privacy() {
           suscripción) escribiéndonos por WhatsApp.
         </p>
 
+        <p>
+          Los <strong>avisos al celular</strong> los apagas o prendes cuando
+          quieras en los Ajustes de tu celular, en Notificaciones.
+        </p>
         <h2>5. Contacto</h2>
         <p>
           ¿Dudas sobre privacidad? Escríbenos por WhatsApp al{" "}
