@@ -14,7 +14,7 @@ export default function Privacy() {
 
       <main className="prose">
         <h1>Aviso de privacidad</h1>
-        <p className="muted">Última actualización: octubre 2026</p>
+        <p className="muted">Última actualización: noviembre 2026</p>
 
         <p>
           Órale AI es un punto de venta para iPhone/iPad, Android, Windows y Mac.
@@ -59,9 +59,17 @@ export default function Privacy() {
           publicas el nombre, teléfono, dirección y catálogo que configures, con precios
           y fotos. Cualquier persona con el enlace puede consultar el menú mientras
           esté disponible. Conservamos una copia en Supabase para servirlo con la app
-          cerrada. El nombre, teléfono, domicilio y notas que el comprador ingresa
-          se usan para preparar su mensaje de WhatsApp; no los guardamos como pedidos
-          en nuestra base de datos. El comprador decide enviarlo al negocio.
+          cerrada. El nombre, domicilio, WhatsApp (solo en pedidos a domicilio) y
+          notas que el comprador ingresa se usan para preparar su mensaje de
+          WhatsApp y se guardan como solicitud de pedido en Supabase, para que la
+          caja del negocio lo reciba; las solicitudes se borran unos 7 días después.
+          En un pedido a domicilio, al aceptarlo el negocio guarda al comprador
+          (nombre, WhatsApp y domicilio) como cliente en su app; con Pro y meseros,
+          su lista de clientes se sincroniza por nuestros servidores con los
+          celulares de sus meseros. El
+          navegador del comprador recuerda su WhatsApp para su siguiente pedido. No
+          usamos esos datos para publicidad ni los vendemos. El comprador decide
+          enviar su pedido al negocio.
           Puedes pausar la tienda desde Ajustes; las imágenes ya públicas pueden
           seguir disponibles mediante sus enlaces.
         </p>
@@ -77,6 +85,18 @@ export default function Privacy() {
           <strong>Nunca</strong> recopilamos los detalles de tus ventas ni datos
           de tus clientes finales con fines de analítica, y no usamos estos
           datos para publicidad ni los vendemos.
+        </p>
+        <p>
+          <strong>Avisos al celular:</strong> si das permiso de avisos en tu
+          iPhone o Android, guardamos en nuestros servidores (Supabase) el
+          identificador de avisos de ese aparato, junto con su identificador
+          aleatorio de instalación y, si es la caja, el menú en línea que atiende.
+          Lo usamos <strong>solo</strong> para avisarte de un pedido nuevo de tu
+          menú en línea, de una respuesta de soporte o de un pago que no pasó. El
+          aviso viaja por los servicios de Google (Firebase Cloud Messaging) y, en
+          iPhone, de Apple. Puedes apagar los avisos cuando quieras en los Ajustes
+          de tu celular; cuando un identificador deja de servir, lo borramos. No
+          lo usamos para publicidad ni lo vendemos. En Windows no hay avisos.
         </p>
         <p>
           <strong>Funciones con IA:</strong> cuando usas el armado de menú con
@@ -145,6 +165,11 @@ export default function Privacy() {
               <td>Asociado al negocio / dispositivo</td>
             </tr>
             <tr>
+              <td>Identificador de avisos del aparato (si das permiso)</td>
+              <td>Avisarte de pedidos, respuestas de soporte y pagos</td>
+              <td>Asociado al dispositivo</td>
+            </tr>
+            <tr>
               <td>Correo y cuenta de Google (solo Windows)</td>
               <td>Crear tu cuenta y gestionar la suscripción</td>
               <td>Sí</td>
@@ -189,6 +214,10 @@ export default function Privacy() {
           suscripción) escribiéndonos por WhatsApp.
         </p>
 
+        <p>
+          Los <strong>avisos al celular</strong> los apagas o prendes cuando
+          quieras en los Ajustes de tu celular, en Notificaciones.
+        </p>
         <h2>5. Contacto</h2>
         <p>
           ¿Dudas sobre privacidad? Escríbenos por WhatsApp al{" "}

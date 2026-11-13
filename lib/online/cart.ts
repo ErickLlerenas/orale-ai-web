@@ -273,6 +273,29 @@ export function quoteCart(
   return { priced, subtotal, discount, promotion, total: subtotal - discount };
 }
 
+/** WhatsApp de México en 10 dígitos. Acepta espacios y guiones, y quita lo que
+ * la gente todavía escribe adelante: +52, 521, 044, 045 o 01. "" si no queda
+ * un número de México (10 dígitos que no empiezan con 0 ni 1). */
+export function mxPhone(input: string): string {
+  let digits = input.replace(/\D/g, "");
+  if (digits.length === 13 && /^(521|044|045)/.test(digits)) {
+    digits = digits.slice(3);
+  } else if (digits.length === 12 && /^(52|01)/.test(digits)) {
+    digits = digits.slice(2);
+  }
+  return /^[2-9]\d{9}$/.test(digits) ? digits : "";
+}
+
+/** El WhatsApp que se guarda con el pedido: solo a domicilio. */
+export function checkoutPhone(checkout: Checkout): string {
+  return checkout.fulfillment === "delivery" && typeof checkout.phone === "string"
+    ? mxPhone(checkout.phone)
+    : "";
+}
+
+const phoneLabel = (digits: string) =>
+  `${digits.slice(0, 3)} ${digits.slice(3, 6)} ${digits.slice(6)}`;
+
 export function whatsappOrder(
   catalog: Catalog,
   lines: CartLine[],
@@ -294,6 +317,16 @@ export function whatsappOrder(
   }
   if (checkout.fulfillment === "delivery" && catalog.acceptsDelivery !== true) {
     throw new Error("Este negocio solo acepta pedidos para recoger.");
+  }
+  // Una página abierta antes de pedir el WhatsApp no manda el campo: ese
+  // pedido entra como antes, sin teléfono.
+  const phone = checkoutPhone(checkout);
+  if (
+    checkout.fulfillment === "delivery" &&
+    typeof checkout.phone === "string" &&
+    !phone
+  ) {
+    throw new Error("Escribe tu WhatsApp a 10 dígitos.");
   }
   const q = quoteCart(catalog, lines, now);
   const parts = [
@@ -320,6 +353,7 @@ export function whatsappOrder(
     `*Total de productos: ${money(q.total)}*`,
     "",
     `👤 *Cliente:* ${checkout.name.trim()}`,
+    ...(phone ? [`📱 *WhatsApp:* ${phoneLabel(phone)}`] : []),
     ...(checkout.fulfillment === "delivery"
       ? [
         "🛵 *Entrega: A domicilio*",

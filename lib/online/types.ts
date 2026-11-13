@@ -58,4 +58,6 @@ export type Checkout = {
   name: string;
   fulfillment: "pickup" | "delivery";
   address: string;
+  /** WhatsApp del comprador; solo se pide a domicilio. */
+  phone?: string;
 };
