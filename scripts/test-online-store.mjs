@@ -500,3 +500,149 @@ test("horario: abierto, cerrado y cuándo vuelve a abrir, también de noche", ()
   assert.deepEqual(weekend, { open: false, opensIn: 2, opensAt: 780 });
   assert.equal(opensLabel(c, weekend, new Date("2026-10-17T18:00:00Z")), "Abre el lunes a la 1:00 p.m.");
 });
+
+// ── Menú en inglés ─────────────────────────────────────────────────────────
+// i18n.ts importa cart.ts: se compilan juntos a una carpeta temporal.
+const i18nDir = mkdtempSync(join(tmpdir(), "orale-i18n-"));
+for (const name of ["cart", "i18n"]) {
+  writeFileSync(
+    join(i18nDir, `${name}.js`),
+    ts.transpileModule(
+      readFileSync(new URL(`../lib/online/${name}.ts`, import.meta.url), "utf8"),
+      {
+        compilerOptions: {
+          module: ts.ModuleKind.CommonJS,
+          target: ts.ScriptTarget.ES2020,
+        },
+      },
+    ).outputText,
+  );
+}
+const requireI18n = createRequire(import.meta.url);
+const english = requireI18n(join(i18nDir, "i18n.js"));
+const cartEn = requireI18n(join(i18nDir, "cart.js"));
+rmSync(i18nDir, { recursive: true, force: true });
+const source = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
+
+test("inglés: todo texto fijo de la página tiene su par en inglés", () => {
+  const page = source("../components/online/Storefront.tsx");
+  const fixed = [...page.matchAll(/\bt\(\s*"((?:[^"\\]|\\.)*)"/g)].map((m) =>
+    m[1]
+  );
+  assert.ok(fixed.length > 40, "la página usa t() para sus textos");
+  // Los dos del carrito viven dentro de una condición.
+  fixed.push("{count} producto · Ver carrito", "{count} productos · Ver carrito");
+  const errors = [
+    ...source("../lib/online/cart.ts").matchAll(/new CartError\(\s*"([^"]+)"/g),
+  ].map((m) => m[1]);
+  assert.ok(errors.length >= 12, "los avisos del carrito llevan plantilla");
+  const missing = [...fixed, ...errors].filter((es) => !english.hasEnglish(es));
+  assert.deepEqual(missing, []);
+});
+
+test("inglés: los textos fijos cambian, y en español salen igual que siempre", () => {
+  assert.equal(english.ui("es", "Tu pedido"), "Tu pedido");
+  assert.equal(english.ui("en", "Tu pedido"), "Your order");
+  assert.equal(
+    english.ui("es", "Cantidad de {name}", { name: "Taco" }),
+    "Cantidad de Taco",
+  );
+  assert.equal(
+    english.ui("en", "Cantidad de {name}", { name: "Taco" }),
+    "Quantity of Taco",
+  );
+  // Sin par en inglés se queda en español: nunca en blanco.
+  assert.equal(english.ui("en", "Texto nuevo sin traducir"), "Texto nuevo sin traducir");
+  assert.equal(english.ui("en", "constructor"), "constructor");
+});
+
+test("inglés: el platillo sale traducido solo si hay traducción guardada", () => {
+  const saved = { "Taco de asada": "Asada taco", Vacío: "  ", Raro: 7 };
+  assert.equal(english.translated("en", saved, "Taco de asada"), "Asada taco");
+  assert.equal(english.translated("en", saved, " Taco de asada "), "Asada taco");
+  assert.equal(english.translated("es", saved, "Taco de asada"), "Taco de asada");
+  for (const untouched of ["Pozole", "Vacío", "Raro", "constructor", "__proto__"]) {
+    assert.equal(english.translated("en", saved, untouched), untouched);
+  }
+});
+
+test("inglés: los avisos del carrito se entienden y traducen el platillo", () => {
+  const c = catalog();
+  c.products[0].stock = 2;
+  const tr = (text) => ({ Taco: "Taco (EN)", Salsa: "Sauce" })[text] ?? text;
+  let stock;
+  try {
+    cartEn.quoteCart(c, [line({ quantity: 3 })]);
+  } catch (e) {
+    stock = e;
+  }
+  assert.equal(stock.message, "Solo quedan 2 de Taco.");
+  assert.equal(english.errorText("es", stock, tr), "Solo quedan 2 de Taco.");
+  assert.equal(english.errorText("en", stock, tr), "Only 2 left of Taco (EN).");
+  let option;
+  try {
+    cartEn.quoteCart(catalog(), [line({ choiceIds: [] })]);
+  } catch (e) {
+    option = e;
+  }
+  assert.equal(option.message, "Revisa Salsa de Taco.");
+  assert.equal(english.errorText("en", option, tr), "Check Sauce for Taco (EN).");
+  // Avisos del servidor: llegan como texto en español.
+  assert.equal(
+    english.errorText("en", new Error("El menú cambió. Revisa los precios antes de continuar."), tr),
+    "The menu changed. Check the prices before continuing.",
+  );
+  assert.equal(
+    english.errorText("en", new Error("El negocio está cerrado. Abre hoy a la 1:00 p.m."), tr),
+    "The restaurant is closed.",
+  );
+  assert.equal(
+    english.errorText("en", new Error(""), tr),
+    "We couldn't prepare your order. Try again.",
+  );
+  assert.equal(
+    english.errorText("es", new Error(""), tr),
+    "No pudimos preparar el pedido. Intenta de nuevo.",
+  );
+});
+
+test("inglés: horario y promociones se leen en inglés; el español no cambia", () => {
+  const c = catalog();
+  const off = { open: false };
+  c.hours = [{ open: true, from: 780, to: 1320 }, off, { open: true, from: 1140, to: 120 }, off, off, off, off];
+  const monday = new Date("2026-10-12T18:59:00Z");
+  const early = cartEn.storeHours(c, monday);
+  assert.equal(cartEn.opensLabel(c, early, monday, "en"), "Opens today at 1:00 PM");
+  assert.equal(cartEn.opensLabel(c, early, monday), "Abre hoy a la 1:00 p.m.");
+  const late = cartEn.storeHours(c, new Date("2026-10-13T04:00:00Z"));
+  assert.equal(
+    cartEn.opensLabel(c, late, new Date("2026-10-13T04:00:00Z"), "en"),
+    "Opens Wednesday at 7:00 PM",
+  );
+  assert.equal(cartEn.clock12(0, "en"), "12:00 AM");
+  const promo = {
+    id: "m", name: "Martes", daysMask: 2, buy: 3, pay: 3, productIds: ["p"],
+    choiceIds: ["r"], fixedPriceCents: 6000, requireEachProduct: false,
+    startsAtMinute: 780, endsAtMinute: 900,
+  };
+  assert.equal(cartEn.promotionLabel(promo, "en"), "3 items for $60.00");
+  assert.equal(cartEn.promotionLabel(promo), "3 productos por $60.00");
+  assert.equal(cartEn.promotionSchedule(promo, "en"), "Tue · 13:00–15:00");
+  assert.equal(cartEn.promotionSchedule({ ...promo, daysMask: 127 }, "en"), "Every day · 13:00–15:00");
+  const tr = (text) => ({ Taco: "Taco (EN)", Roja: "Red" })[text] ?? text;
+  const terms = cartEn.promotionConditions(c, promo, "en", tr);
+  assert.match(terms, /^Tue · 13:00–15:00\. Included: Taco \(EN\)\./);
+  assert.match(terms, /Requires one of these extras: Red\./);
+  assert.match(terms, /The best promotion is applied when you confirm your order\.$/);
+  assert.doesNotMatch(terms, /Participan|Requiere|Se aplica/);
+  // Sin idioma, como siempre.
+  assert.match(cartEn.promotionConditions(c, promo), /Participan: Taco\./);
+});
+
+test("inglés: lo que le llega al negocio sigue en español", () => {
+  const result = cartEn.whatsappOrder(catalog(), [line({ quantity: 2 })], checkout);
+  assert.match(result.message, /\*SOLICITUD DE PEDIDO\*/);
+  assert.match(result.message, /\*2 × Taco\*/);
+  assert.match(result.message, /Entrega: Pasar a recoger/);
+  assert.doesNotMatch(result.message, /Your order|Pickup|item/i);
+});

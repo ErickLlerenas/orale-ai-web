@@ -1,5 +1,14 @@
 "use client";
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import type { CartLine, Checkout, Menu, Product, Catalog } from "@/lib/online/types";
 import {
   checkoutPhone,
@@ -16,6 +25,13 @@ import {
   opensLabel,
   storeHours,
 } from "@/lib/online/cart";
+import {
+  errorText,
+  langStorageKey,
+  translated,
+  ui,
+  type Lang,
+} from "@/lib/online/i18n";
 import styles from "./storefront.module.css";
 
 const savedPhoneKey = "orale.menu.whatsapp";
@@ -33,20 +49,46 @@ const plusBadge = (
   </span>
 );
 
-const smallWords = new Set(["de", "del", "la", "las", "el", "los", "y", "e", "en", "con", "a"]);
+const smallWords: Record<Lang, Set<string>> = {
+  es: new Set(["de", "del", "la", "las", "el", "los", "y", "e", "en", "con", "a"]),
+  // En inglés quedan nombres en español («Tacos de Asada»): se respetan las dos.
+  en: new Set([
+    "of", "the", "and", "with", "in", "on", "or", "a", "an", "to", "for",
+    "de", "del", "la", "las", "el", "los", "y", "al", "con",
+  ]),
+};
 /** Textos escritos todo en mayúsculas (nombre, categorías, platillos,
  * opciones) se leen mejor así: «Menudo-Barbacoa-Birria de Borrego Don Gus».
  * Si el dueño usó mayúsculas y minúsculas, se respeta tal cual. El mensaje de
  * WhatsApp conserva los nombres como los escribió el dueño. */
-function displayName(name: string) {
+function displayName(name: string, lang: Lang = "es") {
   const t = name.trim();
   if (t.length < 4 || t !== t.toUpperCase() || t === t.toLowerCase()) return t;
   return t
     .toLowerCase()
     .replace(/[\p{L}\p{N}]+/gu, (w, i: number) =>
-      i > 0 && smallWords.has(w) ? w : w.charAt(0).toUpperCase() + w.slice(1),
+      i > 0 && smallWords[lang].has(w) ? w : w.charAt(0).toUpperCase() + w.slice(1),
     );
 }
+
+/** En qué idioma ve la página el comensal y cómo se dice cada cosa. */
+type Words = {
+  lang: Lang;
+  /** Un texto fijo de la página. */
+  t: (es: string, vars?: Record<string, string | number>) => string;
+  /** Un texto del dueño (platillo, categoría, extra), traducido tal cual. */
+  tr: (text: string) => string;
+  /** Lo mismo, con mayúsculas legibles: para enseñarlo en pantalla. */
+  name: (text: string) => string;
+};
+const spanish: Words = {
+  lang: "es",
+  t: (es, vars) => ui("es", es, vars),
+  tr: (text) => text,
+  name: (text) => displayName(text),
+};
+const WordsContext = createContext<Words>(spanish);
+const useWords = () => useContext(WordsContext);
 /** «INT.MERCADO MPAL. JESÚS MARÍA, AGS.LOCAL 4,5,8,» → sin coma final y con
  * espacio después de cada coma o punto. */
 function cleanAddress(address: string) {
@@ -99,6 +141,7 @@ function Dialog({
   close: () => void;
   children: ReactNode;
 }) {
+  const { t } = useWords();
   const ref = useRef<HTMLDialogElement>(null);
   useLayoutEffect(() => {
     const d = ref.current!;
@@ -115,7 +158,7 @@ function Dialog({
       <div className={styles.dialogPanel}>
         <header className={styles.dialogHeader}>
           <h2>{title}</h2>
-          <button className={styles.close} onClick={close} aria-label="Cerrar">
+          <button className={styles.close} onClick={close} aria-label={t("Cerrar")}>
             <svg
               width="20"
               height="20"
@@ -148,12 +191,13 @@ function QuantityStepper({
   label: string;
   onChange: (next: number) => void;
 }) {
+  const { t } = useWords();
   const cap = Math.max(1, Math.min(99, max));
   return (
     <div className={styles.stepper} role="group" aria-label={label}>
       <button
         type="button"
-        aria-label="Disminuir"
+        aria-label={t("Disminuir")}
         disabled={value <= 1}
         onClick={() => onChange(value - 1)}
       >
@@ -164,7 +208,7 @@ function QuantityStepper({
       <span aria-live="polite">{value}</span>
       <button
         type="button"
-        aria-label="Aumentar"
+        aria-label={t("Aumentar")}
         disabled={value >= cap}
         onClick={() => onChange(value + 1)}
       >
@@ -182,6 +226,7 @@ function ProductPromotions({ catalog, productId, now, detail = false }: {
   now: Date | null;
   detail?: boolean;
 }) {
+  const { lang, t, tr } = useWords();
   const offers = catalog.promotions.filter((p) =>
     p.productIds.includes(productId)
   );
@@ -193,17 +238,19 @@ function ProductPromotions({ catalog, productId, now, detail = false }: {
         return (
           <span className={`${styles.offer}${active === false ? ` ${styles.offerScheduled}` : ""}`} key={p.id}>
             <span className={styles.offerTitle}>
-              {promotionLabel(p)} · {p.name}
+              {promotionLabel(p, lang)} · {tr(p.name)}
             </span>
             <span className={styles.offerTerms}>
-              {detail ? promotionConditions(catalog, p) : promotionSchedule(p)}
+              {detail
+                ? promotionConditions(catalog, p, lang, tr)
+                : promotionSchedule(p, lang)}
             </span>
             <span className={styles.offerStatus}>
               {active === null
-                ? "Consulta los días y horario"
+                ? t("Consulta los días y horario")
                 : active
-                ? "Disponible ahora"
-                : "Fuera de días u horario de promoción"}
+                ? t("Disponible ahora")
+                : t("Fuera de días u horario de promoción")}
             </span>
           </span>
         );
@@ -225,6 +272,7 @@ function ProductForm({
   add: (line: CartLine) => void;
   close: () => void;
 }) {
+  const { t, tr, name } = useWords();
   const [variantId, setVariant] = useState(product.variants[0]?.id ?? "");
   const [choiceIds, setChoices] = useState<string[]>([]);
   const [quantity, setQuantity] = useState(1);
@@ -244,14 +292,16 @@ function ProductForm({
       .filter((c) => choiceIds.includes(c.id))
       .reduce((s, c) => s + c.price, 0);
   return (
-    <Dialog title={displayName(product.name)} close={close}>
+    <Dialog title={name(product.name)} close={close}>
       <form
         onSubmit={(e) => {
           e.preventDefault();
           const option = missingRequiredOption(product, choiceIds);
           if (option) {
             setMissing(option.id);
-            setError(`Elige una opción de ${displayName(option.name)}`);
+            setError(
+              t("Elige una opción de {name}", { name: name(option.name) }),
+            );
             setNudges((n) => n + 1);
             const calm = window.matchMedia(
               "(prefers-reduced-motion: reduce)",
@@ -269,16 +319,16 @@ function ProductForm({
           <img
             className={styles.detailImage}
             src={product.image}
-            alt={product.name}
+            alt={tr(product.name)}
           />
         )}
         {product.description && (
-          <p className={styles.description}>{displayName(product.description)}</p>
+          <p className={styles.description}>{name(product.description)}</p>
         )}
         <ProductPromotions catalog={catalog} productId={product.id} now={now} detail />
         {product.variants.length > 1 && (
           <fieldset>
-            <legend>Presentación</legend>
+            <legend>{t("Presentación")}</legend>
             {product.variants.map((v) => (
               <label className={styles.option} key={v.id}>
                 <span>
@@ -288,7 +338,7 @@ function ProductForm({
                     checked={variantId === v.id}
                     onChange={() => setVariant(v.id)}
                   />
-                  {displayName(v.name)}
+                  {name(v.name)}
                 </span>
                 <b>{money(v.price)}</b>
               </label>
@@ -307,10 +357,10 @@ function ProductForm({
               className={missing === o.id ? styles.missing : undefined}
             >
               <legend>
-                {displayName(o.name)}{" "}
+                {name(o.name)}{" "}
                 <small>
-                  {o.required ? "Obligatorio" : "Opcional"}
-                  {o.multiple ? " · Puedes elegir varios" : ""}
+                  {o.required ? t("Obligatorio") : t("Opcional")}
+                  {o.multiple ? ` · ${t("Puedes elegir varios")}` : ""}
                 </small>
               </legend>
               {!o.required && !o.multiple && (
@@ -328,7 +378,7 @@ function ProductForm({
                         )
                       }
                     />
-                    Sin {o.name.toLowerCase()}
+                    {t("Sin {name}", { name: tr(o.name).toLowerCase() })}
                   </span>
                 </label>
               )}
@@ -354,20 +404,20 @@ function ProductForm({
                         });
                       }}
                     />
-                    {displayName(c.name)}
+                    {name(c.name)}
                   </span>
-                  <span>{c.price ? `+${money(c.price)}` : "Sin costo"}</span>
+                  <span>{c.price ? `+${money(c.price)}` : t("Sin costo")}</span>
                 </label>
               ))}
             </fieldset>
           ))}
         <label className={styles.field}>
-          Notas para este producto
+          {t("Notas para este producto")}
           <textarea
             maxLength={500}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            placeholder="Por ejemplo, sin cebolla"
+            placeholder={t("Por ejemplo, sin cebolla")}
           />
         </label>
         {/* Fijo abajo: en un platillo con muchas opciones el botón quedaba
@@ -382,7 +432,7 @@ function ProductForm({
           <QuantityStepper
             value={quantity}
             max={product.stock ?? 99}
-            label={`Cantidad de ${product.name}`}
+            label={t("Cantidad de {name}", { name: tr(product.name) })}
             onChange={setQuantity}
           />
           <button
@@ -390,7 +440,7 @@ function ProductForm({
             type="submit"
             key={`b${nudges}`}
           >
-            Agregar · {money(unit * quantity)}
+            {t("Agregar · {price}", { price: money(unit * quantity) })}
           </button>
         </div>
       </form>
@@ -425,8 +475,79 @@ export default function Storefront({
       if (saved) setCheckout((c) => (c.phone ? c : { ...c, phone: saved }));
     } catch {}
   }, []);
+  // Idioma del comensal. Abre siempre en español; si antes eligió inglés en
+  // este celular, se recuerda. La vista previa del dueño no cambia de idioma.
+  const [lang, setLang] = useState<Lang>("es");
+  useEffect(() => {
+    if (preview) return;
+    try {
+      if (window.localStorage.getItem(langStorageKey) === "en") setLang("en");
+    } catch {}
+  }, [preview]);
+  function chooseLang(next: Lang) {
+    setLang(next);
+    try {
+      window.localStorage.setItem(langStorageKey, next);
+    } catch {}
+  }
+  // Para que el navegador no ofrezca traducir una página que ya está en inglés.
+  useEffect(() => {
+    document.documentElement.lang = lang === "en" ? "en" : "es-MX";
+    return () => {
+      document.documentElement.lang = "es-MX";
+    };
+  }, [lang]);
+  // Los textos del dueño en inglés: «texto en español» → «texto en inglés».
+  // El servidor los traduce la primera vez; mientras termina (pending) se
+  // vuelve a pedir, y lo que falte se ve en español.
+  const [translations, setTranslations] = useState<Record<string, unknown>>({});
+  const [translating, setTranslating] = useState(false);
+  const revision = menu.revision;
+  useEffect(() => {
+    if (lang !== "en" || preview) return;
+    let cancelled = false;
+    let timer = 0;
+    const load = async (attempt: number) => {
+      try {
+        const response = await fetch(`/api/menu/${slug}/traduccion`, {
+          cache: "no-store",
+        });
+        const data = await response.json();
+        if (cancelled) return;
+        if (
+          data?.translations &&
+          typeof data.translations === "object" &&
+          !Array.isArray(data.translations)
+        ) {
+          setTranslations(data.translations);
+        }
+        if (data?.pending === true && attempt < 3) {
+          timer = window.setTimeout(() => load(attempt + 1), 4000);
+          return;
+        }
+      } catch {}
+      if (!cancelled) setTranslating(false);
+    };
+    setTranslating(true);
+    load(0);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+      setTranslating(false);
+    };
+  }, [lang, preview, slug, revision]);
+  const words = useMemo<Words>(() => {
+    const tr = (text: string) => translated(lang, translations, text);
+    return {
+      lang,
+      t: (es, vars) => ui(lang, es, vars),
+      tr,
+      name: (text) => displayName(tr(text), lang),
+    };
+  }, [lang, translations]);
+  const { t, tr, name } = words;
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<Error | null>(null);
   const [demoPhone, setDemoPhone] = useState("");
   const [previewWhatsapp, setPreviewWhatsapp] = useState<string | null>(null);
   const [previewMessage, setPreviewMessage] = useState<string | null>(null);
@@ -443,7 +564,7 @@ export default function Storefront({
   // Horario del dueño. Sin hora del cliente todavía (render del servidor) se
   // toma como abierto: el servidor igual rechaza un pedido fuera de horario.
   const hours = now ? storeHours(catalog, now) : null;
-  const closedText = hours && !hours.open && now ? opensLabel(catalog, hours, now) : null;
+  const closedText = hours && !hours.open && now ? opensLabel(catalog, hours, now, lang) : null;
   // Categoría en pantalla: se resalta y su botón se centra en la barra.
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const categoryBar = useRef<HTMLElement>(null);
@@ -491,19 +612,19 @@ export default function Storefront({
   try {
     if (lines.length) quote = quoteCart(catalog, lines, now ?? new Date());
   } catch (e) {
-    cartError = e instanceof Error ? e.message : "Revisa tu carrito.";
+    cartError = errorText(lang, e, tr, "Revisa tu carrito.");
   }
   const count = lines.reduce((sum, l) => sum + l.quantity, 0);
   function changeLines(next: CartLine[]) {
     setLines(next);
     setWhatsapp(null);
-    setError("");
+    setError(null);
   }
   const orderRequest = useRef<{fingerprint: string; key: string} | null>(null);
   async function prepare(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
-    setError("");
+    setError(null);
     setWhatsapp(null);
     try {
       if (preview) {
@@ -560,16 +681,14 @@ export default function Storefront({
       setWhatsapp(data.url);
       window.location.assign(data.url);
     } catch (e) {
-      setError(
-        e instanceof Error
-          ? e.message
-          : "No pudimos preparar el pedido. Intenta de nuevo.",
-      );
+      // Se guarda el aviso, no su texto: se enseña en el idioma del momento.
+      setError(e instanceof Error ? e : new Error(""));
     } finally {
       setBusy(false);
     }
   }
   return (
+    <WordsContext.Provider value={words}>
     <main className={styles.store}>
       {preview && (
         <div className={styles.preview}>
@@ -582,6 +701,22 @@ export default function Storefront({
             <img className={styles.logo} src={catalog.logoImage} alt="" />
           )}
           <h1>{displayName(catalog.name)}</h1>
+          {!preview && (
+            <div className={styles.langSwitch} role="group" aria-label={t("Idioma")}>
+              {(["es", "en"] as const).map((code) => (
+                <button
+                  key={code}
+                  type="button"
+                  lang={code}
+                  aria-pressed={lang === code}
+                  className={lang === code ? styles.langActive : undefined}
+                  onClick={() => chooseLang(code)}
+                >
+                  {code.toUpperCase()}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
         <div className={styles.infoChips}>
           {catalog.address.trim() && (
@@ -598,8 +733,8 @@ export default function Storefront({
           <span className={styles.infoChip}>
             {catalog.acceptsDelivery === true ? deliveryIcon : pickupIcon}
             {catalog.acceptsDelivery === true
-              ? "Envío a domicilio"
-              : "Solo para recoger"}
+              ? t("Envío a domicilio")
+              : t("Solo para recoger")}
           </span>
           {catalog.hours && hours ? (
             <span className={hours.open ? styles.infoChip : `${styles.infoChip} ${styles.closedChip}`}>
@@ -607,15 +742,22 @@ export default function Storefront({
               <span>
                 {hours.open
                   ? hours.closesAt == null
-                    ? "Abierto todo el día"
-                    : `Abierto · Cierra a la${clock12(hours.closesAt).startsWith("1:") ? "" : "s"} ${clock12(hours.closesAt)}`
-                  : `Cerrado · ${closedText}`}
+                    ? t("Abierto todo el día")
+                    : lang === "en"
+                      ? t("Abierto · Cierra a {time}", { time: clock12(hours.closesAt, "en") })
+                      : `Abierto · Cierra a la${clock12(hours.closesAt).startsWith("1:") ? "" : "s"} ${clock12(hours.closesAt)}`
+                  : t("Cerrado · {opens}", { opens: closedText ?? "" })}
               </span>
             </span>
           ) : null}
         </div>
+        {lang === "en" && translating && (
+          <p className={styles.translating} role="status">
+            {t("Traduciendo el menú…")}
+          </p>
+        )}
       </header>
-      <nav className={styles.categories} aria-label="Categorías" ref={categoryBar}>
+      <nav className={styles.categories} aria-label={t("Categorías")} ref={categoryBar}>
         {catalog.categories
           .filter((c) => catalog.products.some((p) => p.categoryId === c.id))
           .map((c) => (
@@ -638,13 +780,13 @@ export default function Storefront({
                 });
               }}
             >
-              {displayName(c.name)}
+              {name(c.name)}
             </a>
           ))}
       </nav>
       {!catalog.products.length && (
         <p className={styles.empty}>
-          El negocio está preparando su menú. Vuelve pronto.
+          {t("El negocio está preparando su menú. Vuelve pronto.")}
         </p>
       )}
       {catalog.categories.map((category) => {
@@ -659,7 +801,7 @@ export default function Storefront({
             data-category={category.id}
             className={styles.section}
           >
-            <h2>{displayName(category.name)}</h2>
+            <h2>{name(category.name)}</h2>
             <div className={styles.products}>
               {products.map((p) => (
                 <button
@@ -674,24 +816,26 @@ export default function Storefront({
                   }
                   key={p.id}
                   onClick={() => setSelected(p)}
-                  aria-label={`Elegir ${p.name}`}
+                  aria-label={t("Elegir {name}", { name: tr(p.name) })}
                 >
                   <div className={styles.productCopy}>
-                    <h3>{displayName(p.name)}</h3>
-                    {p.description && <p>{displayName(p.description)}</p>}
+                    <h3>{name(p.name)}</h3>
+                    {p.description && <p>{name(p.description)}</p>}
                     <strong>
                       {p.available
-                        ? `${p.variants.length > 1 ? "Desde " : ""}${money(Math.min(...p.variants.map((v) => v.price)))}`
-                        : "Agotado"}
+                        ? p.variants.length > 1
+                          ? t("Desde {price}", { price: money(Math.min(...p.variants.map((v) => v.price))) })
+                          : money(Math.min(...p.variants.map((v) => v.price)))
+                        : t("Agotado")}
                     </strong>
-                    {catalog.promotions.some(offer => offer.productIds.includes(p.id)) && <span className={styles.individualPrice}>Precio individual</span>}
+                    {catalog.promotions.some(offer => offer.productIds.includes(p.id)) && <span className={styles.individualPrice}>{t("Precio individual")}</span>}
                     <ProductPromotions catalog={catalog} productId={p.id} now={now} />
                   </div>
                   {p.image ? (
                     <span className={styles.productVisual}>
                       <img
                         src={p.image}
-                        alt={p.name}
+                        alt={tr(p.name)}
                         loading="lazy"
                         width={104}
                         height={104}
@@ -710,19 +854,23 @@ export default function Storefront({
         );
       })}
       <footer className={styles.footer}>
-        Menú creado con <a href="/">Órale AI</a>
+        {t("Menú creado con")} <a href="/">Órale AI</a>
         <p>
-          El negocio confirma disponibilidad, pago y tiempo de entrega por
-          WhatsApp.
+          {t("El negocio confirma disponibilidad, pago y tiempo de entrega por WhatsApp.")}
         </p>
       </footer>
       {!!count && (
         <div className={styles.cartBar}>
           <button className={styles.primary} onClick={() => setCartOpen(true)}>
             <span>
-              {count} {count === 1 ? "producto" : "productos"} · Ver carrito
+              {t(
+                count === 1
+                  ? "{count} producto · Ver carrito"
+                  : "{count} productos · Ver carrito",
+                { count },
+              )}
             </span>
-            <span>{quote ? money(quote.total) : "Revisar"}</span>
+            <span>{quote ? money(quote.total) : t("Revisar")}</span>
           </button>
         </div>
       )}
@@ -739,9 +887,9 @@ export default function Storefront({
         />
       )}
       {cartOpen && (
-        <Dialog title="Tu pedido" close={() => setCartOpen(false)}>
+        <Dialog title={t("Tu pedido")} close={() => setCartOpen(false)}>
           <form onSubmit={prepare}>
-            {!lines.length && <p>Tu carrito está vacío.</p>}
+            {!lines.length && <p>{t("Tu carrito está vacío.")}</p>}
             {lines.map((line, index) => {
               const p = catalog.products.find((p) => p.id === line.productId);
               const v = p?.variants.find((v) => v.id === line.variantId);
@@ -752,11 +900,11 @@ export default function Storefront({
               return (
                 <div className={styles.cartLine} key={index}>
                   <div>
-                    <h3>{p ? displayName(p.name) : "Producto no disponible"}</h3>
+                    <h3>{p ? name(p.name) : t("Producto no disponible")}</h3>
                     <p>
-                      {v ? displayName(v.name) : ""}
+                      {v ? name(v.name) : ""}
                       {options.length
-                        ? ` · ${options.map((c) => displayName(c.name)).join(", ")}`
+                        ? ` · ${options.map((c) => name(c.name)).join(", ")}`
                         : ""}
                     </p>
                     {line.notes && <p>{line.notes}</p>}
@@ -767,13 +915,15 @@ export default function Storefront({
                         changeLines(lines.filter((_, i) => i !== index))
                       }
                     >
-                      Quitar
+                      {t("Quitar")}
                     </button>
                   </div>
                   <QuantityStepper
                     value={line.quantity}
                     max={p?.stock ?? 99}
-                    label={`Cantidad de ${p?.name ?? "producto"}`}
+                    label={t("Cantidad de {name}", {
+                      name: p ? tr(p.name) : t("producto"),
+                    })}
                     onChange={(quantity) =>
                       changeLines(
                         lines.map((l, i) =>
@@ -793,21 +943,21 @@ export default function Storefront({
             {quote && (
               <div className={styles.totals}>
                 <p>
-                  <span>Productos</span>
+                  <span>{t("Productos")}</span>
                   <span>{money(quote.subtotal)}</span>
                 </p>
                 {quote.discount > 0 && (
                   <p>
-                    <span>{quote.promotion}</span>
+                    <span>{tr(quote.promotion)}</span>
                     <span>−{money(quote.discount)}</span>
                   </p>
                 )}
                 <p>
-                  <strong>Total de productos</strong>
+                  <strong>{t("Total de productos")}</strong>
                   <strong>{money(quote.total)}</strong>
                 </p>
                 {checkout.fulfillment === "delivery" && (
-                  <small>El negocio te confirmará el costo de envío.</small>
+                  <small>{t("El negocio te confirmará el costo de envío.")}</small>
                 )}
               </div>
             )}
@@ -833,7 +983,7 @@ export default function Storefront({
                   </label>
                 )}
                 <label className={styles.field}>
-                  Tu nombre
+                  {t("Tu nombre")}
                   <input
                     autoComplete="name"
                     required
@@ -848,8 +998,8 @@ export default function Storefront({
                 <fieldset>
                   <legend>
                     {catalog.acceptsDelivery === true
-                      ? "¿Cómo quieres tu pedido?"
-                      : "Pedido para recoger"}
+                      ? t("¿Cómo quieres tu pedido?")
+                      : t("Pedido para recoger")}
                   </legend>
                   <div className={styles.fulfillment}>
                     {(catalog.acceptsDelivery === true
@@ -866,14 +1016,14 @@ export default function Storefront({
                             setWhatsapp(null);
                           }}
                         />
-                        {f === "pickup" ? "Pasar a recoger" : "A domicilio"}
+                        {f === "pickup" ? t("Pasar a recoger") : t("A domicilio")}
                       </label>
                     ))}
                   </div>
                 </fieldset>
                 {checkout.fulfillment === "delivery" && (
                   <label className={styles.field}>
-                    Dirección y referencias
+                    {t("Dirección y referencias")}
                     <textarea
                       autoComplete="street-address"
                       required
@@ -888,14 +1038,14 @@ export default function Storefront({
                 )}
                 {checkout.fulfillment === "delivery" && (
                   <label className={styles.field}>
-                    Tu WhatsApp
+                    {t("Tu WhatsApp")}
                     <input
                       type="tel"
                       inputMode="tel"
                       autoComplete="tel-national"
                       required
                       maxLength={20}
-                      placeholder="10 dígitos"
+                      placeholder={t("10 dígitos")}
                       value={checkout.phone ?? ""}
                       onChange={(e) => {
                         setCheckout({ ...checkout, phone: e.target.value });
@@ -904,29 +1054,28 @@ export default function Storefront({
                       aria-describedby="buyer-phone-hint"
                     />
                     <small id="buyer-phone-hint">
-                      Va en tu pedido para que el negocio te contacte si hace
-                      falta.
+                      {t("Va en tu pedido para que el negocio te contacte si hace falta.")}
                     </small>
                   </label>
                 )}
                 <p className={styles.notice}>
                   {preview
                     ? "Podrás revisar el mensaje y abrir WhatsApp con tu número de prueba. Presiona “Enviar” ahí para completar la prueba."
-                    : "Tu pedido se envía cuando presionas “Enviar” en WhatsApp. Espera la confirmación del negocio."}
+                    : t("Tu pedido se envía cuando presionas “Enviar” en WhatsApp. Espera la confirmación del negocio.")}
                 </p>
                 {error && (
                   <p className={styles.error} role="alert">
-                    {error}
+                    {errorText(lang, error, tr)}
                   </p>
                 )}
                 {closedText && !preview ? (
                   <p className={styles.error} role="status">
-                    El negocio está cerrado. {closedText}
+                    {t("El negocio está cerrado. {opens}", { opens: closedText })}
                   </p>
                 ) : null}
                 {whatsapp ? (
                   <a className={styles.whatsapp} href={whatsapp}>
-                    Abrir WhatsApp y enviar pedido
+                    {t("Abrir WhatsApp y enviar pedido")}
                   </a>
                 ) : (
                   <button
@@ -935,10 +1084,10 @@ export default function Storefront({
                     disabled={busy || !!cartError || (!!closedText && !preview)}
                   >
                     {busy
-                      ? "Revisando disponibilidad…"
+                      ? t("Revisando disponibilidad…")
                       : preview
                         ? "Ver mensaje de WhatsApp"
-                        : "Continuar a WhatsApp"}
+                        : t("Continuar a WhatsApp")}
                   </button>
                 )}
               </>
@@ -993,5 +1142,6 @@ export default function Storefront({
         </Dialog>
       )}
     </main>
+    </WordsContext.Provider>
   );
 }

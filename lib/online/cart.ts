@@ -1,4 +1,26 @@
 import type { CartLine, Catalog, Checkout, HoursDay, Product } from "./types";
+
+/** Idioma en que el comensal ve la página. El pedido al negocio va siempre en
+ * español: los mensajes de este archivo salen en español si no se pide otro. */
+export type Lang = "es" | "en";
+
+/**
+ * Un aviso para el comensal con su plantilla («Solo quedan {n} de {product}.»)
+ * y sus datos aparte. El mensaje es el de siempre, en español; la página usa
+ * la plantilla para enseñarlo en inglés (lib/online/i18n.ts).
+ */
+export class CartError extends Error {
+  constructor(
+    readonly template: string,
+    readonly vars: Record<string, string | number> = {},
+  ) {
+    super(
+      template.replace(/\{(\w+)\}/g, (m, k: string) =>
+        k in vars ? String(vars[k]) : m,
+      ),
+    );
+  }
+}
 export const money = (cents: number) =>
   new Intl.NumberFormat("es-MX", {
     style: "currency",
@@ -30,11 +52,12 @@ function businessClock(catalog: Catalog, now: Date) {
 const allDay = (d: HoursDay) => d.open && d.from === d.to;
 const overnight = (d: HoursDay) => d.open && d.from > d.to;
 
-/** «1:00 p.m.», «9:30 a.m.». */
-export function clock12(minute: number): string {
+/** «1:00 p.m.», «9:30 a.m.». En inglés, «1:00 PM». */
+export function clock12(minute: number, lang: Lang = "es"): string {
   const h = Math.floor(minute / 60) % 24;
   const m = String(minute % 60).padStart(2, "0");
-  return `${h % 12 === 0 ? 12 : h % 12}:${m} ${h < 12 ? "a.m." : "p.m."}`;
+  const half = lang === "en" ? (h < 12 ? "AM" : "PM") : h < 12 ? "a.m." : "p.m.";
+  return `${h % 12 === 0 ? 12 : h % 12}:${m} ${half}`;
 }
 
 export type StoreHours =
@@ -72,8 +95,18 @@ export function storeHours(catalog: Catalog, now: Date): StoreHours {
 }
 
 /** «Abre hoy a la 1:00 p.m.», «Abre mañana…», «Abre el lunes…». */
-export function opensLabel(catalog: Catalog, h: Extract<StoreHours, { open: false }>, now: Date): string {
+export function opensLabel(
+  catalog: Catalog,
+  h: Extract<StoreHours, { open: false }>,
+  now: Date,
+  lang: Lang = "es",
+): string {
   const { weekday } = businessClock(catalog, now);
+  if (lang === "en") {
+    const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+    const day = h.opensIn === 0 ? "today" : h.opensIn === 1 ? "tomorrow" : days[(weekday + h.opensIn) % 7];
+    return `Opens ${day} at ${clock12(h.opensAt, "en")}`;
+  }
   const names = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"];
   const when = h.opensIn === 0 ? "hoy" : h.opensIn === 1 ? "mañana" : `el ${names[(weekday + h.opensIn) % 7]}`;
   const time = clock12(h.opensAt);
@@ -96,17 +129,23 @@ export function promotionActive(
     promo.startsAtMinute < promo.endsAtMinute &&
     minute >= promo.startsAtMinute && minute < promo.endsAtMinute;
 }
-export function promotionLabel(p: Promotion): string {
+export function promotionLabel(p: Promotion, lang: Lang = "es"): string {
   return p.fixedPriceCents != null
-    ? `${p.requireEachProduct ? "Combo" : `${p.buy} productos por`} ${
-      money(p.fixedPriceCents)
-    }`
+    ? `${
+      p.requireEachProduct
+        ? "Combo"
+        : lang === "en"
+        ? `${p.buy} items for`
+        : `${p.buy} productos por`
+    } ${money(p.fixedPriceCents)}`
     : `${p.buy}x${p.pay}`;
 }
-export function promotionSchedule(p: Promotion): string {
+export function promotionSchedule(p: Promotion, lang: Lang = "es"): string {
   const days = !p.daysMask || p.daysMask === 127
-    ? "Todos los días"
-    : ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
+    ? lang === "en" ? "Every day" : "Todos los días"
+    : (lang === "en"
+      ? ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+      : ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"])
       .filter((_, i) => p.daysMask & (1 << i)).join(", ");
   const clock = (m: number) =>
     `${String(Math.floor(m / 60)).padStart(2, "0")}:${
@@ -117,16 +156,33 @@ export function promotionSchedule(p: Promotion): string {
       ? ` · ${clock(p.startsAtMinute)}–${clock(p.endsAtMinute)}`
       : "");
 }
-export function promotionConditions(catalog: Catalog, p: Promotion): string {
+/** [tr] traduce los nombres del dueño (platillos y extras) al idioma pedido. */
+export function promotionConditions(
+  catalog: Catalog,
+  p: Promotion,
+  lang: Lang = "es",
+  tr: (text: string) => string = (text) => text,
+): string {
   const names = catalog.products.filter((x) => p.productIds.includes(x.id)).map(
-    (x) => x.name,
+    (x) => tr(x.name),
   ).join(", ");
   const choices = catalog.products.flatMap((x) =>
     x.options.flatMap((o) => o.choices)
   )
     .filter((x) => p.choiceIds.includes(x.id));
-  const selected = [...new Map(choices.map((x) => [x.id, x.name])).values()]
+  const selected = [...new Map(choices.map((x) => [x.id, tr(x.name)])).values()]
     .join(", ");
+  if (lang === "en") {
+    return `${promotionSchedule(p, "en")}. ${
+      p.requireEachProduct ? "One of each item: " : "Included: "
+    }${names}.${
+      selected ? ` Requires one of these extras: ${selected}.` : ""
+    }${
+      p.fixedPriceCents != null
+        ? " Extras are charged separately. Complete groups only; if the regular price is lower, that one applies."
+        : ""
+    } The best promotion is applied when you confirm your order.`;
+  }
   return `${promotionSchedule(p)}. ${
     p.requireEachProduct ? "Uno de cada producto: " : "Participan: "
   }${names}.${
@@ -154,7 +210,7 @@ export function quoteCart(
   now = new Date(),
 ) {
   if (!Array.isArray(lines) || !lines.length || lines.length > 50) {
-    throw new Error("Agrega al menos un producto (máximo 50 renglones).");
+    throw new CartError("Agrega al menos un producto (máximo 50 renglones).");
   }
   const counts = new Map<string, number>();
   const priced = lines.map((line) => {
@@ -167,31 +223,40 @@ export function quoteCart(
       typeof line.notes !== "string" ||
       line.notes.length > 500
     ) {
-      throw new Error("Revisa las cantidades y notas del pedido.");
+      throw new CartError("Revisa las cantidades y notas del pedido.");
     }
     const product = catalog.products.find((p) => p.id === line.productId);
     if (!product?.available) {
-      throw new Error("Un producto ya no está disponible. Revisa tu carrito.");
+      throw new CartError("Un producto ya no está disponible. Revisa tu carrito.");
     }
     const count = (counts.get(product.id) ?? 0) + line.quantity;
     counts.set(product.id, count);
     if (product.stock != null && count > product.stock) {
-      throw new Error(`Solo quedan ${product.stock} de ${product.name}.`);
+      throw new CartError("Solo quedan {n} de {product}.", {
+        n: product.stock,
+        product: product.name,
+      });
     }
     const variant = product.variants.find((v) => v.id === line.variantId);
-    if (!variant) throw new Error(`Revisa la presentación de ${product.name}.`);
+    if (!variant) {
+      throw new CartError("Revisa la presentación de {product}.", {
+        product: product.name,
+      });
+    }
     if (
       !Array.isArray(line.choiceIds) ||
       line.choiceIds.length > 100 ||
       new Set(line.choiceIds).size !== line.choiceIds.length
     ) {
-      throw new Error("Revisa los extras del pedido.");
+      throw new CartError("Revisa los extras del pedido.");
     }
     const allowed = product.options.flatMap((o) => o.choices);
     const choices = line.choiceIds.map((id) => {
       const c = allowed.find((c) => c.id === id);
       if (!c) {
-        throw new Error(`Un extra de ${product.name} ya no está disponible.`);
+        throw new CartError("Un extra de {product} ya no está disponible.", {
+          product: product.name,
+        });
       }
       return c;
     });
@@ -200,7 +265,10 @@ export function quoteCart(
         option.choices.some((o) => o.id === c.id)
       ).length;
       if ((option.required && count === 0) || (!option.multiple && count > 1)) {
-        throw new Error(`Revisa ${option.name} de ${product.name}.`);
+        throw new CartError("Revisa {option} de {product}.", {
+          option: option.name,
+          product: product.name,
+        });
       }
     }
     const unit = variant.price + choices.reduce((sum, c) => sum + c.price, 0);
@@ -313,10 +381,10 @@ export function whatsappOrder(
     checkout.address.length > 500 ||
     (checkout.fulfillment === "delivery" && !checkout.address.trim())
   ) {
-    throw new Error("Completa tu nombre y los datos de entrega.");
+    throw new CartError("Completa tu nombre y los datos de entrega.");
   }
   if (checkout.fulfillment === "delivery" && catalog.acceptsDelivery !== true) {
-    throw new Error("Este negocio solo acepta pedidos para recoger.");
+    throw new CartError("Este negocio solo acepta pedidos para recoger.");
   }
   // Una página abierta antes de pedir el WhatsApp no manda el campo: ese
   // pedido entra como antes, sin teléfono.
@@ -326,7 +394,7 @@ export function whatsappOrder(
     typeof checkout.phone === "string" &&
     !phone
   ) {
-    throw new Error("Escribe tu WhatsApp a 10 dígitos.");
+    throw new CartError("Escribe tu WhatsApp a 10 dígitos.");
   }
   const q = quoteCart(catalog, lines, now);
   const parts = [
@@ -376,7 +444,7 @@ export function whatsappOrder(
   }
   const message = parts.join("\n");
   if (message.length > 7500) {
-    throw new Error(
+    throw new CartError(
       "Tu pedido es muy largo. Reduce las notas o divídelo en dos mensajes.",
     );
   }
