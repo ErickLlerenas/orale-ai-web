@@ -21,6 +21,12 @@ export type Product = {
 export type HoursDay = { open: false } | { open: true; from: number; to: number };
 export type Catalog = {
   acceptsDelivery?: boolean;
+  /**
+   * La caja que publicó el menú regala, en un 2x1 o 3x2, las piezas más
+   * baratas de todo el pedido. Sin esto (cajas anteriores a esa regla) se
+   * regala la más barata de cada grupo. Ver [quoteCart].
+   */
+  promosFreeCheapest?: boolean;
   /** Lunes a domingo. Sin horario, siempre abierto (como antes). */
   hours?: HoursDay[];
   version: number;

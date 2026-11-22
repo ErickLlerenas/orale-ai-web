@@ -282,8 +282,10 @@ export function quoteCart(
     };
   });
   const subtotal = priced.reduce((sum, p) => sum + p.total, 0);
-  // Same NxM rule as the POS: sort descending, give the last N-M in each
-  // group free; choose the best single promotion, never stack promotions.
+  // Same NxM rule as the POS that published this menu, which rejects the
+  // order if its own discount differs. Newer apps (promosFreeCheapest) give
+  // away the cheapest units of the whole order; older ones, the cheapest of
+  // each group. Choose the best single promotion, never stack promotions.
   let discount = 0;
   let promotion = "";
   for (const promo of catalog.promotions) {
@@ -328,10 +330,21 @@ export function quoteCart(
       const slots = eligible.flatMap((p) =>
         Array.from({ length: p.line.quantity }, () => p.unit)
       ).sort((a, b) => b - a);
-      candidate = slots.reduce(
-        (sum, price, i) => sum + (i % promo.buy >= promo.pay ? price : 0),
-        0,
-      );
+      if (catalog.promosFreeCheapest) {
+        // Same count of free units as before, taken from the cheapest end.
+        const rest = slots.length % promo.buy;
+        const free = Math.floor(slots.length / promo.buy) *
+            (promo.buy - promo.pay) + Math.max(0, rest - promo.pay);
+        candidate = slots.slice(slots.length - free).reduce(
+          (sum, price) => sum + price,
+          0,
+        );
+      } else {
+        candidate = slots.reduce(
+          (sum, price, i) => sum + (i % promo.buy >= promo.pay ? price : 0),
+          0,
+        );
+      }
     }
     if (candidate > discount) {
       discount = candidate;

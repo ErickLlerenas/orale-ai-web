@@ -163,6 +163,57 @@ test("NxM matches POS, most valuable single promotion wins", () => {
   assert.equal(q.discount, 5000);
   assert.equal(q.promotion, "2x1");
 });
+test("NxM follows the rule of the POS that published the menu", () => {
+  // 3x2 con 4 piezas de $260 y 2 de $180.
+  const c = catalog();
+  c.products[0].variants[0].price = 18000;
+  c.products.push({
+    ...c.products[0],
+    id: "b",
+    name: "Mar y tierra",
+    variants: [{ id: "bv", name: "Normal", price: 26000 }],
+  });
+  c.promotions = [
+    {
+      id: "promo",
+      name: "3x2",
+      daysMask: 0,
+      buy: 3,
+      pay: 2,
+      productIds: ["p", "b"],
+      choiceIds: [],
+    },
+  ];
+  const rows = [
+    line({ productId: "b", variantId: "bv", quantity: 4 }),
+    line({ quantity: 2 }),
+  ];
+  // Caja de antes: la más barata de cada trío (una de 260 y una de 180).
+  assert.equal(quoteCart(c, rows).discount, 44000);
+  // Caja nueva: las dos más baratas de todo el pedido.
+  c.promosFreeCheapest = true;
+  const q = quoteCart(c, rows);
+  assert.equal(q.subtotal, 140000);
+  assert.equal(q.discount, 36000);
+  assert.equal(q.total, 104000);
+  // Un solo grupo, o todo al mismo precio: las dos reglas dan lo mismo.
+  assert.equal(quoteCart(c, [line({ quantity: 6 })]).discount, 36000);
+  assert.equal(
+    quoteCart(c, [
+      line({ productId: "b", variantId: "bv", quantity: 2 }),
+      line(),
+    ]).discount,
+    18000,
+  );
+  // 5 piezas: sigue siendo una gratis, la más barata.
+  assert.equal(
+    quoteCart(c, [
+      line({ productId: "b", variantId: "bv", quantity: 4 }),
+      line(),
+    ]).discount,
+    18000,
+  );
+});
 test("promotion uses business day and eligible extras", () => {
   const c = catalog();
   c.promotions = [
