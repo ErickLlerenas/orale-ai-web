@@ -36,7 +36,7 @@ export async function middleware(req: NextRequest) {
   if (!pathname.startsWith("/admin")) return NextResponse.next();
   // La excepción local es solo para las páginas; no abre posibles APIs admin
   // (ver lib/admin-auth.ts).
-  const localPage = pathname === "/admin" || pathname === "/admin/";
+  const localPage = ["/admin", "/admin/", "/admin/2", "/admin/2/"].includes(pathname);
   if (localPage && localAdmin(req.headers.get("host"), req.nextUrl.host)) {
     return NextResponse.next();
   }
