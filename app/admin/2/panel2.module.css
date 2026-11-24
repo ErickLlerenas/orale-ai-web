@@ -15,6 +15,10 @@
   --sky: #93c5fd;
   --lilac: #c4b5fd;
   --rose: #f8879a;
+  /* Las tiendas, con los colores del panel 1. */
+  --android: var(--mint);
+  --ios: var(--sky);
+  --windows: var(--lilac);
   min-height: 100vh;
   background: var(--bg);
   color: var(--ink);
@@ -286,46 +290,88 @@
   color: var(--mute);
 }
 
-/* ---- De la descarga al pago ---- */
-.funnel {
-  list-style: none;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 32px;
-  margin: 0;
-  padding: 0;
+/* ---- Barras por día (descargas y altas) ---- */
+.chart + .chart {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
 }
-.funnel li {
-  position: relative;
+.chartHead {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
 }
-.funnel li + li::before {
-  content: "→";
-  position: absolute;
-  left: -23px;
-  top: 8px;
-  font-size: 16px;
-  color: var(--mute);
+.chartTotal {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
 }
-.funnel b {
-  font-size: clamp(28px, 7vw, 36px);
+.chartTotal b {
+  font-size: 26px;
   font-weight: 800;
-  line-height: 1.05;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
 }
-.funnel span {
-  font-size: 13.5px;
-  color: var(--soft);
-}
-.funnel em {
-  display: block;
-  font-style: normal;
+.chartTotal span {
   font-size: 13px;
   color: var(--mute);
+}
+.chart .legend {
+  margin: 2px 0 12px;
+}
+.dayArea {
+  position: relative;
+  height: 110px;
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+}
+.dayBar {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+}
+.dayStack {
+  width: 100%;
+  min-height: 2px;
+  display: flex;
+  flex-direction: column-reverse;
+  border-radius: 3px 3px 1px 1px;
+  overflow: hidden;
+}
+.dayBar:hover .dayStack {
+  filter: brightness(1.15);
+}
+/* El promedio de los días cerrados. */
+.avg {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 1;
+  border-top: 1px dashed var(--soft);
+  opacity: 0.7;
+  pointer-events: none;
+}
+.dayAxis {
+  display: flex;
+  gap: 3px;
+  margin-top: 6px;
+}
+.dayAxis span {
+  flex: 1;
+  min-width: 0;
+  font-size: 10.5px;
+  color: var(--mute);
+  white-space: nowrap;
+}
+.dayAxis .axisToday {
+  display: flex;
+  justify-content: flex-end;
+  color: var(--soft);
 }
 
 /* ---- Bajas por plan ---- */
@@ -499,27 +545,25 @@
   .head {
     flex-wrap: wrap;
   }
-  .stats,
-  .funnel {
+  .stats {
     grid-template-columns: 1fr;
     gap: 14px;
   }
-  .stats .stat,
-  .funnel li {
+  .stats .stat {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: baseline;
     column-gap: 12px;
   }
-  .stats .stat .value,
-  .funnel b {
+  .stats .stat .value {
     grid-column: 2;
     grid-row: 1 / span 2;
     margin: 0;
     text-align: right;
   }
-  .funnel li + li::before {
-    content: none;
+  .dayArea,
+  .dayAxis {
+    gap: 2px;
   }
   .barRow {
     grid-template-columns: 84px minmax(0, 1fr) 74px;

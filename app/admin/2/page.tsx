@@ -2,8 +2,11 @@ import Link from "next/link";
 import { unstable_noStore as noStore } from "next/cache";
 import { adminClient } from "@/lib/supabase";
 import {
+  PLATFORMS,
   dayPlus,
   dayPulse,
+  dayRange,
+  downloadsDaily,
   firstSubscriptions,
   monthWindow,
   mxDay,
@@ -13,12 +16,14 @@ import {
   revenueCatOverview,
   revenueCatPlans,
   revenueCatWeeks,
+  type DayRow,
   type RcGrowth,
   type RcPlans,
   type RcWeek,
 } from "@/lib/admin";
 import {
   cancelReasons,
+  countSubs,
   memo,
   pendingSupport,
   storeNewSubs,
@@ -85,7 +90,8 @@ export default async function Panel2({ searchParams = {} }: { searchParams?: Par
 
   // Hoy (o ayer): igual que la primera tarjeta de /admin.
   const subsList = firstSubscriptions(rows);
-  const daySubs = subsOnDay(storeSubs, subsList)(day);
+  const subsOn = subsOnDay(storeSubs, subsList);
+  const daySubs = subsOn(day);
   const converted = storeSubs.filter((x) => x.day === day && x.kind === "converted").length;
   const trialsDay = daySubs.filter((x) => x.kind === "trial").length;
   const direct = daySubs.length - trialsDay;
@@ -110,7 +116,7 @@ export default async function Panel2({ searchParams = {} }: { searchParams?: Par
           <img className={s.logo} src="/logo.png" alt="Órale AI" />
           <div className={s.topText}>
             <h1 className={s.title}>Panel 2</h1>
-            <p className={s.subtitle}>Actualizado a las {updated} · cada tarjeta dice de cuándo son sus números</p>
+            <p className={s.subtitle}>Actualizado a las {updated}</p>
           </div>
           <Link href="/admin" className={s.other}>
             Panel 1
@@ -154,18 +160,21 @@ export default async function Panel2({ searchParams = {} }: { searchParams?: Par
 
         <Growth rhythm={rhythm} when={`Últimos 30 días · ${range(from30, today)}`} />
 
-        <Card tone={TONE.days30} when={`Últimos 30 días · ${range(from30, today)}`} title="¿De la descarga al pago?">
-          <Funnel
-            owners={newOwners(installs, from30, today).length}
-            trials={storeSubs.filter((x) => x.kind === "trial" && x.day >= from30 && x.day <= today).length}
-            done={trials.done}
-            paid={trials.converted}
+        <Card tone={TONE.days30} when={`Últimos 30 días · ${range(from30, today)}`} title="¿Cuántos llegan?">
+          <DayBars title="Descargas" days={downloadsDaily(installs, from30, today)} today={today} />
+          <DayBars
+            title="Empezaron prueba o pagaron"
+            days={dayRange(from30, today).map((d) => ({ day: d, ...countSubs(subsOn(d)) }))}
+            today={today}
           />
+          <p className={s.sub} style={{ marginTop: 14 }}>
+            De las pruebas de estos días que ya terminaron, se cobró el{" "}
+            <b className={s.ink}>{pct(trials.converted, trials.done)}</b> ({trials.converted} de {trials.done}).
+          </p>
         </Card>
 
         <Leaving
           plans={plans}
-          metaChurned={rhythm.ok ? rhythm.churned : undefined}
           reasons={reasons.list.map((x) => x.reason)}
           when={`Últimos 30 días · ${range(from30, today)}`}
         />
@@ -291,7 +300,11 @@ function Growth({ rhythm, when }: { rhythm: RcGrowth; when: string }) {
       <div className={s.stats}>
         <Stat label="Entraron" value={signed(entered)} sub={`${n(rhythm.added)} nuevos · ${n(rhythm.back)} regresaron`} color="var(--mint)" />
         <Stat label="Se fueron" value={signed(-rhythm.churned)} sub={`el ${churn}% de los ${n(rhythm.start)} que había`} color="var(--rose)" />
-        <Stat label="Quedan" value={signed(entered - rhythm.churned)} sub={`de ${n(rhythm.start)} a ${n(rhythm.now)}`} />
+        <Stat
+          label={entered >= rhythm.churned ? "Ganaste" : "Perdiste"}
+          value={signed(entered - rhythm.churned)}
+          sub={`de ${n(rhythm.start)} a ${n(rhythm.now)}`}
+        />
       </div>
       {p.ceiling != null ? (
         <div className={s.ceiling}>
@@ -323,36 +336,77 @@ function Growth({ rhythm, when }: { rhythm: RcGrowth; when: string }) {
   );
 }
 
-/// De los dueños que descargaron, cuántos empezaron prueba y cuántas pruebas
-/// se cobraron, todo dentro de los mismos 30 días.
-function Funnel({ owners, trials, done, paid }: { owners: number; trials: number; done: number; paid: number }) {
+const PLATFORM_LABEL: Record<string, string> = { android: "Android", ios: "iPhone", windows: "Windows" };
+
+/// Las gráficas por día del panel 1, pero con los últimos 30 días en vez del
+/// mes: siempre llenas y con la misma ventana que el resto de la sección.
+/// Barras por tienda, la de hoy más tenue (va a medias) y la línea punteada
+/// del promedio de los días ya cerrados.
+function DayBars({ title, days, today }: { title: string; days: DayRow[]; today: string }) {
+  const total = days.reduce((a, d) => a + d.total, 0);
+  const closed = days.filter((d) => d.day < today);
+  const avg = closed.reduce((a, d) => a + d.total, 0) / Math.max(1, closed.length);
+  const max = Math.max(1, ...days.map((d) => d.total));
+  // Abajo el domingo de cada semana (las mismas semanas de «¿Va mejorando?»),
+  // menos el que queda pegado a «hoy».
+  const tick = (d: string) =>
+    d === today
+      ? "hoy"
+      : new Date(`${d}T12:00:00Z`).getUTCDay() === 0 && d < dayPlus(today, -2)
+        ? shortDay(d)
+        : "";
   return (
-    <ol className={s.funnel}>
-      <li>
-        <b>{n(owners)}</b>
-        <span>dueños descargaron</span>
-      </li>
-      <li>
-        <b>{n(trials)}</b>
-        <span>
-          empezaron prueba <em>{pct(trials, owners)} de las descargas</em>
-        </span>
-      </li>
-      <li>
-        <b>{pct(paid, done)}</b>
-        <span>
-          de las pruebas se cobró <em>{paid} de {done} que ya terminaron</em>
-        </span>
-      </li>
-    </ol>
+    <div className={s.chart}>
+      <div className={s.chartHead}>
+        <p className={s.label}>{title}</p>
+        <p className={s.chartTotal}>
+          <b>{n(total)}</b>
+          <span>~{avg < 10 ? avg.toFixed(1) : n(avg)} al día</span>
+        </p>
+      </div>
+      <p className={s.legend}>
+        {PLATFORMS.map((p) => (
+          <span key={p}>
+            <i style={{ background: `var(--${p})` }} />
+            {PLATFORM_LABEL[p]} <b className={s.ink}>{n(days.reduce((a, d) => a + (d.byPlatform[p] ?? 0), 0))}</b>
+          </span>
+        ))}
+      </p>
+      <div className={s.dayArea}>
+        {closed.length ? <i className={s.avg} style={{ bottom: `${(avg / max) * 100}%` }} /> : null}
+        {days.map((d) => (
+          <div
+            key={d.day}
+            className={s.dayBar}
+            title={`${shortDay(d.day)}: ${d.total} · ${PLATFORMS.map((p) => `${PLATFORM_LABEL[p]} ${d.byPlatform[p] ?? 0}`).join(" · ")}`}
+          >
+            <div
+              className={s.dayStack}
+              style={{ height: `${(d.total / max) * 100}%`, opacity: d.day === today ? 0.45 : 1 }}
+            >
+              {PLATFORMS.map((p) =>
+                d.byPlatform[p] ? <div key={p} style={{ flex: d.byPlatform[p], background: `var(--${p})` }} /> : null,
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className={s.dayAxis}>
+        {days.map((d) => (
+          <span key={d.day} className={d.day === today ? s.axisToday : undefined}>
+            {tick(d.day)}
+          </span>
+        ))}
+      </div>
+    </div>
   );
 }
 
+/// Solo los mensuales: en 30 días casi ningún anual llega a renovar, y su 0%
+/// se leía como que los anuales no se van.
 const PLANS = [
   { key: "monthly", label: "Mensual" },
-  { key: "yearly", label: "Anual" },
   { key: "pro_monthly", label: "Pro mensual" },
-  { key: "pro_yearly", label: "Pro anual" },
 ];
 
 const CANCEL_REASON: Record<string, string> = {
@@ -363,29 +417,15 @@ const CANCEL_REASON: Record<string, string> = {
   other: "Otro",
 };
 
-/// Bajas por plan (RevenueCat) y lo que dijeron en la encuesta al cancelar,
-/// los dos en los mismos 30 días.
-function Leaving({
-  plans,
-  metaChurned,
-  reasons,
-  when,
-}: {
-  plans: RcPlans;
-  /** Las que se fueron en «¿Estás creciendo?». Aquí pueden sumar más:
-   * cambiarse de plan cuenta como baja del plan que se deja. */
-  metaChurned?: number;
-  reasons: string[];
-  when: string;
-}) {
+/// Bajas de los planes mensuales (RevenueCat) y lo que dijeron en la encuesta
+/// al cancelar, los dos en los mismos 30 días.
+function Leaving({ plans, reasons, when }: { plans: RcPlans; reasons: string[]; when: string }) {
   const list = plans.ok
     ? PLANS.flatMap((p) => {
         const r = plans.churn[p.key];
         return r?.start ? [{ ...r, ...p }] : [];
       })
     : [];
-  const total = list.reduce((a, r) => a + r.churned, 0);
-  const changed = metaChurned != null ? Math.round(total - metaChurned) : 0;
   const counts = Object.entries(
     reasons.reduce<Record<string, number>>((a, r) => ({ ...a, [r]: (a[r] ?? 0) + 1 }), {}),
   ).sort((a, b) => b[1] - a[1]);
@@ -411,12 +451,9 @@ function Leaving({
           );
         })}
       </div>
-      {changed > 0 ? (
-        <p className={s.sub} style={{ marginTop: 10 }}>
-          Aquí suman {n(total)} y no {n(metaChurned!)}: {changed === 1 ? "1 se cambió" : `${changed} se cambiaron`} de
-          plan y cuenta como baja del plan que dejó.
-        </p>
-      ) : null}
+      <p className={s.sub} style={{ marginTop: 10 }}>
+        Los anuales no salen: en 30 días casi ninguno llega a renovar.
+      </p>
       {counts.length ? (
         <div className={s.reasons}>
           <p className={s.label}>Por qué, según los {reasons.length} que contestaron al cancelar</p>
