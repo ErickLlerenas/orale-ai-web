@@ -458,6 +458,66 @@ export async function revenueCatGrowth(from: string, to: string): Promise<RcGrow
   }
 }
 
+export type RcWeek = {
+  /** Domingo y sábado de la semana (yyyy-mm-dd). */
+  start: string;
+  end: string;
+  /** Nuevas más las que regresaron, y las que se fueron (puede ser negativo
+   * si se recuperaron cobros). */
+  entered: number;
+  churned: number;
+};
+
+/// Altas y bajas por semana cerrada, con la misma gráfica de RevenueCat que
+/// la Meta (actives_movement) y sus mismas semanas, de domingo a sábado: así
+/// cuadran con su tablero. La semana en curso no entra: a medias siempre se
+/// ve peor que una completa.
+export async function revenueCatWeeks(
+  count: number,
+  today: string,
+): Promise<{ ok: true; weeks: RcWeek[] } | { ok: false; reason: string }> {
+  const key = process.env.REVENUECAT_V2_SECRET_KEY;
+  const project = process.env.REVENUECAT_PROJECT_ID;
+  if (!key || !project) return { ok: false, reason: "Falta la llave de RevenueCat." };
+  const base = `https://api.revenuecat.com/v2/projects/${encodeURIComponent(project)}`;
+  const sunday = dayPlus(today, -new Date(`${today}T12:00:00Z`).getUTCDay());
+  const first = dayPlus(sunday, -7 * count);
+  const last = dayPlus(sunday, -1);
+  try {
+    const res = await fetch(
+      `${base}/charts/actives_movement?resolution=day&start_date=${first}&end_date=${last}`,
+      { headers: { Authorization: `Bearer ${key}` }, cache: "no-store" },
+    );
+    if (!res.ok) return { ok: false, reason: `RevenueCat contestó ${res.status}.` };
+    const chart = (await res.json()) as {
+      measures?: { display_name?: string }[];
+      values?: { cohort?: number; measure?: number; value?: number }[];
+    };
+    // Las medidas por nombre: el orden lo pone RevenueCat.
+    const names = (chart.measures ?? []).map((m) => m.display_name ?? "");
+    const entered = [names.indexOf("New Actives"), names.indexOf("Resubscription Actives")];
+    const churned = names.indexOf("Churned Actives");
+    if (entered.includes(-1) || churned === -1) {
+      return { ok: false, reason: "RevenueCat cambió la gráfica de movimientos." };
+    }
+    const weeks: RcWeek[] = Array.from({ length: count }, (_, k) => {
+      const start = dayPlus(first, 7 * k);
+      return { start, end: dayPlus(start, 6), entered: 0, churned: 0 };
+    });
+    for (const v of chart.values ?? []) {
+      // Cada punto es un día a las 00:00 UTC.
+      const day = new Date((v.cohort ?? 0) * 1000).toISOString().slice(0, 10);
+      const week = weeks.find((w) => day >= w.start && day <= w.end);
+      if (!week || v.measure == null) continue;
+      if (entered.includes(v.measure)) week.entered += v.value ?? 0;
+      else if (v.measure === churned) week.churned += v.value ?? 0;
+    }
+    return { ok: true, weeks };
+  } catch (e) {
+    return { ok: false, reason: `RevenueCat: ${(e as Error).message}` };
+  }
+}
+
 export type RcPlans =
   | {
       ok: true;

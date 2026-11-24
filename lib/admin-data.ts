@@ -320,11 +320,12 @@ export async function planChurn(supabase: Db, from: string): Promise<PlanChurnRo
   return [...out.values()];
 }
 
-/// Pruebas gratis desde que llegan los avisos de la tienda (STORE_SINCE): de
-/// las que ya terminaron, cuántas se cobraron. Cada prueba es una compra
-/// (original_transaction_id); las que siguen corriendo no cuentan.
-export async function trialConversion(supabase: Db) {
-  const since = new Date(`${STORE_SINCE}T00:00:00-06:00`).toISOString();
+/// Pruebas gratis que empezaron desde [fromDay] (de fábrica, desde que llegan
+/// los avisos de la tienda): de las que ya terminaron, cuántas se cobraron.
+/// Cada prueba es una compra (original_transaction_id); las que siguen
+/// corriendo no cuentan.
+export async function trialConversion(supabase: Db, fromDay = STORE_SINCE) {
+  const since = new Date(`${fromDay < STORE_SINCE ? STORE_SINCE : fromDay}T00:00:00-06:00`).toISOString();
   const res = await fetchAll<{
     id: string;
     type: string;
