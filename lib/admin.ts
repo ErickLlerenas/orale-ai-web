@@ -458,6 +458,82 @@ export async function revenueCatGrowth(from: string, to: string): Promise<RcGrow
   }
 }
 
+export type RcPlans =
+  | {
+      ok: true;
+      /** Activas de hoy por plan: suman lo mismo que las activas. */
+      active: Record<string, number>;
+      /** Desde [from] por plan: con cuántas empezó y cuántas se fueron. */
+      churn: Record<string, { start: number; churned: number }>;
+    }
+  | { ok: false; reason: string };
+
+/// El plan de un producto de RevenueCat por su nombre («Pro anual
+/// (orale_pro_yearly)», «Órale AI Mensual (orale_monthly_99)»): así entran
+/// también los de Stripe, los de $99 y los precios viejos sin otra cuenta.
+export function planOfProduct(name: string): string {
+  const pro = /\bpro\b/i.test(name);
+  const yearly = /anual|yearly/i.test(name);
+  return `${pro ? "pro_" : ""}${yearly ? "yearly" : "monthly"}`;
+}
+
+/// Planes y bajas por plan con las mismas gráficas de RevenueCat que la Meta,
+/// para que todo el panel sume lo mismo (antes los planes salían de la app y
+/// no sumaban las activas, y las bajas por plan salían de otra tabla).
+export async function revenueCatPlans(from: string, to: string): Promise<RcPlans> {
+  const key = process.env.REVENUECAT_V2_SECRET_KEY;
+  const project = process.env.REVENUECAT_PROJECT_ID;
+  if (!key || !project) return { ok: false, reason: "Falta la llave de RevenueCat." };
+  const base = `https://api.revenuecat.com/v2/projects/${encodeURIComponent(project)}`;
+  const init = { headers: { Authorization: `Bearer ${key}` }, cache: "no-store" as const };
+  type Chart = {
+    segments?: { display_name?: string; is_total?: boolean }[];
+    values?: { cohort?: number; measure?: number; segment?: number; value?: number }[];
+  };
+  const load = async (chart: string, since: string) => {
+    const res = await fetch(
+      `${base}/charts/${chart}?resolution=day&start_date=${since}&end_date=${to}&segment=product_id&limit_num_segments=50`,
+      init,
+    );
+    if (!res.ok) throw new Error(`${chart}: ${res.status}`);
+    return (await res.json()) as Chart;
+  };
+  try {
+    const yesterday = new Date(Date.parse(`${to}T12:00:00Z`) - 86_400_000).toISOString().slice(0, 10);
+    const [actives, churn] = await Promise.all([load("actives", yesterday), load("churn", from)]);
+    // Cada segmento es un producto; el total se deja fuera y se juntan por plan.
+    const byPlan = (chart: Chart, pick: (values: NonNullable<Chart["values"]>) => number) => {
+      const out: Record<string, number> = {};
+      (chart.segments ?? []).forEach((seg, i) => {
+        if (seg.is_total) return;
+        const plan = planOfProduct(seg.display_name ?? "");
+        out[plan] = (out[plan] ?? 0) + pick((chart.values ?? []).filter((v) => v.segment === i));
+      });
+      return out;
+    };
+    const last = Math.max(0, ...(actives.values ?? []).map((v) => v.cohort ?? 0));
+    const first = Math.min(...(churn.values ?? []).map((v) => v.cohort ?? Infinity));
+    const sumOf = (values: NonNullable<Chart["values"]>, measure: number, cohort?: number) =>
+      values
+        .filter((v) => (v.measure ?? 0) === measure && (cohort == null || v.cohort === cohort))
+        .reduce((a, v) => a + (v.value ?? 0), 0);
+    const active = byPlan(actives, (v) => sumOf(v, 0, last));
+    // Gráfica churn: medida 0 = activas al empezar el día, 1 = las que se fueron.
+    const start = byPlan(churn, (v) => sumOf(v, 0, first));
+    const churned = byPlan(churn, (v) => sumOf(v, 1));
+    const plans = new Set([...Object.keys(start), ...Object.keys(churned)]);
+    return {
+      ok: true,
+      active,
+      churn: Object.fromEntries(
+        [...plans].map((p) => [p, { start: start[p] ?? 0, churned: churned[p] ?? 0 }]),
+      ),
+    };
+  } catch (e) {
+    return { ok: false, reason: `RevenueCat: ${(e as Error).message}` };
+  }
+}
+
 /// Último valor (el de hoy, aunque el día no haya cerrado) de una gráfica
 /// diaria de RevenueCat, o null si no se pudo leer.
 async function rcChartToday(

@@ -13,6 +13,7 @@ import {
   pct,
   PLATFORMS,
   revenueCatGrowth,
+  revenueCatPlans,
   revenueCatOverview,
   type Install,
   type PingRow,
@@ -74,7 +75,7 @@ export default async function NewAdmin({ searchParams = {} }: { searchParams?: P
     memo(`subs:${month.prevStart}`, () => storeNewSubs(supabase, month.prevStart)),
     memo("rc", revenueCatOverview),
   ]);
-  const [churn, reasons, growth, rhythm, weekAgo, trialStats, support] = await Promise.all([
+  const [churn, reasons, growth, rhythm, weekAgo, trialStats, support, plans] = await Promise.all([
     memo(`churn:${month.start}`, () => planChurn(supabase, month.start)),
     memo(`motivos:${month.start}`, () => cancelReasons(supabase, month.start)),
     memo(`crece:${month.start}:${today}`, () => revenueCatGrowth(month.start, today)),
@@ -87,6 +88,8 @@ export default async function NewAdmin({ searchParams = {} }: { searchParams?: P
     memo("pruebas", () => trialConversion(supabase)),
     // Sin memo: lo que se acaba de marcar como revisado no debe volver a salir.
     pendingSupport(supabase),
+    // Planes y bajas por plan: las mismas gráficas y los mismos 30 días que la Meta.
+    memo(`planes:${today}`, () => revenueCatPlans(dayPlus(today, -29), today)),
   ]);
   const { rows, installs, error } = pings;
   const subsList = firstSubscriptions(rows);
@@ -171,7 +174,7 @@ export default async function NewAdmin({ searchParams = {} }: { searchParams?: P
           href={(v) => link({ v }, "embudo")}
         />
 
-        <RcCard rc={rc} rows={rows} month={month} />
+        <RcCard rc={rc} rows={rows} month={month} plans={plans} />
 
         <Goal
           active={
@@ -187,10 +190,11 @@ export default async function NewAdmin({ searchParams = {} }: { searchParams?: P
         />
 
         <PlanChurn
+          plans={plans}
           rows={churn}
           monthName={month.name}
           reasons={reasons}
-          monthChurn={rhythm.ok ? Math.round(pace(rhythm).churnRate * 100) : undefined}
+          metaChurned={rhythm.ok ? rhythm.churned : undefined}
         />
 
         <div className={s.stack}>
@@ -503,6 +507,10 @@ function Goal({
   const churn = p ? Math.round(p.churnRate * 100) : 0;
   const inMonth = p ? Math.round(p.inMonth) : 0;
   const outMonth = p ? Math.round(p.outMonth) : 0;
+  // Lo que hace falta para que el techo llegue a la meta, moviendo solo una
+  // cosa: que entren más con las bajas de hoy, o menos bajas con lo que entra hoy.
+  const needIn = p ? Math.ceil(GOAL * p.churnRate) : 0;
+  const needChurn = Math.floor((inMonth / GOAL) * 100);
   return (
     <section className={s.goal} id="meta">
       <div className={s.goalHead}>
@@ -520,7 +528,7 @@ function Goal({
                 {stuck ? `te quedas en ~${ceiling!.toLocaleString("es-MX")}` : "sí llegas"}
               </b>
               {ceilingBefore != null ? (
-                <span>Hace una semana: ~{ceilingBefore.toLocaleString("es-MX")}</span>
+                <span>Hace una semana el techo era ~{ceilingBefore.toLocaleString("es-MX")}</span>
               ) : null}
             </>
           ) : null}
@@ -606,31 +614,29 @@ function Goal({
             </>
           ) : null}
 
+          {/* Las dos salidas con los números de hoy: cualquiera de las dos,
+              sola, sube el techo a la meta. */}
           <p className={s.optionsTitle}>
-            El camino a {GOAL.toLocaleString("es-MX")}: con estas dos, el techo llega a la meta
+            El camino a {GOAL.toLocaleString("es-MX")}: basta con una de las dos
           </p>
           <div className={s.targets}>
             <Target
+              label="Que entren más"
+              unit={`entran al mes, con ${churn}% de bajas`}
+              now={inMonth}
+              goal={needIn}
+              max={Math.max(200, needIn, inMonth)}
+            />
+            <Target
               label="Que se vayan menos"
-              unit="de bajas al mes"
+              unit={`de bajas al mes, con ${inMonth} que entran`}
               suffix="%"
               now={churn}
-              goal={Math.round(TARGET_CHURN * 100)}
+              goal={needChurn}
               max={40}
               lowerIsBetter
             />
-            <Target
-              label="Que entren más"
-              unit="entran al mes"
-              now={inMonth}
-              goal={Math.round(GOAL * TARGET_CHURN)}
-              max={Math.max(200, inMonth)}
-            />
           </div>
-          <p className={s.goalHint}>
-            {Math.round(TARGET_CHURN * 100)}% de bajas es lo que ya tienen hoy los clientes que
-            venden 20 veces o más en 2 semanas.
-          </p>
         </>
       ) : (
         <div className={s.error}>
@@ -640,10 +646,6 @@ function Goal({
     </section>
   );
 }
-
-/// Bajas al mes con las que, entrando GOAL × esto al mes, el techo llega a la
-/// meta. 15%: lo que ya tienen los que venden 20+ veces en 2 semanas (29 oct).
-const TARGET_CHURN = 0.15;
 
 /// Una meta con su barra: dónde estás, la línea de la meta y cuánto falta.
 function Target({
