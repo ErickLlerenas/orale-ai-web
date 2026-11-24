@@ -11,6 +11,7 @@ import {
   type Install,
   type PingRow,
   type RcGrowth,
+  type RcPlans,
   type monthWindow,
   type revenueCatOverview,
 } from "@/lib/admin";
@@ -67,7 +68,7 @@ export const PLAN_INFO = [
 ];
 
 /// Mezcla de planes: el anual casi no se va, así que vale verlo crecer.
-function Plans({ counts }: { counts: Record<string, number> }) {
+function Plans({ counts, source }: { counts: Record<string, number>; source: string }) {
   const total = PLAN_INFO.reduce((a, p) => a + (counts[p.key] ?? 0), 0);
   if (!total) return null;
   const yearly = (counts.yearly ?? 0) + (counts.pro_yearly ?? 0);
@@ -78,7 +79,7 @@ function Plans({ counts }: { counts: Record<string, number> }) {
           Planes de tus clientes
         </span>
         <span className={s.note} style={{ margin: 0 }}>
-          {pct(yearly, total)} anual · según la app, 7 días
+          {pct(yearly, total)} anual · {source}
         </span>
       </div>
       <div className={s.plansBar}>
@@ -176,7 +177,7 @@ export async function MonthNumbers({
       </section>
 
       <section className={s.card} id="suscripciones-mes">
-        <p className={s.eyebrow}>Empezaron (con prueba gratis) · {month.name}</p>
+        <p className={s.eyebrow}>Empezaron prueba o pagaron · {month.name}</p>
         <div className={s.monthHead}>
           <span className={s.kpiValue}>{subsMonth.length.toLocaleString("es-MX")}</span>
           {canCompare ? (
@@ -281,73 +282,77 @@ export function shortDay(day: string) {
   return `${d} ${months[m - 1]}`;
 }
 
-/// Bajas por plan en el mes, según la tienda: a quién se le venció sin
-/// renovar y quién ya apagó la renovación.
+/// Bajas por plan con RevenueCat, en los mismos 30 días que la Meta, para que
+/// los porcentajes se puedan comparar con su % de bajas. La tienda
+/// (billing_customers) solo dice quién ya canceló y se va al vencer.
 export function PlanChurn({
+  plans,
   rows,
   monthName,
   reasons,
-  monthChurn,
+  metaChurned,
 }: {
+  plans: RcPlans;
   rows: PlanChurnRow[];
   monthName: string;
   /** La encuesta al cancelar del mes, con el nombre del negocio. */
   reasons?: { list: CancelReason[]; names: Map<string, string> };
-  /** El % de bajas al mes de la Meta (RevenueCat, últimos 30 días), el único
-   * que se enseña como total para que el panel no tenga dos. */
-  monthChurn?: number;
+  /** Las que se fueron en la Meta (mismos 30 días). Aquí pueden sumar más:
+   * cambiarse de plan cuenta como baja del plan que se deja. */
+  metaChurned?: number;
 }) {
-  const list = PLAN_INFO.flatMap((p) => {
-    const r = rows.find((x) => x.plan === p.key);
-    return r?.n ? [{ ...r, label: p.label }] : [];
-  });
-  if (!list.length) return null;
-  const leaving = list.reduce((a, r) => a + r.leaving, 0);
+  const list = plans.ok
+    ? PLAN_INFO.flatMap((p) => {
+        const r = plans.churn[p.key];
+        return r?.start ? [{ ...r, plan: p.key, label: p.label }] : [];
+      })
+    : [];
+  const total = list.reduce((a, r) => a + r.churned, 0);
+  const changed = metaChurned != null ? Math.round(total - metaChurned) : 0;
+  const leaving = rows.reduce((a, r) => a + r.leaving, 0);
+  if (!list.length && !reasons?.list.length) return null;
   return (
     <section className={s.card} id="bajas">
       <div className={s.cardHead}>
         <div>
-          <p className={s.eyebrow}>Bajas por plan · {monthName}</p>
+          <p className={s.eyebrow}>Bajas por plan · últimos 30 días</p>
           <h2 className={s.h2}>¿Quién se da de baja?</h2>
           <p className={s.note}>
-            Pagaban y se les venció sin renovar, según la tienda.
+            Pagaban y se fueron, según RevenueCat: los mismos 30 días que la Meta.
+            {changed > 0
+              ? changed === 1
+                ? ` Aquí suman ${total}: 1 se cambió de plan y cuenta como baja del plan que dejó.`
+                : ` Aquí suman ${total}: ${changed} se cambiaron de plan y cuentan como baja del plan que dejaron.`
+              : ""}
             {leaving ? ` Otras ${leaving} ya cancelaron y se van al vencer.` : ""}
-          </p>
-          {/* Esta base cuenta a todos los que tuvieron plan en el mes, también
-              a los que acaban de entrar y aún no les toca renovar; por eso un
-              total aquí salía más bajo que el de la Meta. */}
-          <p className={s.note}>
-            Para comparar planes. Se va llenando conforme avanza {monthName.toLowerCase()} y cuenta
-            también a los que entraron este mes, por eso sale más bajo
-            {monthChurn != null ? ` que el ${monthChurn}% de bajas de la Meta (últimos 30 días)` : " que las bajas de la Meta"}.
           </p>
         </div>
       </div>
-      <div className={s.retCard}>
-        {list.map((r) => {
-          const share = r.n ? r.gone / r.n : 0;
-          const color = `color-mix(in srgb, var(--ret-bad, #dc2626) ${Math.min(100, Math.round(share * 140))}%, var(--ret-mid, #fdba74))`;
-          return (
-            <div className={s.rRow} key={r.plan}>
-              <div className={s.rLabel}>
-                <span>{r.label}</span>
-                <small>
-                  de {r.n}
-                  {r.leaving ? ` · ${r.leaving} ${r.leaving === 1 ? "canceló" : "cancelaron"}` : ""}
-                </small>
+      {!plans.ok ? <div className={s.warn}>Sin RevenueCat: {plans.reason}</div> : null}
+      {list.length ? (
+        <div className={s.retCard}>
+          {list.map((r) => {
+            const share = r.start ? r.churned / r.start : 0;
+            const color = `color-mix(in srgb, var(--ret-bad, #dc2626) ${Math.min(100, Math.round(share * 140))}%, var(--ret-mid, #fdba74))`;
+            return (
+              <div className={s.rRow} key={r.plan}>
+                <div className={s.rLabel}>
+                  <span>{r.label}</span>
+                  <small>de {r.start}</small>
+                </div>
+                <div className={s.rTrack}>
+                  <div className={s.rFill} style={{ width: `${Math.max(2, share * 100)}%`, background: color }} />
+                </div>
+                <div className={s.rPct} style={{ color }}>
+                  {pct(r.churned, r.start)}
+                  <small>{r.churned} se fueron</small>
+                </div>
               </div>
-              <div className={s.rTrack}>
-                <div className={s.rFill} style={{ width: `${Math.max(2, share * 100)}%`, background: color }} />
-              </div>
-              <div className={s.rPct} style={{ color }}>
-                {pct(r.gone, r.n)}
-                <small>{r.gone} se fueron</small>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-      {reasons?.list.length ? <CancelReasons {...reasons} /> : null}
+            );
+          })}
+        </div>
+      ) : null}
+      {reasons?.list.length ? <CancelReasons {...reasons} monthName={monthName} /> : null}
     </section>
   );
 }
@@ -362,10 +367,36 @@ const CANCEL_REASON: Record<string, string> = {
 
 /// Quién dijo por qué se va (encuesta al cancelar): el plan, el motivo, lo
 /// que escribió y el negocio.
-function CancelReasons({ list, names }: { list: CancelReason[]; names: Map<string, string> }) {
+function CancelReasons({
+  list,
+  names,
+  monthName,
+}: {
+  list: CancelReason[];
+  names: Map<string, string>;
+  monthName: string;
+}) {
+  // Primero cuántos por motivo; la lista con nombres queda plegada.
+  const counts = Object.entries(
+    list.reduce<Record<string, number>>((a, x) => {
+      a[x.reason] = (a[x.reason] ?? 0) + 1;
+      return a;
+    }, {}),
+  ).sort((a, b) => b[1] - a[1]);
   return (
     <div className={s.retCard} style={{ marginTop: 14 }}>
-      <p className={s.funnelTitle}>Con motivo · {list.length} contestaron la encuesta al cancelar</p>
+      <p className={s.funnelTitle}>
+        ¿Por qué se van? · {list.length} contestaron la encuesta en {monthName.toLowerCase()}
+      </p>
+      <div className={s.planLine}>
+        {counts.map(([reason, n]) => (
+          <span key={reason}>
+            {CANCEL_REASON[reason] ?? reason} <b>{n}</b>
+          </span>
+        ))}
+      </div>
+      <details className={s.more}>
+        <summary>Ver quién y qué escribió</summary>
       <div className={s.subsCol}>
         {list.map((x) => {
           const plan = PLAN_INFO.find((p) => p.key === x.plan);
@@ -391,6 +422,7 @@ function CancelReasons({ list, names }: { list: CancelReason[]; names: Map<strin
           );
         })}
       </div>
+      </details>
     </div>
   );
 }
@@ -412,11 +444,21 @@ export function pace(g: Extract<RcGrowth, { ok: true }>) {
 }
 
 /// Suscripciones activas, pruebas, MRR y la mezcla de planes (RevenueCat).
-export function RcCard({ rc, rows, month }: { rc: Rc; rows: PingRow[]; month: Month }) {
+export function RcCard({
+  rc,
+  rows,
+  month,
+  plans,
+}: {
+  rc: Rc;
+  rows: PingRow[];
+  month: Month;
+  /** Los planes de RevenueCat; sin ellos, los de la app (aproximado). */
+  plans: RcPlans;
+}) {
   const metric = (id: string) =>
     rc.ok ? rc.metrics.find((m) => m.id === id) : undefined;
   const activeNow = metric("active_subscriptions")?.value ?? appActive(rows);
-  const plans = planMix(rows, mxDay(7));
   return (
     <section className={`${s.card} ${s.rcCard}`}>
       <p className={s.eyebrow}>
@@ -437,7 +479,11 @@ export function RcCard({ rc, rows, month }: { rc: Rc; rows: PingRow[]; month: Mo
             </div>
           ))}
       </div>
-      <Plans counts={plans} />
+      {plans.ok ? (
+        <Plans counts={plans.active} source="RevenueCat, hoy" />
+      ) : (
+        <Plans counts={planMix(rows, mxDay(7))} source="según la app, 7 días" />
+      )}
       {!rc.ok ? <div className={s.warn}>Sin RevenueCat: {rc.reason}</div> : null}
     </section>
   );

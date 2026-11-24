@@ -140,6 +140,9 @@ export async function storeNewSubs(
   ]);
   const canceled = canceledTransactions(rc.data);
   for (const event of rc.data) {
+    // Las de Windows (Stripe) ya vienen de `subscriptions`, abajo. RevenueCat
+    // también las avisa y se contaban dos veces.
+    if (event.store === "STRIPE") continue;
     const sub = revenueCatSub(event);
     if (!sub) continue;
     const product = (event.product_id ?? "").split(":")[0];

@@ -369,3 +369,14 @@
 .planLine b {
   color: var(--soft);
 }
+
+/* Lista plegada debajo de un resumen (motivos de baja). */
+.more {
+  margin-top: 10px;
+}
+.more > summary {
+  cursor: pointer;
+  color: var(--mute);
+  font-size: 12.5px;
+  margin-bottom: 8px;
+}
